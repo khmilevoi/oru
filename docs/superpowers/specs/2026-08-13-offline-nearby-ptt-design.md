@@ -301,9 +301,23 @@ PTT touch area with a settings gear in a corner.
 
 Settings screen: a single "PTT button" section — configured (name, "Connected", actions
 "Test" / "Replace") or not configured ("Not connected", "Connect" → learning flow).
-Visual design is produced separately in Claude Design.
 
-### 12.1 Localization
+### 12.1 Visual design
+
+The visual design lives in the Claude Design project **"Offline Nearby PTT"**:
+<https://claude.ai/design/p/d07936f3-e452-4039-bda7-bb80b599e104>
+
+- Screens: `01 Radio` (four states + alternate-locale frame), `02 Settings` (configured /
+  not configured), `03 Pairing` (scan → pick → learn → saved), `04 Onboarding`
+  (microphone, Bluetooth, nearby devices, done) — phone frames 390×844.
+- Direction: dark, high-contrast "radio hardware" aesthetic; status colors TX = red,
+  RX = green, button learning = amber; Oswald + IBM Plex Mono (Cyrillic-capable).
+- Every file exposes a `lang` tweak (`en` default / `ru`) switching the whole canvas
+  between locales; animations respect `prefers-reduced-motion`.
+- The design refines the pairing flow to four steps and onboarding to three permission
+  steps plus a final screen; both refinements are part of this spec.
+
+### 12.2 Localization
 
 - Two locales: **English (default)** and **Russian**. The app language follows the system
   locale; anything other than Russian falls back to English. No in-app language picker.
