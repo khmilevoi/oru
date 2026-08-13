@@ -55,5 +55,21 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Oru uses the microphone to transmit your voice to nearby devices.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Oru connects to your Bluetooth push-to-talk button, including while the screen is locked.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Oru discovers and connects to nearby devices over the local network.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_oru._tcp</string>
+		<string>_oru._udp</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>push-to-talk</string>
+		<string>bluetooth-central</string>
+	</array>
 </dict>
 </plist>
