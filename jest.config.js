@@ -11,6 +11,8 @@ module.exports = {
     // errore publishes an "exports" map with only an "import" condition, so a
     // CommonJS require() cannot resolve it. Point Jest at the file directly.
     '^errore$': '<rootDir>/node_modules/errore/dist/index.js',
+    // Jest never runs the Metro .po transformer; map catalogs to a stand-in.
+    '\\.po$': '<rootDir>/__mocks__/poCatalog.js',
   },
   transform: {
     ...preset.transform,
@@ -19,7 +21,10 @@ module.exports = {
     '^.+\\.(js|mjs|ts|tsx)$': 'babel-jest',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|@lingui|errore)/)',
+    // @lingui/core pulls in @messageformat/date-skeleton and
+    // @messageformat/parser, which also ship ESM-only ("type": "module")
+    // packages with no CJS entry point.
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|@lingui|@messageformat|errore)/)',
   ],
   // @reatom/core@1001.3.0 eagerly opens a `new BroadcastChannel(...)` at
   // module load time (its default `withBroadcastChannel` singleton) and
