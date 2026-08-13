@@ -67,7 +67,7 @@ v1001, @lingui/*, errore) so later plans do not edit package.json.
 **Model override:** —
 
 ### P2 `android-engine` — wave 2, track A
-- [ ] planned   → docs/superpowers/plans/2026-08-13-p2-android-engine.md
+- [x] planned   → docs/superpowers/plans/2026-08-13-p2-android-engine.md
 - [ ] executed  → branch plan/p2-android-engine · worktree .claude/worktrees/p2-android-engine
 - [ ] merged    → sync 2
 
@@ -90,7 +90,7 @@ button's protocol → closeout (Stage 5, physical hardware).
 **Model override:** —
 
 ### P3 `ios-engine` — wave 2, track B
-- [ ] planned   → docs/superpowers/plans/2026-08-13-p3-ios-engine.md
+- [x] planned   → docs/superpowers/plans/2026-08-13-p3-ios-engine.md
 - [ ] executed  → branch plan/p3-ios-engine · worktree .claude/worktrees/p3-ios-engine
 - [ ] merged    → sync 2
 
@@ -112,7 +112,7 @@ build.
 **Model override:** —
 
 ### P4 `ts-domain` — wave 2, track C
-- [ ] planned   → docs/superpowers/plans/2026-08-13-p4-ts-domain.md
+- [x] planned   → docs/superpowers/plans/2026-08-13-p4-ts-domain.md
 - [ ] executed  → branch plan/p4-ts-domain · worktree .claude/worktrees/p4-ts-domain
 - [ ] merged    → sync 2
 
