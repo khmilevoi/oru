@@ -116,6 +116,11 @@ android {
             // Unset everywhere else, so this is exactly the template default
             // on macOS, on Linux, and for any plan that does not use the
             // script.
+            //
+            // The Windows object-path margin is about 14 characters at the time of
+            // writing. Out-of-tree sources consume it; those INSIDE the CMakeLists.txt
+            // tree do not. See scripts/build-android.js for the full path budget analysis
+            // and the re-measurement command.
             buildStagingDirectory file(System.getenv('ORU_CXX_DIR') ?: '.cxx')
         }
     }

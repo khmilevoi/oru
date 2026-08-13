@@ -21,6 +21,21 @@
  *      ORU_CXX_DIR) at a short absolute root, which shortens the ABI build
  *      directory ninja measures paths relative to.
  *
+ * Windows path budget (measured 2026-08-14, commit 510b503):
+ *   longest object path   245 chars   C:\b\Debug\<hash>\arm64-v8a\...\EventEmitters.cpp.o
+ *   limit                 259 chars
+ *   margin                 14 chars
+ *
+ * That margin is thin, and it only applies to sources CMake reaches from
+ * OUTSIDE the CMakeLists.txt tree — those get their absolute path mirrored
+ * into the object path, which is what consumes it. Sources declared INSIDE
+ * the tree pay no such tax and their object paths stay short.
+ *
+ * So: anything vendored into this build later (libopus, for example) should
+ * live inside the CMakeLists.txt source tree, not be referenced out-of-tree
+ * from a deep directory. Re-measure after adding native sources with:
+ *   powershell -NoProfile -Command "Get-ChildItem -Path C:\b -Recurse -Filter *.o | Sort-Object {$_.FullName.Length} -Descending | Select-Object -First 3 | ForEach-Object { $_.FullName.Length.ToString() + '  ' + $_.FullName }"
+ *
  * Usage: node scripts/build-android.js [gradleTask]   (default: assembleDebug)
  * Env:   RN_ARCHS   comma-separated ABIs (default: arm64-v8a)
  */
@@ -41,8 +56,10 @@ const WINDOWS_CXX_DIR = 'C:\\b';
 
 // Drive letters tried, in order, for the subst mapping onto the repository
 // root. `subst` currently has no mappings on this host and only C: is in
-// use, so W: is expected to be free; the rest are fallbacks.
-const SUBST_LETTER_PREFERENCE = ['W', 'Y', 'X', 'V', 'T'];
+// use, so W: is expected to be free; the rest are fallbacks. Mappings persist
+// until logout, so each worktree permanently claims a letter — the list is
+// long enough for parallel builds of several plan worktrees.
+const SUBST_LETTER_PREFERENCE = ['W', 'Y', 'X', 'V', 'T', 'U', 'S', 'R', 'Q', 'P', 'N', 'M', 'K', 'J', 'H', 'G'];
 
 function firstExistingDir(candidates) {
   for (const candidate of candidates) {
@@ -180,8 +197,11 @@ function runGradleOnWindows(task, archs, sdkDir, jdkDir) {
   if (!driveLetter) {
     console.error(
       'Could not find or create a subst drive letter for the repository ' +
-        `root (tried: ${SUBST_LETTER_PREFERENCE.join(', ')}). Free one up ` +
-        'and re-run.',
+        `root (tried: ${SUBST_LETTER_PREFERENCE.join(', ')}). This build requires ` +
+        'one: subst mappings persist until logout and each worktree claims a letter. ' +
+        'List current mappings with: subst\n' +
+        'Release a mapping with: subst <letter>: /d\n' +
+        'Then re-run this build.',
     );
     process.exit(1);
   }
