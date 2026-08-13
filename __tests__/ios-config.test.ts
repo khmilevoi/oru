@@ -70,10 +70,15 @@ describe('Info.plist usage descriptions (spec section 11)', () => {
 });
 
 describe('push-to-talk entitlement (spec section 11)', () => {
-  it('declares com.apple.developer.push-to-talk', () => {
-    expect(entitlements).toContain(
+  it('declares com.apple.developer.push-to-talk as true', () => {
+    const keyIndex = entitlements.indexOf(
       '<key>com.apple.developer.push-to-talk</key>',
     );
+    expect(keyIndex).not.toBe(-1);
+    const afterKey = entitlements.slice(
+      keyIndex + '<key>com.apple.developer.push-to-talk</key>'.length,
+    );
+    expect(afterKey.trimStart().startsWith('<true/>')).toBe(true);
   });
 
   it('is wired to the app target', () => {
@@ -85,8 +90,13 @@ describe('push-to-talk entitlement (spec section 11)', () => {
 
 describe('iOS platform floor (spec section 5)', () => {
   it('sets the deployment target to 16.0 everywhere', () => {
-    expect(pbxproj).toContain('IPHONEOS_DEPLOYMENT_TARGET = 16.0;');
-    expect(pbxproj).not.toContain('IPHONEOS_DEPLOYMENT_TARGET = 15.1;');
+    const matches = [
+      ...pbxproj.matchAll(/IPHONEOS_DEPLOYMENT_TARGET = ([\d.]+);/g),
+    ];
+    expect(matches.length).toBe(4);
+    for (const match of matches) {
+      expect(match[1]).toBe('16.0');
+    }
   });
 
   it('pins the Podfile platform to 16.0', () => {

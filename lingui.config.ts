@@ -1,4 +1,6 @@
-export default {
+import type {LinguiConfig} from '@lingui/conf';
+
+const config: LinguiConfig = {
   sourceLocale: 'en',
   locales: ['en', 'ru'],
   fallbackLocales: {
@@ -7,7 +9,9 @@ export default {
   catalogs: [
     {
       path: '<rootDir>/src/locales/{locale}/messages',
-      include: ['src'],
+      include: ['src', 'App.tsx'],
     },
   ],
 };
+
+export default config;
