@@ -30,7 +30,6 @@ history.
 - Air ownership / floor control on collisions (concurrent transmitters are mixed at the receiver).
 - Support for arbitrary PTT buttons (one concrete purchased button is the target).
 - iOS 26 Live Activity Bluetooth optimization (deferred; noted as a future option).
-- Localization (UI is Russian-only).
 - Application-level encryption (relies on Nearby Connections' built-in connection encryption).
 - Recording, history, or any persistence of audio.
 - Mesh relay: only directly connected peers hear a transmission; no forwarding.
@@ -63,7 +62,7 @@ The MVP is complete only if all of the following hold:
 | TS error handling | errore convention — errors as values (`Error \| T` unions), no thrown domain errors |
 | Encryption | Nearby Connections built-in only |
 | Transmit safety cap | Auto-stop transmission after 120 s of continuous hold (stuck-button protection) |
-| UI language | Russian only |
+| Localization | English (default) + Russian; language follows the system locale, English fallback |
 | Target PTT button | Unbranded BLE PTT button (marketplace listing: manufacturer code 687266, EAN 4005658953957); protocol unknown, resolved in Stage 5 via reverse engineering |
 
 ## 6. Architecture
@@ -285,24 +284,35 @@ the core scenario.
 | iOS | `NSLocalNetworkUsageDescription` + Bonjour services | Nearby discovery/transfer |
 | iOS | UIBackgroundModes: `push-to-talk`, `bluetooth-central`; entitlement `com.apple.developer.push-to-talk` | background operation |
 
-Permissions onboarding: a short sequence of screens, each explaining one permission in
-Russian before triggering the system prompt.
+Permissions onboarding: a short sequence of screens, each explaining one permission in the
+app language before triggering the system prompt.
 
 ## 12. UI specification
 
 Four main-screen states driven by `screenState`; the whole screen is effectively one giant
 PTT touch area with a settings gear in a corner.
 
-| State | Content |
+| State | Content (EN / RU) |
 |---|---|
-| `searching` | «ИЩЕМ УСТРОЙСТВА...» + subtle scanning cue |
-| `ready` | «● N рядом» + «УДЕРЖИВАЙТЕ ЧТОБЫ ГОВОРИТЬ» |
-| `transmitting` | «ПЕРЕДАЧА...» + «ОТПУСТИТЕ ЧТОБЫ ЗАКОНЧИТЬ» — strong peripheral-visible change |
-| `receiving` | «ПРИЁМ...» — clearly distinct from transmitting |
+| `searching` | "SEARCHING FOR DEVICES..." / «ИЩЕМ УСТРОЙСТВА...» + subtle scanning cue |
+| `ready` | "● N nearby" + "HOLD TO TALK" / «● N рядом» + «УДЕРЖИВАЙТЕ ЧТОБЫ ГОВОРИТЬ» |
+| `transmitting` | "TRANSMITTING..." + "RELEASE TO FINISH" / «ПЕРЕДАЧА...» + «ОТПУСТИТЕ ЧТОБЫ ЗАКОНЧИТЬ» — strong peripheral-visible change |
+| `receiving` | "RECEIVING..." / «ПРИЁМ...» — clearly distinct from transmitting |
 
-Settings screen: a single «PTT-кнопка» section — configured (name, «Подключена»,
-actions «Проверить» / «Заменить») or not configured («Не подключена», «Подключить» →
-learning flow). Visual design is produced separately in Claude Design.
+Settings screen: a single "PTT button" section — configured (name, "Connected", actions
+"Test" / "Replace") or not configured ("Not connected", "Connect" → learning flow).
+Visual design is produced separately in Claude Design.
+
+### 12.1 Localization
+
+- Two locales: **English (default)** and **Russian**. The app language follows the system
+  locale; anything other than Russian falls back to English. No in-app language picker.
+- JS strings live in a small typed dictionary (`en.ts` / `ru.ts`); with two locales and a
+  few dozen strings, no i18n framework is needed.
+- Native-side strings are localized through platform resources: the Android
+  foreground-service notification via `strings.xml`, iOS permission texts via
+  `InfoPlist.strings`, and the PushToTalk channel name shown in system UI via
+  `Localizable.strings`.
 
 ## 13. Error handling
 
