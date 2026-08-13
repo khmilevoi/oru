@@ -23,14 +23,15 @@ module.exports = {
   ],
   // @reatom/core@1001.3.0 eagerly opens a `new BroadcastChannel(...)` at
   // module load time (its default `withBroadcastChannel` singleton) and
-  // never closes it. Node >=18 exposes a real, global `BroadcastChannel`
-  // (unlike a browser-only jsdom polyfill), so that open channel is a real
-  // handle that keeps the process's event loop alive: without this flag the
-  // whole Jest process — single file or full suite alike — hangs forever
-  // after printing results instead of exiting. Confirmed empirically in this
-  // environment (Node v26.5.0): the same run finishes in under a second with
-  // `forceExit` and never exits without it. There is no supported reatom API
-  // to close that channel from test code, so `forceExit` is the sanctioned
-  // Jest mechanism for exactly this situation.
-  forceExit: true,
+  // never closes it, which leaks a handle under Node's real, global
+  // `BroadcastChannel` and hangs Jest after it prints results. Rather than
+  // hiding that (and any future) leaked handle from Jest with `forceExit`,
+  // remove `globalThis.BroadcastChannel` before any test module — including
+  // `@reatom/core` — is imported, so reatom takes its own documented
+  // in-memory fallback instead of opening a channel at all. See
+  // jest/disableBroadcastChannel.js for the full rationale.
+  setupFiles: [
+    ...(preset.setupFiles ?? []),
+    '<rootDir>/jest/disableBroadcastChannel.js',
+  ],
 };
