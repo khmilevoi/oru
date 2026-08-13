@@ -62,7 +62,7 @@ The MVP is complete only if all of the following hold:
 | TS error handling | errore convention — errors as values (`Error \| T` unions), no thrown domain errors |
 | Encryption | Nearby Connections built-in only |
 | Transmit safety cap | Auto-stop transmission after 120 s of continuous hold (stuck-button protection) |
-| Localization | English (default) + Russian; language follows the system locale, English fallback |
+| Localization | English (default) + Russian via Lingui; language follows the system locale, English fallback |
 | Target PTT button | Unbranded BLE PTT button (marketplace listing: manufacturer code 687266, EAN 4005658953957); protocol unknown, resolved in Stage 5 via reverse engineering |
 
 ## 6. Architecture
@@ -307,8 +307,11 @@ Visual design is produced separately in Claude Design.
 
 - Two locales: **English (default)** and **Russian**. The app language follows the system
   locale; anything other than Russian falls back to English. No in-app language picker.
-- JS strings live in a small typed dictionary (`en.ts` / `ru.ts`); with two locales and a
-  few dozen strings, no i18n framework is needed.
+- JS strings are managed with **Lingui** (`@lingui/core` + `@lingui/react`, macros):
+  source copy is written inline in English via the `Trans` / `t` macros; `lingui extract`
+  produces `.po` catalogs for `en` and `ru`, loaded through `@lingui/metro-transformer`
+  (bare React Native Metro config). On startup `i18n.loadAndActivate()` selects the system
+  locale with `en` fallback.
 - Native-side strings are localized through platform resources: the Android
   foreground-service notification via `strings.xml`, iOS permission texts via
   `InfoPlist.strings`, and the PushToTalk channel name shown in system UI via
