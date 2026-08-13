@@ -47,7 +47,7 @@ is in the environment by default):
 
 ### P1 `bootstrap` — wave 1, track A
 - [x] planned   → docs/superpowers/plans/2026-08-13-p1-bootstrap.md
-- [ ] executed  → branch plan/p1-bootstrap · worktree .claude/worktrees/p1-bootstrap
+- [x] executed  → branch plan/p1-bootstrap · worktree .claude/worktrees/p1-bootstrap
 - [ ] merged    → sync 1
 
 **Owns:** bare React Native project init (New Architecture, TypeScript) with pnpm
