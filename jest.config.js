@@ -20,6 +20,24 @@ module.exports = {
     // .mjs entry points only.
     '^.+\\.(js|mjs|ts|tsx)$': 'babel-jest',
   },
+  // `.claude/worktrees/<plan>` holds live agent worktrees: full, checked-out
+  // copies of this project whose code is unfinished by construction. They are
+  // git-ignored, but git-ignoring a path does not hide it from Jest, so
+  // without these two keys a run in the main checkout discovers every
+  // worktree's `__tests__/` as well as its own -- reporting, when one worktree
+  // existed, 14 suites / 104 tests instead of 7 / 52, and failing the trunk's
+  // gate for work that is not on the trunk.
+  //
+  // Both keys are needed and they do different jobs: testPathIgnorePatterns
+  // stops test *discovery*, while modulePathIgnorePatterns keeps the worktrees
+  // out of the haste map -- each one carries a package.json named "oru", so
+  // two or more concurrent worktrees would otherwise collide by name.
+  //
+  // The preset defines neither key, so nothing is being overridden here. Note
+  // that Jest's own default for testPathIgnorePatterns is ["/node_modules/"]
+  // and setting the key replaces it, which is why node_modules is repeated.
+  testPathIgnorePatterns: ['/node_modules/', '[\\\\/]\\.claude[\\\\/]'],
+  modulePathIgnorePatterns: ['[\\\\/]\\.claude[\\\\/]'],
   transformIgnorePatterns: [
     // @lingui/core pulls in @messageformat/date-skeleton and
     // @messageformat/parser, which also ship ESM-only ("type": "module")
