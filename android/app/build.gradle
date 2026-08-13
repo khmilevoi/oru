@@ -106,6 +106,19 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
     }
+
+    externalNativeBuild {
+        cmake {
+            // Windows MAX_PATH: CMake mirrors each source file's absolute path
+            // into its object path, and ninja measures that path relative to
+            // the ABI build directory. scripts/build-android.js sets
+            // ORU_CXX_DIR to a short root on Windows to buy back headroom.
+            // Unset everywhere else, so this is exactly the template default
+            // on macOS, on Linux, and for any plan that does not use the
+            // script.
+            buildStagingDirectory file(System.getenv('ORU_CXX_DIR') ?: '.cxx')
+        }
+    }
 }
 
 dependencies {

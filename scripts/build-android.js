@@ -7,18 +7,42 @@
  * makes the gate work in a fresh shell and in a fresh git worktree, on this
  * Windows host and on the macOS machine used at closeout.
  *
+ * On Windows, CMake mirrors each native source file's absolute path into its
+ * object path, and ninja's MAX_PATH check measures that path relative to the
+ * ABI build directory. A repository nested under a long worktree path (e.g.
+ * `...\.claude\worktrees\<name>\`) can push that relative path past 260
+ * characters even for a small dependency like
+ * react-native-safe-area-context. There are two independent levers against
+ * that, both applied only on win32 and both no-ops everywhere else:
+ *   1. `subst` a short drive letter onto the repository root and invoke
+ *      Gradle through it, which shortens the mirrored source path CMake
+ *      bakes into every object path (see resolveSubstDrive below).
+ *   2. Point CMake's `buildStagingDirectory` (android/app/build.gradle, via
+ *      ORU_CXX_DIR) at a short absolute root, which shortens the ABI build
+ *      directory ninja measures paths relative to.
+ *
  * Usage: node scripts/build-android.js [gradleTask]   (default: assembleDebug)
  * Env:   RN_ARCHS   comma-separated ABIs (default: arm64-v8a)
  */
 'use strict';
 
-const {existsSync, writeFileSync} = require('fs');
+const {existsSync, mkdirSync, writeFileSync} = require('fs');
 const {homedir} = require('os');
 const path = require('path');
 const {spawnSync} = require('child_process');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const ANDROID_DIR = path.join(REPO_ROOT, 'android');
+
+// Short absolute root CMake stages native object files under on Windows, so
+// that ninja's MAX_PATH check (measured relative to this directory) has real
+// headroom. See android/app/build.gradle's ORU_CXX_DIR wiring.
+const WINDOWS_CXX_DIR = 'C:\\b';
+
+// Drive letters tried, in order, for the subst mapping onto the repository
+// root. `subst` currently has no mappings on this host and only C: is in
+// use, so W: is expected to be free; the rest are fallbacks.
+const SUBST_LETTER_PREFERENCE = ['W', 'Y', 'X', 'V', 'T'];
 
 function firstExistingDir(candidates) {
   for (const candidate of candidates) {
@@ -71,6 +95,124 @@ function writeLocalProperties(sdkDir) {
   return file;
 }
 
+function normalizeWindowsPath(candidate) {
+  return path.resolve(candidate).toLowerCase().replace(/[\\/]+$/, '');
+}
+
+// Parses `subst` with no arguments. Lines look like:
+//   W:\: => C:\some\path
+// Returns a map of drive letter (uppercase, no colon) to the mapped path.
+function listSubstDrives() {
+  const result = spawnSync('subst', [], {encoding: 'utf8'});
+  const output = `${result.stdout || ''}${result.stderr || ''}`;
+  const lineRe = /^([A-Za-z]):\\:\s*=>\s*(.+?)\s*$/;
+  const drives = {};
+
+  for (const line of output.split(/\r?\n/)) {
+    const match = line.match(lineRe);
+    if (match) {
+      drives[match[1].toUpperCase()] = match[2];
+    }
+  }
+
+  return drives;
+}
+
+function driveLetterInUse(letter, substDrives) {
+  if (Object.prototype.hasOwnProperty.call(substDrives, letter)) {
+    return true;
+  }
+  // A plain filesystem drive (real disk, mapped network drive, ...) that
+  // happens to use this letter and was not created by `subst`.
+  return existsSync(`${letter}:\\`);
+}
+
+/**
+ * Resolves a `subst` drive letter mapped onto `repoRoot`, reusing one that
+ * already exists (idempotent across repeated runs in the same login
+ * session) or creating one from SUBST_LETTER_PREFERENCE otherwise. `subst`
+ * mappings do not survive logout, so both cases must work without failing.
+ *
+ * Returns the drive letter (no colon), or null if none could be resolved.
+ */
+function resolveSubstDrive(repoRoot) {
+  const target = normalizeWindowsPath(repoRoot);
+  const substDrives = listSubstDrives();
+
+  for (const [letter, mappedPath] of Object.entries(substDrives)) {
+    if (normalizeWindowsPath(mappedPath) === target) {
+      return letter;
+    }
+  }
+
+  const freeLetter = SUBST_LETTER_PREFERENCE.find(
+    candidate => !driveLetterInUse(candidate, substDrives),
+  );
+  if (!freeLetter) {
+    return null;
+  }
+
+  const created = spawnSync('subst', [`${freeLetter}:`, repoRoot], {
+    stdio: 'inherit',
+  });
+  if (created.status !== 0) {
+    return null;
+  }
+
+  return freeLetter;
+}
+
+function ensureWindowsCxxDir() {
+  if (!existsSync(WINDOWS_CXX_DIR)) {
+    mkdirSync(WINDOWS_CXX_DIR, {recursive: true});
+  }
+  return WINDOWS_CXX_DIR;
+}
+
+/**
+ * Runs the Gradle wrapper through a subst'd drive mapped onto the repository
+ * root, with ORU_CXX_DIR pointed at a short absolute root. Both levers exist
+ * only to keep native object paths under Windows' MAX_PATH — see the header
+ * comment. Returns the spawnSync result.
+ */
+function runGradleOnWindows(task, archs, sdkDir, jdkDir) {
+  const driveLetter = resolveSubstDrive(REPO_ROOT);
+  if (!driveLetter) {
+    console.error(
+      'Could not find or create a subst drive letter for the repository ' +
+        `root (tried: ${SUBST_LETTER_PREFERENCE.join(', ')}). Free one up ` +
+        'and re-run.',
+    );
+    process.exit(1);
+  }
+
+  const cxxDir = ensureWindowsCxxDir();
+  const driveAndroidDir = `${driveLetter}:\\android`;
+  const wrapper = `${driveAndroidDir}\\gradlew.bat`;
+
+  console.log(`Subst drive: ${driveLetter}: -> ${REPO_ROOT}`);
+  console.log(`CXX staging: ${cxxDir}`);
+
+  const gradleArgs = [
+    task,
+    `-Dorg.gradle.java.home=${jdkDir}`,
+    `-PreactNativeArchitectures=${archs}`,
+    '--console=plain',
+  ];
+
+  return spawnSync('cmd.exe', ['/c', wrapper, ...gradleArgs], {
+    cwd: driveAndroidDir,
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      JAVA_HOME: jdkDir,
+      ANDROID_HOME: sdkDir,
+      ANDROID_SDK_ROOT: sdkDir,
+      ORU_CXX_DIR: cxxDir,
+    },
+  });
+}
+
 function main() {
   const task = process.argv[2] || 'assembleDebug';
   const archs = process.env.RN_ARCHS || 'arm64-v8a';
@@ -97,18 +239,23 @@ function main() {
   writeLocalProperties(sdkDir);
 
   const isWindows = process.platform === 'win32';
-  const wrapper = path.join(ANDROID_DIR, isWindows ? 'gradlew.bat' : 'gradlew');
-  const gradleArgs = [
-    task,
-    `-Dorg.gradle.java.home=${jdkDir}`,
-    `-PreactNativeArchitectures=${archs}`,
-    '--console=plain',
-  ];
 
-  const result = spawnSync(
-    isWindows ? 'cmd.exe' : wrapper,
-    isWindows ? ['/c', wrapper, ...gradleArgs] : gradleArgs,
-    {
+  let result;
+  if (isWindows) {
+    // See the header comment: shortens both the mirrored source path CMake
+    // bakes into every native object path (the subst drive) and the ABI
+    // build directory ninja measures those paths relative to (ORU_CXX_DIR).
+    result = runGradleOnWindows(task, archs, sdkDir, jdkDir);
+  } else {
+    const wrapper = path.join(ANDROID_DIR, 'gradlew');
+    const gradleArgs = [
+      task,
+      `-Dorg.gradle.java.home=${jdkDir}`,
+      `-PreactNativeArchitectures=${archs}`,
+      '--console=plain',
+    ];
+
+    result = spawnSync(wrapper, gradleArgs, {
       cwd: ANDROID_DIR,
       stdio: 'inherit',
       env: {
@@ -117,8 +264,8 @@ function main() {
         ANDROID_HOME: sdkDir,
         ANDROID_SDK_ROOT: sdkDir,
       },
-    },
-  );
+    });
+  }
 
   if (result.error) {
     console.error(result.error.message);
