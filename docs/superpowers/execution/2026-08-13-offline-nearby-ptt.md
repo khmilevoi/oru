@@ -46,7 +46,7 @@ is in the environment by default):
 ## Plans
 
 ### P1 `bootstrap` — wave 1, track A
-- [ ] planned   → docs/superpowers/plans/2026-08-13-p1-bootstrap.md
+- [x] planned   → docs/superpowers/plans/2026-08-13-p1-bootstrap.md
 - [ ] executed  → branch plan/p1-bootstrap · worktree .claude/worktrees/p1-bootstrap
 - [ ] merged    → sync 1
 
