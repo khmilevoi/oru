@@ -124,6 +124,16 @@ android {
             buildStagingDirectory file(System.getenv('ORU_CXX_DIR') ?: '.cxx')
         }
     }
+
+    testOptions {
+        unitTests {
+            // Android framework classes are stubs on the JVM classpath and throw by
+            // default. Everything this plan unit-tests is deliberately free of the
+            // Android framework; returning defaults keeps an accidental framework call
+            // from failing with a confusing "not mocked" stack instead of an assertion.
+            returnDefaultValues = true
+        }
+    }
 }
 
 dependencies {
@@ -135,4 +145,10 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+
+    testImplementation("junit:junit:4.13.2")
+    // The real org.json implementation. android.jar's org.json is a stub on the unit
+    // test classpath and AGP puts android.jar last, so this one wins and the control
+    // message codec is testable on the JVM exactly as it behaves on a device.
+    testImplementation("org.json:json:20250517")
 }
