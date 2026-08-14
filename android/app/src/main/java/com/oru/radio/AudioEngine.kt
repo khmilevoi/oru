@@ -5,6 +5,7 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaRecorder
+import android.os.Process
 import android.util.Log
 import java.util.concurrent.ConcurrentHashMap
 
@@ -23,6 +24,9 @@ class AudioEngine : AudioIo {
     private companion object {
         const val TAG = "OruRadio"
         const val BYTES_PER_SAMPLE = 2
+
+        /** How long a stop waits for an audio thread before giving up on the join. */
+        const val THREAD_JOIN_MS = 500L
     }
 
     /**
@@ -73,6 +77,18 @@ class AudioEngine : AudioIo {
 
     override fun startCapture(sink: TransmissionSink) {
         if (capturing) return
+        val previous = captureThread
+        if (previous != null && previous.isAlive) {
+            // The previous capture thread outlived its join and still owns an AudioRecord
+            // it has not released yet — in practice it is blocked in sink.writeFrame on a
+            // wedged peer's Nearby pipe (~64 KB draining at ~3 KB/s fills in about 20 s).
+            // Opening a second AudioRecord now would return STATE_UNINITIALIZED, report
+            // microphone_unavailable and leave the radio in status 'error' until the
+            // process restarts, so this transmission is dropped instead: the orphan exits
+            // on its own as soon as its blocked write fails, and the next press works.
+            Log.w(TAG, "the previous capture has not finished; skipping this transmission")
+            return
+        }
         capturing = true
         captureThread = Thread({ captureLoop(sink) }, "oru-capture").apply {
             priority = Thread.MAX_PRIORITY
@@ -82,11 +98,23 @@ class AudioEngine : AudioIo {
 
     override fun stopCapture() {
         capturing = false
-        captureThread?.join(500)
-        captureThread = null
+        captureThread?.join(THREAD_JOIN_MS)
+        // Deliberately not cleared: a thread that outlived the join is still winding down
+        // and still owns its AudioRecord, and startCapture has to be able to see that. A
+        // reference to a thread that did finish is harmless — startCapture replaces it.
     }
 
+    /**
+     * Owns its AudioRecord from open to release. The release lives in this thread's own
+     * `finally` rather than in [stopCapture] on purpose: [stopCapture]'s join has a fixed
+     * timeout and returns whether or not the thread actually exited, so anything that
+     * depended on the join succeeding would leak the device the moment a peer wedged.
+     */
     private fun captureLoop(sink: TransmissionSink) {
+        // Java thread priority barely moves Android's scheduler; this is the call that
+        // actually puts the thread in the audio scheduling group, and it only works from
+        // inside the thread it applies to.
+        Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
         var record: AudioRecord? = null
         var encoder: OpusEncoder? = null
         try {
@@ -206,11 +234,14 @@ class AudioEngine : AudioIo {
     private fun stopPlayback() {
         if (!playing) return
         playing = false
-        playbackThread?.join(500)
+        playbackThread?.join(THREAD_JOIN_MS)
         playbackThread = null
     }
 
     private fun playbackLoop() {
+        // See captureLoop: Process.setThreadPriority, called from inside the thread, is the
+        // priority Android's scheduler actually honours.
+        Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
         var track: AudioTrack? = null
         try {
             val minimum = AudioTrack.getMinBufferSize(
@@ -256,8 +287,18 @@ class AudioEngine : AudioIo {
                     // already closed since jitter.pop() returned this frame.
                     val samples = playback.decodeInto(frame, frame.size)
                     // playback.pcm is reused, which is safe: it is mixed below, before
-                    // this peer decodes again on the next iteration.
-                    if (samples > 0) ready.add(playback.pcm)
+                    // this peer decodes again on the next iteration. Only the samples this
+                    // decode actually produced are mixed, though: a short decode leaves the
+                    // previous frame's tail in the rest of the buffer, and mixing that back
+                    // in replays a slice of old audio. The full-length case — every
+                    // well-formed 20 ms packet — still mixes the buffer itself, so the
+                    // normal path allocates nothing.
+                    if (samples > 0) {
+                        ready.add(
+                            if (samples == RadioConfig.FRAME_SAMPLES) playback.pcm
+                            else playback.pcm.copyOf(samples),
+                        )
+                    }
                 }
                 AudioMixer.mix(ready, mixed)
                 // A silent frame when nothing is ready keeps AudioTrack's blocking write
