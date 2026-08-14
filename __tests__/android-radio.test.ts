@@ -104,3 +104,31 @@ describe('nearby transport (spec section 7)', () => {
     });
   });
 });
+
+describe('audio pipeline (spec section 8)', () => {
+  const audio = () => read(`${RADIO_DIR}/AudioEngine.kt`);
+
+  it('captures from VOICE_COMMUNICATION at the configured rate', () => {
+    expect(audio()).toMatch(/MediaRecorder\.AudioSource\.VOICE_COMMUNICATION/);
+    expect(audio()).toMatch(/RadioConfig\.SAMPLE_RATE_HZ/);
+    expect(audio()).toMatch(/AudioFormat\.CHANNEL_IN_MONO/);
+    expect(audio()).toMatch(/AudioFormat\.ENCODING_PCM_16BIT/);
+  });
+
+  it('plays back through AudioTrack and mixes concurrent streams', () => {
+    expect(audio()).toMatch(/AudioTrack\.Builder\(\)/);
+    expect(audio()).toMatch(/AudioMixer\.mix\(ready, mixed\)/);
+    expect(audio()).toMatch(/JitterBuffer\(\)/);
+  });
+
+  it('uses embedded libopus rather than a platform codec', () => {
+    expect(audio()).toMatch(/OpusEncoder\(\)/);
+    expect(audio()).toMatch(/OpusDecoder\(\)/);
+    expect(audio()).not.toMatch(/MediaCodec/);
+  });
+
+  it('hard-codes no audio parameter of its own', () => {
+    expect(audio()).not.toMatch(/16_?000/);
+    expect(audio()).not.toMatch(/24_?000/);
+  });
+});
