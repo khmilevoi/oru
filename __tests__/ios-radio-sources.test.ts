@@ -141,3 +141,58 @@ describe('layering (spec section 6)', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe('RadioEngine (spec sections 6.3, 9.4, 13)', () => {
+  const engine = source('RadioEngine.swift');
+
+  it.each([
+    'public final class RadioEngine',
+    'public func startRadio()',
+    'public func stopRadio()',
+    'public func startTransmit()',
+    'public func stopTransmit()',
+    'public func getState(completion: @escaping (RadioState) -> Void)',
+    'public func selectPttCandidate(deviceId: String)',
+    'public func forgetPtt()',
+    'public func addObserver(',
+    'public func removeObserver(',
+  ])('declares %s', declaration => {
+    expect(engine).toContain(declaration);
+  });
+
+  it('mirrors the pairing session into state and clears it when it ends', () => {
+    expect(engine).toContain('pairingStateDidChange state: PttPairingState?');
+    expect(engine).toContain('state.pttPairing = nil');
+  });
+
+  it.each([
+    'RadioTransportDelegate',
+    'AudioIODelegate',
+    'PttSourceDelegate',
+    'BackgroundSessionDelegate',
+  ])('conforms to %s', protocolName => {
+    expect(engine).toContain(`extension RadioEngine: ${protocolName}`);
+  });
+
+  it('arms the safety cap from config, never from a literal', () => {
+    expect(engine).toContain('RadioConfig.Transmit.safetyCapSeconds');
+    expect(engine).not.toMatch(/=\s*120\b/);
+  });
+
+  it('asks PushToTalk before it opens the microphone', () => {
+    const request = engine.indexOf('background.requestBeginTransmitting()');
+    const capture = engine.indexOf('audio.startCapture()');
+    expect(request).toBeGreaterThan(-1);
+    expect(capture).toBeGreaterThan(-1);
+    expect(request).toBeLessThan(capture);
+  });
+
+  it('announces transmissions with the control protocol', () => {
+    expect(engine).toContain('broadcastControl(.txStart(streamId:');
+    expect(engine).toContain('broadcastControl(.txStop(streamId:');
+  });
+
+  it('serialises all state on one queue', () => {
+    expect(engine).toContain('private let queue: DispatchQueue');
+  });
+});
