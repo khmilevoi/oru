@@ -46,6 +46,7 @@ class NearbyManager(
     private val awaitingHello = ConcurrentHashMap.newKeySet<String>()
     private val ignored = ConcurrentHashMap.newKeySet<String>()
     private val backoffs = ConcurrentHashMap<String, ReconnectBackoff>()
+    private val reconnectTimers = ConcurrentHashMap<String, Cancellable>()
     private val announcedStreamIds = ConcurrentHashMap<String, String>()
     private val activeIncoming = ConcurrentHashMap<String, String>()
 
@@ -82,6 +83,8 @@ class NearbyManager(
         client.stopAdvertising()
         client.stopDiscovery()
         client.stopAllEndpoints()
+        reconnectTimers.values.forEach { it.cancel() }
+        reconnectTimers.clear()
         handshaked.clear()
         awaitingHello.clear()
         ignored.clear()
@@ -144,6 +147,14 @@ class NearbyManager(
             writers.values.forEach { runCatching { it.close() } }
             writers.clear()
         }
+
+        /**
+         * A peer that disconnects (or is ignored for a version mismatch) mid-transmission
+         * must not keep its pipe open until the next `writeFrame()` happens to throw.
+         */
+        fun removePeer(peerId: String) {
+            writers.remove(peerId)?.let { runCatching { it.close() } }
+        }
     }
 
     // --- connection lifecycle -------------------------------------------------------------
@@ -178,6 +189,8 @@ class NearbyManager(
 
         override fun onDisconnected(endpointId: String) {
             awaitingHello.remove(endpointId)
+            cancelReconnect(endpointId)
+            transmission?.removePeer(endpointId)
             activeIncoming.remove(endpointId)?.let { streamId ->
                 listener?.onIncomingAudioStopped(endpointId, streamId)
             }
@@ -197,12 +210,21 @@ class NearbyManager(
     /** Spec section 7: reconnection is fully native, with backoff. */
     private fun scheduleReconnect(endpointId: String) {
         if (!running || endpointId in ignored) return
+        // A stale timer from an earlier stop()->start() cycle must never fire against
+        // the new session, so any previously pending timer for this endpoint is
+        // replaced, not stacked.
+        reconnectTimers.remove(endpointId)?.cancel()
         val delay = backoffs.getOrPut(endpointId) { ReconnectBackoff() }.nextDelayMs()
-        scheduler.schedule(delay) {
+        reconnectTimers[endpointId] = scheduler.schedule(delay) {
+            reconnectTimers.remove(endpointId)
             if (running && endpointId !in handshaked && endpointId !in ignored) {
                 requestConnection(endpointId)
             }
         }
+    }
+
+    private fun cancelReconnect(endpointId: String) {
+        reconnectTimers.remove(endpointId)?.cancel()
     }
 
     // --- payloads --------------------------------------------------------------------------
@@ -211,8 +233,15 @@ class NearbyManager(
         override fun onPayloadReceived(endpointId: String, payload: Payload) {
             when (payload.type) {
                 Payload.Type.BYTES -> payload.asBytes()?.let { handleControl(endpointId, it) }
-                Payload.Type.STREAM -> payload.asStream()?.asInputStream()
-                    ?.let { startReader(endpointId, it) }
+                Payload.Type.STREAM -> {
+                    // A peer counts as connected only after its hello has been seen
+                    // (class doc); a STREAM from anyone else is dropped, not decoded.
+                    if (endpointId in handshaked) {
+                        payload.asStream()?.asInputStream()?.let { startReader(endpointId, it) }
+                    } else {
+                        client.cancelPayload(payload.id)
+                    }
+                }
                 else -> Unit
             }
         }
@@ -230,15 +259,22 @@ class NearbyManager(
                     ignored.add(peerId)
                     awaitingHello.remove(peerId)
                     handshaked.remove(peerId)
+                    cancelReconnect(peerId)
+                    transmission?.removePeer(peerId)
                     client.disconnectFromEndpoint(peerId)
                 } else {
                     awaitingHello.remove(peerId)
+                    cancelReconnect(peerId)
                     if (handshaked.add(peerId)) listener?.onPeerConnected(peerId)
                 }
             }
-            is ControlMessage.TxStart -> announcedStreamIds[peerId] = message.streamId
-            is ControlMessage.TxStop -> activeIncoming.remove(peerId)?.let { streamId ->
-                listener?.onIncomingAudioStopped(peerId, streamId)
+            is ControlMessage.TxStart -> if (peerId in handshaked) {
+                announcedStreamIds[peerId] = message.streamId
+            }
+            is ControlMessage.TxStop -> if (peerId in handshaked) {
+                activeIncoming.remove(peerId)?.let { streamId ->
+                    listener?.onIncomingAudioStopped(peerId, streamId)
+                }
             }
             null -> Log.w(TAG, "ignoring an unparseable control payload from $peerId")
         }

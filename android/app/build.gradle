@@ -138,10 +138,14 @@ android {
     // play-services-nearby's AAR metadata requires core library desugaring
     // (Task 5): its transitive dependencies use java.* APIs that predate minSdk 26.
     // Not a radio tunable, so it stays with the rest of the build wiring, not RadioConfig.
+    // Source/target compatibility is VERSION_17, not the Java 8 the desugaring
+    // requirement might suggest — desugaring only backports specific java.* APIs
+    // for minSdk 26 and does not require the module's own compatibility level to
+    // drop to 8.
     compileOptions {
         coreLibraryDesugaringEnabled true
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 }
 
