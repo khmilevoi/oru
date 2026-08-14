@@ -47,6 +47,12 @@ class RadioForegroundService : Service() {
             ),
             scheduler = scheduler,
         )
+        // A task that throws its way out of the engine's single thread would otherwise
+        // unwind Looper.loop() and kill the process; HandlerScheduler catches it, and this
+        // is where it comes out: the one unrecoverable-failure path of spec section 13.
+        scheduler.setUncaughtHandler { error ->
+            engine.failFromHost("engine_task_failed", error.message ?: error.javaClass.simpleName)
+        }
         this.scheduler = scheduler
         this.engine = engine
         RadioController.attach(engine)
@@ -64,7 +70,18 @@ class RadioForegroundService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        startForegroundWithTypes()
+        if (!startForegroundWithTypes()) {
+            // Android 14+ refuses a `microphone` foreground service without RECORD_AUDIO
+            // (and a `connectedDevice` one without the Bluetooth permissions) by throwing,
+            // which would kill the service outright. Runtime permission sequencing is P7's
+            // work; degrading to a reported failure and a clean stop is this service's.
+            engine?.failFromHost(
+                "foreground_service_denied",
+                "The radio may not run in the foreground; are the microphone and Bluetooth permissions granted?",
+            )
+            stopSelf()
+            return START_NOT_STICKY
+        }
         setCommunicationMode(true)
         engine?.startRadio()
         Log.i(TAG, "radio service started")
@@ -92,7 +109,15 @@ class RadioForegroundService : Service() {
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
-    private fun startForegroundWithTypes() {
+    /**
+     * Returns false when the platform refused the foreground service. From Android 14 a
+     * `microphone` type without RECORD_AUDIO granted, or `connectedDevice` without the
+     * Bluetooth permissions, throws `SecurityException`; `ForegroundServiceStartNotAllowedException`
+     * and the missing/invalid-type exceptions are `IllegalStateException`s of the same kind.
+     * Every one of them would otherwise propagate out of `onStartCommand` and take the
+     * service down with no state, no error event and no log.
+     */
+    private fun startForegroundWithTypes(): Boolean {
         val notification = Notification.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.radio_notification_title))
             .setContentText(getString(R.string.radio_notification_text))
@@ -100,15 +125,24 @@ class RadioForegroundService : Service() {
             .setOngoing(true)
             .build()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE,
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE,
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+            true
+        } catch (error: SecurityException) {
+            Log.e(TAG, "the foreground service was refused", error)
+            false
+        } catch (error: IllegalStateException) {
+            Log.e(TAG, "the foreground service was refused", error)
+            false
         }
     }
 

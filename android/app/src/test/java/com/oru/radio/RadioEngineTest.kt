@@ -220,6 +220,39 @@ class RadioEngineTest {
     }
 
     @Test
+    fun `an unrecoverable failure tears the receive path down too`() {
+        engine.startRadio()
+        engine.onPeerConnected("a")
+        engine.onIncomingAudioStarted("a", "s1")
+        engine.startTransmit()
+
+        engine.onTransportFailure("advertising_failed", "boom")
+
+        // A radio that reports status=error while it is still playing audio and still
+        // counting peers is lying about being dead, and its playback thread keeps running.
+        assertEquals(RadioStatus.ERROR, engine.getState().status)
+        assertFalse(engine.getState().transmitting)
+        assertFalse(engine.getState().receiving)
+        assertEquals(0, engine.getState().nearbyCount)
+        assertEquals(listOf("a"), audio.closedPlayback)
+    }
+
+    @Test
+    fun `nothing re-enters the receive path once the radio has failed`() {
+        engine.startRadio()
+        engine.onTransportFailure("advertising_failed", "boom")
+
+        engine.onPeerConnected("b")
+        engine.onIncomingAudioStarted("b", "s2")
+        engine.onIncomingAudioFrame("b", byteArrayOf(1))
+
+        assertEquals(0, engine.getState().nearbyCount)
+        assertFalse(engine.getState().receiving)
+        assertTrue(audio.openedPlayback.isEmpty())
+        assertTrue(audio.playedFrames.isEmpty())
+    }
+
+    @Test
     fun `transmission is refused while in the error status`() {
         engine.startRadio()
         engine.onTransportFailure("advertising_failed", "boom")
