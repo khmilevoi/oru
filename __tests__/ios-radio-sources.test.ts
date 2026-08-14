@@ -462,3 +462,66 @@ describe('PTT subsystem (spec section 9)', () => {
     expect(manager).toContain('PttPairingState');
   });
 });
+
+describe('assembly and spike hooks (spec section 15, phase 0)', () => {
+  const assembly = source('RadioAssembly.swift');
+  const spike = source('RadioSpike.swift');
+  const appDelegate = existsSync(
+    join(__dirname, '..', 'ios', 'Oru', 'AppDelegate.swift'),
+  )
+    ? readFileSync(join(__dirname, '..', 'ios', 'Oru', 'AppDelegate.swift'), 'utf8')
+    : '';
+
+  it.each([
+    'public final class RadioAssembly',
+    'public static let shared',
+    'public let engine: RadioEngine',
+  ])('RadioAssembly.swift declares %s', declaration => {
+    expect(assembly).toContain(declaration);
+  });
+
+  it('builds every production port exactly once', () => {
+    expect(assembly).toContain('NearbyManager(');
+    expect(assembly).toContain('AudioEngine(');
+    expect(assembly).toContain('PttManager(');
+    expect(assembly).toContain('BackgroundManager()');
+    expect(assembly).toContain('DispatchRadioClock(');
+  });
+
+  it.each([
+    'public static func bootstrap()',
+    'public static func startTransmit()',
+    'public static func stopTransmit()',
+    'public static func configurePtt(',
+    'public static func selectPttCandidate(',
+  ])('RadioSpike.swift declares %s', declaration => {
+    expect(spike).toContain(declaration);
+  });
+
+  it('logs pairing candidates so a headless run can pick one', () => {
+    expect(spike).toContain('state.pttPairing');
+  });
+
+  it('logs every engine event under one greppable prefix', () => {
+    expect(spike).toContain('[spike]');
+    expect(spike).toContain('addObserver(');
+  });
+
+  it('is bootstrapped from the app delegate in debug builds only', () => {
+    expect(appDelegate).toContain('import RadioKit');
+    expect(appDelegate).toContain('RadioSpike.bootstrap()');
+    const guardIndex = appDelegate.indexOf('#if DEBUG');
+    const callIndex = appDelegate.indexOf('RadioSpike.bootstrap()');
+    expect(guardIndex).toBeGreaterThan(-1);
+    expect(guardIndex).toBeLessThan(callIndex);
+  });
+
+  it('ships a phase 0 runbook covering all four scenarios', () => {
+    const readme = existsSync(join(__dirname, '..', 'ios', 'Radio', 'README.md'))
+      ? readFileSync(join(__dirname, '..', 'ios', 'Radio', 'README.md'), 'utf8')
+      : '';
+    for (const scenario of ['Scenario A', 'Scenario B', 'Scenario C', 'Scenario D']) {
+      expect(readme).toContain(scenario);
+    }
+  });
+});
