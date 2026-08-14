@@ -7,7 +7,16 @@ import os
 public final class PttManager: PttSource {
 
     public weak var delegate: PttSourceDelegate?
-    public private(set) var buttonState = PttButtonState()
+
+    /// Read by the engine from the engine queue and written here on the PTT
+    /// queue, so it is confined: the getter hops onto `queue`. Code already
+    /// running on `queue` must use `_buttonState` directly — a `queue.sync`
+    /// from the queue itself deadlocks.
+    public var buttonState: PttButtonState {
+        queue.sync { _buttonState }
+    }
+
+    private var _buttonState = PttButtonState()
 
     private let queue: DispatchQueue
     private let store: PttBindingStore
@@ -27,7 +36,7 @@ public final class PttManager: PttSource {
         self.driver.delegate = self
 
         configuration = store.load()
-        buttonState = PttButtonState(
+        _buttonState = PttButtonState(
             configured: configuration != nil,
             connected: false,
             name: configuration?.name
@@ -105,10 +114,11 @@ public final class PttManager: PttSource {
         delegate?.pttSource(self, pairingStateDidChange: state)
     }
 
+    /// Runs on `queue`, so it touches the storage and never the public getter.
     private func updateState(configured: Bool, connected: Bool, name: String?) {
         let next = PttButtonState(configured: configured, connected: connected, name: name)
-        guard next != buttonState else { return }
-        buttonState = next
+        guard next != _buttonState else { return }
+        _buttonState = next
         delegate?.pttSource(self, buttonStateDidChange: next)
     }
 }

@@ -288,10 +288,13 @@ extension RadioEngine: RadioTransportDelegate {
         queue.async {
             let wasSilent = self.receivingPeers.isEmpty
             self.receivingPeers.insert(peerId)
-            self.audio.beginIncoming(peerId: peerId)
+            // PushToTalk activates the audio session in response to an active
+            // remote participant, and AVAudioEngine only runs while that
+            // session is active — so the system is told before playback opens.
             if wasSilent {
                 self.background.setReceiving(true)
             }
+            self.audio.beginIncoming(peerId: peerId)
             guard !self.state.receiving else { return }
             self.state.receiving = true
             self.emitStateLocked()

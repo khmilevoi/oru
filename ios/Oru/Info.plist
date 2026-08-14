@@ -66,8 +66,7 @@
 	<string>Oru discovers and connects to nearby devices over the local network.</string>
 	<key>NSBonjourServices</key>
 	<array>
-		<string>_oru._tcp</string>
-		<string>_oru._udp</string>
+		<string>_7384AB769DDA._tcp</string>
 	</array>
 	<key>UIBackgroundModes</key>
 	<array>

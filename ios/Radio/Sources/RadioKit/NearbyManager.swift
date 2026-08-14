@@ -9,9 +9,18 @@ import os
 /// dropped. Dropping a 20 ms frame of live speech is correct; stalling the
 /// capture callback is not.
 final class OutgoingAudioStream: AudioStreamSink {
+
+    /// `hasSpaceAvailable` promises some space, not a whole frame's worth, so a
+    /// write can be short. Whatever a call could not take is held here and sent
+    /// with the next one: a half-written frame would desynchronise the reader's
+    /// length prefix and end the entire transmission, not merely lose 20 ms.
+    private static let maxPendingBytes =
+        RadioConfig.Audio.maxEncodedFrameBytes * RadioConfig.Audio.jitterMaxFrames
+
     private let output: OutputStream
     private let queue: DispatchQueue
     private let log: Logger
+    private var pending = Data()
     private var isClosed = false
     private var droppedFrames = 0
 
@@ -25,23 +34,35 @@ final class OutgoingAudioStream: AudioStreamSink {
     func write(frame: Data) {
         queue.async { [self] in
             guard !isClosed else { return }
-            guard output.hasSpaceAvailable else {
+            let framed = AudioFraming.frame(frame)
+            // The backlog is the backpressure signal: past the cap the pipe is
+            // not draining, and a whole frame is dropped. Never a partial one.
+            guard pending.count + framed.count <= Self.maxPendingBytes else {
                 droppedFrames += 1
                 return
             }
-            let framed = AudioFraming.frame(frame)
-            _ = framed.withUnsafeBytes { raw -> Int in
+            pending.append(framed)
+            flushLocked()
+        }
+    }
+
+    private func flushLocked() {
+        while !pending.isEmpty, output.hasSpaceAvailable {
+            let written = pending.withUnsafeBytes { raw -> Int in
                 guard let base = raw.bindMemory(to: UInt8.self).baseAddress else {
                     return 0
                 }
-                return output.write(base, maxLength: framed.count)
+                return output.write(base, maxLength: raw.count)
             }
+            guard written > 0 else { return }
+            pending.removeFirst(written)
         }
     }
 
     func close() {
         queue.async { [self] in
             guard !isClosed else { return }
+            flushLocked()
             isClosed = true
             output.close()
             if droppedFrames > 0 {
@@ -155,9 +176,13 @@ public final class NearbyManager: RadioTransport {
         let discoverer = Discoverer(connectionManager: manager)
         discoverer.delegate = self
 
-        connectionManager = manager
-        self.advertiser = advertiser
-        self.discoverer = discoverer
+        // Read on the transport queue by every delegate callback, so written
+        // there too — `start()` runs on the engine queue.
+        queue.sync {
+            self.connectionManager = manager
+            self.advertiser = advertiser
+            self.discoverer = discoverer
+        }
 
         let endpointInfo = Data(ProcessInfo.processInfo.hostName.utf8)
         advertiser.startAdvertising(using: endpointInfo) { [weak self] error in
@@ -172,6 +197,8 @@ public final class NearbyManager: RadioTransport {
     }
 
     public func stop() {
+        var stoppingAdvertiser: Advertiser?
+        var stoppingDiscoverer: Discoverer?
         queue.sync {
             endAudioStreamLocked()
             for (endpointID, _) in peers {
@@ -180,12 +207,14 @@ public final class NearbyManager: RadioTransport {
             }
             peers.removeAll()
             incoming.removeAll()
+            stoppingAdvertiser = advertiser
+            stoppingDiscoverer = discoverer
+            advertiser = nil
+            discoverer = nil
+            connectionManager = nil
         }
-        advertiser?.stopAdvertising { _ in }
-        discoverer?.stopDiscovery { _ in }
-        advertiser = nil
-        discoverer = nil
-        connectionManager = nil
+        stoppingAdvertiser?.stopAdvertising { _ in }
+        stoppingDiscoverer?.stopDiscovery { _ in }
         log.info("nearby stopped")
     }
 
@@ -212,7 +241,10 @@ public final class NearbyManager: RadioTransport {
                 outputStream: &output
             )
             guard let input, let output else {
-                report(.transportFailed("could not open an audio stream"))
+                // Recoverable, so state and not an error (spec section 13):
+                // reporting it would put the radio in `.error` for good and
+                // refuse every later press. `nil` already tells the engine.
+                log.error("could not open an audio stream")
                 return nil
             }
 

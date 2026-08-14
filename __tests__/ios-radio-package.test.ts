@@ -1,3 +1,4 @@
+import {createHash} from 'crypto';
 import {existsSync, readFileSync} from 'fs';
 import {join} from 'path';
 
@@ -9,9 +10,28 @@ function read(...segments: string[]): string {
   return existsSync(path) ? readFileSync(path, 'utf8') : '';
 }
 
+function arrayValues(source: string, key: string): string[] {
+  const keyIndex = source.indexOf(`<key>${key}</key>`);
+  if (keyIndex === -1) {
+    return [];
+  }
+  const open = source.indexOf('<array>', keyIndex);
+  const close = source.indexOf('</array>', open);
+  if (open === -1 || close === -1) {
+    return [];
+  }
+  return source
+    .slice(open + '<array>'.length, close)
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.startsWith('<string>'))
+    .map(line => line.replace('<string>', '').replace('</string>', ''));
+}
+
 const manifest = read(PACKAGE_DIR, 'Package.swift');
 const config = read(PACKAGE_DIR, 'Sources', 'RadioKit', 'RadioConfig.swift');
 const pbxproj = read(IOS_DIR, 'Oru.xcodeproj', 'project.pbxproj');
+const infoPlist = read(IOS_DIR, 'Oru', 'Info.plist');
 
 describe('RadioKit package manifest', () => {
   it('declares the RadioKit library product', () => {
@@ -70,6 +90,36 @@ describe('RadioConfig (spec sections 5, 7, 8)', () => {
 
   it('primes the jitter buffer with 3 frames (spec section 8)', () => {
     expect(config).toMatch(/jitterTargetFrames[^=]*= 3/);
+  });
+});
+
+// Nearby Connections does not advertise a name of our choosing: it derives the
+// mDNS service type from the service id, as `_<TYPE>._tcp` where `<TYPE>` is the
+// first 6 bytes of SHA-256(serviceID) in uppercase hex. iOS local-network privacy
+// refuses to browse any type the app has not declared in NSBonjourServices, so an
+// invented entry means discovery silently finds nothing — no error, no peers, ever.
+// The expected value is therefore derived here from RadioConfig rather than written
+// out as a literal, so the test follows the constant if the service id ever changes.
+// Do not "simplify" this back into a hard-coded string.
+describe('Bonjour service type derived from the Nearby service id', () => {
+  const serviceId = /serviceId = "([^"]+)"/.exec(config)?.[1] ?? '';
+  const derived = `_${createHash('sha256')
+    .update(serviceId)
+    .digest('hex')
+    .slice(0, 12)
+    .toUpperCase()}._tcp`;
+  const services = arrayValues(infoPlist, 'NSBonjourServices');
+
+  it('extracts the service id from RadioConfig', () => {
+    expect(serviceId).not.toBe('');
+  });
+
+  it('declares the type derived from that service id', () => {
+    expect(services).toContain(derived);
+  });
+
+  it('declares no other service type', () => {
+    expect(services.filter(value => value.startsWith('_'))).toEqual([derived]);
   });
 });
 

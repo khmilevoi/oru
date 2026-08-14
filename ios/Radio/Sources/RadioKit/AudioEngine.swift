@@ -100,6 +100,12 @@ public final class AudioEngine: AudioIO {
                 try ensureEngineRunningLocked()
                 log.info("playback opened for \(peerId, privacy: .public)")
             } catch {
+                // Undo the half-built playback, or the guard above would refuse
+                // this peer for good — the session is often not active yet when
+                // the first frame lands, and the next attempt has to be allowed.
+                if let playback = playbacks.removeValue(forKey: peerId) {
+                    engine.detach(playback.player)
+                }
                 delegate?.audioIO(self, didFail: .audioFailed("playback: \(error)"))
             }
         }
@@ -109,6 +115,9 @@ public final class AudioEngine: AudioIO {
         queue.async { [self] in
             guard let playback = playbacks[peerId] else { return }
             playback.jitter.push(frame)
+            // A no-op once running: it is the recovery path for a start that
+            // failed earlier because the session was not active yet.
+            try? ensureEngineRunningLocked()
             drainLocked(playback, peerId: peerId)
         }
     }

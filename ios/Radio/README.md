@@ -75,6 +75,33 @@ of interest starts with `[spike]`.
   `nearby=0`, return, and expect `nearby=1` again with no user action, followed
   by working audio.
 
+## Before you conclude anything
+
+Four ways these scenarios mislead an operator, all of them seen in the log rather
+than in the app:
+
+- **`tx=true` proves the microphone is open, not that anything went on air.**
+  Read `nearby=N` from the same line: with zero peers the transmission runs to
+  completion and logs exactly as it does when it succeeds. A pass needs
+  `nearby=1` *and* audio heard on the other device.
+- **Reception on a locked iPhone only works while the process is still
+  resident.** The MVP has no server, so no push token is registered anywhere,
+  and `UIBackgroundModes` does not include `audio` — nothing will wake or hold a
+  suspended app for an incoming transmission. A scenario A failure is more
+  likely the app having been suspended than Nearby having failed; relaunch and
+  retry before recording a No-Go.
+- **Scenario C gives you about 15 seconds** (`RadioConfig.Ptt.autoSelectFallback`)
+  between the first `phase=scanning candidates=[...]` line and the
+  strongest-signal fallback firing. The scan is unfiltered, so that list will be
+  full of nearby AirPods, watches and TVs: spot the button and call
+  `RadioSpike.selectPttCandidate` quickly, or hold the button against the phone
+  and let the fallback pick the strongest signal for you.
+- **A transport error is terminal for the session.** It puts the radio in
+  `.error`, and every later press is ignored in silence. After one, restart the
+  radio from the debugger console — `RadioAssembly.shared.engine.stopRadio()`
+  then `.startRadio()` — or relaunch the app, before you judge anything that
+  follows it.
+
 Record the outcome and an explicit **Go** or **No-Go** in
 `docs/superpowers/specs/2026-08-13-phase0-spike-report.md`. A No-Go means the
 transport is replaced before anything else is built — which is why every
