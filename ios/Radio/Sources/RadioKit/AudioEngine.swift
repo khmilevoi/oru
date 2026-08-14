@@ -109,7 +109,7 @@ public final class AudioEngine: AudioIO {
         queue.async { [self] in
             guard let playback = playbacks[peerId] else { return }
             playback.jitter.push(frame)
-            drainLocked(playback)
+            drainLocked(playback, peerId: peerId)
         }
     }
 
@@ -120,21 +120,24 @@ public final class AudioEngine: AudioIO {
         }
     }
 
-    private func drainLocked(_ playback: PeerPlayback) {
-        var scheduled = 0
-        while let packet = playback.jitter.pop() {
-            do {
-                let pcm = try playback.decoder.decode(packet)
-                guard let buffer = OpusFormat.buffer(from: pcm) else { continue }
-                playback.player.scheduleBuffer(buffer, completionHandler: nil)
-                scheduled += 1
-            } catch {
-                delegate?.audioIO(self, didFail: .audioFailed("decode: \(error)"))
-                return
+    /// Releases one frame per call, matching the one push per call from
+    /// `enqueue`, so the jitter buffer keeps a steady cushion (spec section 8)
+    /// instead of being drained to empty on every burst.
+    private func drainLocked(_ playback: PeerPlayback, peerId: String) {
+        guard let packet = playback.jitter.pop() else { return }
+        do {
+            let pcm = try playback.decoder.decode(packet)
+            guard let buffer = OpusFormat.buffer(from: pcm) else { return }
+            playback.player.scheduleBuffer(buffer, completionHandler: nil)
+            if !playback.player.isPlaying {
+                playback.player.play()
             }
-        }
-        if scheduled > 0, !playback.player.isPlaying {
-            playback.player.play()
+        } catch {
+            // A bad packet from one peer is recoverable, not an engine
+            // failure (spec section 13): drop this frame and keep playing.
+            log.error(
+                "decode failed for \(peerId, privacy: .public): \(error, privacy: .public)"
+            )
         }
     }
 
