@@ -37,6 +37,7 @@ class OpusEncoder(
     bitrateBps: Int = RadioConfig.BITRATE_BPS,
 ) : Closeable {
 
+    @Volatile
     private var handle: Long
 
     init {
@@ -64,6 +65,7 @@ class OpusDecoder(
     channels: Int = RadioConfig.CHANNEL_COUNT,
 ) : Closeable {
 
+    @Volatile
     private var handle: Long
 
     init {

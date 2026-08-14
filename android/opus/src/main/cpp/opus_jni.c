@@ -35,9 +35,16 @@ ORU_FN(nativeEncode)(JNIEnv *env, jclass clazz, jlong handle, jshortArray pcm, j
     if (encoder == NULL) {
         return -1;
     }
+    /* pcm/out ride in over the JNI boundary from the audio-capture thread; frameSamples
+     * is bounded against the real array length before any native encode call, since
+     * opus_encode has no way to know the caller's buffer size on its own. */
+    jint capacity = (*env)->GetArrayLength(env, out);
+    if (frameSamples < 0 || frameSamples > (*env)->GetArrayLength(env, pcm) || capacity <= 0) {
+        return -1;
+    }
+
     jshort *pcmBuffer = (*env)->GetShortArrayElements(env, pcm, NULL);
     jbyte *outBuffer = (*env)->GetByteArrayElements(env, out, NULL);
-    jint capacity = (*env)->GetArrayLength(env, out);
 
     int written = opus_encode(encoder, (const opus_int16 *) pcmBuffer, frameSamples,
                               (unsigned char *) outBuffer, capacity);
@@ -77,6 +84,18 @@ ORU_FN(nativeDecode)(JNIEnv *env, jclass clazz, jlong handle, jbyteArray packet,
     if (decoder == NULL) {
         return -1;
     }
+    /* packet carries bytes received from a remote peer over Nearby Connections: this is
+     * the trust boundary between untrusted network input and native heap memory, so
+     * length/frameSamples are bounded against the real array lengths before any native
+     * decode call. AudioFraming (Task 3) also bounds frame lengths on read, but the JNI
+     * layer must not depend on a caller it does not control. */
+    if (frameSamples < 0 || frameSamples > (*env)->GetArrayLength(env, pcm)) {
+        return -1;
+    }
+    if (packet != NULL && (length < 0 || length > (*env)->GetArrayLength(env, packet))) {
+        return -1;
+    }
+
     jshort *pcmBuffer = (*env)->GetShortArrayElements(env, pcm, NULL);
     jbyte *packetBuffer = packet == NULL ? NULL : (*env)->GetByteArrayElements(env, packet, NULL);
 
