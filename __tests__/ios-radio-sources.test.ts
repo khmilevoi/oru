@@ -295,3 +295,44 @@ describe('Opus codec and jitter buffer (spec section 8)', () => {
     expect(jitter).toContain('RadioConfig.Audio.jitterMaxFrames');
   });
 });
+
+describe('AudioEngine (spec section 8)', () => {
+  const audio = source('AudioEngine.swift');
+
+  it.each([
+    'public final class AudioEngine: AudioIO',
+    'public func startPlayback() throws',
+    'public func startCapture() throws',
+    'public func beginIncoming(peerId: String)',
+    'public func enqueue(frame: Data, from peerId: String)',
+    'public func endIncoming(peerId: String)',
+  ])('declares %s', declaration => {
+    expect(audio).toContain(declaration);
+  });
+
+  it('captures through a tap and resamples to the codec format', () => {
+    expect(audio).toContain('installTap(');
+    expect(audio).toContain('AVAudioConverter(');
+    expect(audio).toContain('OpusFormat.pcm');
+  });
+
+  it('mixes one player node per peer into the main mixer', () => {
+    expect(audio).toContain('AVAudioPlayerNode()');
+    expect(audio).toContain('mainMixerNode');
+  });
+
+  it('uses the shared codec and jitter buffer', () => {
+    expect(audio).toContain('LibopusEncoder()');
+    expect(audio).toContain('LibopusDecoder()');
+    expect(audio).toContain('JitterBuffer()');
+  });
+
+  it('configures a voice-chat session for play and record', () => {
+    expect(audio).toContain('.playAndRecord');
+    expect(audio).toContain('.voiceChat');
+  });
+
+  it('leaves audio-session activation to PushToTalk', () => {
+    expect(audio).not.toContain('setActive(true');
+  });
+});
