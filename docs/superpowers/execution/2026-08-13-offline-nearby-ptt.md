@@ -68,7 +68,7 @@ v1001, @lingui/*, errore) so later plans do not edit package.json.
 
 ### P2 `android-engine` — wave 2, track A
 - [x] planned   → docs/superpowers/plans/2026-08-13-p2-android-engine.md
-- [ ] executed  → branch plan/p2-android-engine · worktree .claude/worktrees/p2-android-engine
+- [x] executed  → branch plan/p2-android-engine · worktree .claude/worktrees/p2-android-engine
 - [ ] merged    → sync 2
 
 **Owns:** the entire Android radio: `RadioEngine.kt` state machine (§6.3 operations, 120 s
