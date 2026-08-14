@@ -270,4 +270,93 @@ final class RadioEngineTests: XCTestCase {
 
         XCTAssertEqual(events.count, 1)
     }
+
+    func testCaptureFailureUnwindsTheTransmission() {
+        audio.captureError = RadioError.audioFailed("mic busy")
+        engine.startRadio()
+        flush()
+
+        var errors: [RadioError] = []
+        engine.addObserver("errors") { event in
+            if case let .error(error) = event {
+                errors.append(error)
+            }
+        }
+        flush()
+
+        ptt.delegate?.pttSourceDidPress(ptt)
+        flush()
+        background.grantAudioSession()
+        flush()
+
+        XCTAssertFalse(currentState().transmitting)
+        XCTAssertFalse(audio.isCapturing)
+        XCTAssertTrue(transport.sink.isClosed)
+        XCTAssertEqual(transport.endedStreams, 1)
+        XCTAssertEqual(background.transmitStops, 1)
+        XCTAssertEqual(errors.map(\.code), ["audio_failed"])
+
+        guard case let .txStart(startStreamId) = transport.sentControl.first else {
+            return XCTFail("expected a tx-start control message")
+        }
+        guard case let .txStop(stopStreamId) = transport.sentControl.last else {
+            return XCTFail("expected a tx-stop control message")
+        }
+        XCTAssertEqual(startStreamId, stopStreamId)
+
+        let transmitStopsBeforeCap = background.transmitStops
+        clock.fireAll()
+        flush()
+        XCTAssertEqual(background.transmitStops, transmitStopsBeforeCap)
+    }
+
+    func testReleaseBeforeAudioSessionGrantedNeverOpensTheMicrophone() {
+        engine.startRadio()
+        flush()
+
+        ptt.delegate?.pttSourceDidPress(ptt)
+        flush()
+        ptt.delegate?.pttSourceDidRelease(ptt)
+        flush()
+
+        XCTAssertFalse(audio.isCapturing)
+        XCTAssertTrue(transport.openedStreamIds.isEmpty)
+        XCTAssertTrue(transport.sentControl.isEmpty)
+        XCTAssertEqual(background.transmitRequests, 1)
+        XCTAssertEqual(background.transmitStops, 1)
+        XCTAssertFalse(currentState().transmitting)
+
+        background.grantAudioSession()
+        flush()
+
+        XCTAssertFalse(currentState().transmitting)
+        XCTAssertFalse(audio.isCapturing)
+    }
+
+    func testStopRadioTearsDownEveryPortAndEndsTransmission() {
+        engine.startRadio()
+        flush()
+        ptt.delegate?.pttSourceDidPress(ptt)
+        flush()
+        background.grantAudioSession()
+        flush()
+
+        engine.stopRadio()
+        flush()
+
+        XCTAssertFalse(audio.isCapturing)
+        XCTAssertFalse(audio.isPlaying)
+        XCTAssertFalse(transport.isStarted)
+        XCTAssertFalse(background.isActive)
+        XCTAssertFalse(ptt.isStarted)
+        XCTAssertFalse(currentState().transmitting)
+        XCTAssertEqual(currentState().status, .starting)
+    }
+
+    func testForgetPttReachesThePttSource() {
+        engine.forgetPtt()
+        flush()
+
+        XCTAssertTrue(ptt.didForget)
+    }
 }
