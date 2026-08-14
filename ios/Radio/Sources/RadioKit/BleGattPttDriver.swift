@@ -83,8 +83,21 @@ public final class BleGattPttDriver: NSObject {
         }
         peripheral = nil
         mode = .idle
-        isPressed = false
+        releaseIfPressed()
         delegate?.driver(self, connectionDidChange: false)
+    }
+
+    /// Strictly hold-to-talk means every place that clears `isPressed` without
+    /// a genuine button release must synthesise one, or the engine never learns
+    /// the transmission has to stop (spec section 9.4: the 120s cap is a
+    /// backstop, not the only thing standing between a dropped connection and
+    /// an open microphone).
+    private func releaseIfPressed() {
+        let wasPressed = isPressed
+        isPressed = false
+        if wasPressed {
+            delegate?.driverDidRelease(self)
+        }
     }
 
     private func connectBound(deviceId: String) {
@@ -340,7 +353,7 @@ extension BleGattPttDriver: CBCentralManagerDelegate {
         didDisconnectPeripheral peripheral: CBPeripheral,
         error: Error?
     ) {
-        isPressed = false
+        releaseIfPressed()
         delegate?.driver(self, connectionDidChange: false)
         guard case .bound = mode else { return }
         // Pending indefinitely: this is the button half of "reconnects
