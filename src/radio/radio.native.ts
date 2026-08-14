@@ -73,9 +73,11 @@ export function createRadioNative(resolve: ResolveNativeRadio): RadioNativeApi {
     const native = resolve();
     if (native instanceof Error) return native;
 
-    return await call(native).catch(
-      cause => new NativeRadioCallError({method, cause}),
-    );
+    try {
+      return await call(native);
+    } catch (cause) {
+      return new NativeRadioCallError({method, cause});
+    }
   };
 
   const invokeVoid = async (method: string, call: (native: Spec) => Promise<void>) => {

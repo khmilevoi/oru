@@ -158,6 +158,27 @@ describe('RadioNative against a working module', () => {
     expect((result as NativeRadioCallError).cause).toBe(boom);
   });
 
+  it('converts a synchronous throw into a call error without rejecting', async () => {
+    const boom = new TypeError('native.selectPttCandidate is not a function');
+    const radio = createRadioNative(() =>
+      // Build a fake where selectPttCandidate throws synchronously. The cast is needed
+      // because the Spec signature declares a Promise return, but we're overriding with
+      // a function that throws synchronously — that's exactly the scenario this test
+      // covers: an older native build that doesn't have the method yet.
+      fakeModule({
+        selectPttCandidate: jest.fn(() => {
+          throw boom;
+        }) as any,
+      }),
+    );
+
+    const result = await radio.selectPttCandidate('C4:2B:19:07:AA:31');
+
+    expect(result).toBeInstanceOf(NativeRadioCallError);
+    expect((result as NativeRadioCallError).method).toBe('selectPttCandidate');
+    expect((result as NativeRadioCallError).cause).toBe(boom);
+  });
+
   it('narrows the configuration returned by the learning flow', async () => {
     const radio = createRadioNative(() => fakeModule());
 
