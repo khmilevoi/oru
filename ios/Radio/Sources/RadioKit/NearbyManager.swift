@@ -54,11 +54,12 @@ final class OutgoingAudioStream: AudioStreamSink {
 /// One incoming transmission. Read on its own thread with blocking reads — no
 /// run loop is available on the queues the engine uses.
 final class IncomingAudioStream {
+    let id = UUID()
     let peerId: String
     private let stream: InputStream
     private let parser = AudioFrameParser()
     private let onFrame: (Data, String) -> Void
-    private let onEnd: (String) -> Void
+    private let onEnd: (String, UUID) -> Void
     private var thread: Thread?
     private var isCancelled = false
 
@@ -66,7 +67,7 @@ final class IncomingAudioStream {
         peerId: String,
         stream: InputStream,
         onFrame: @escaping (Data, String) -> Void,
-        onEnd: @escaping (String) -> Void
+        onEnd: @escaping (String, UUID) -> Void
     ) {
         self.peerId = peerId
         self.stream = stream
@@ -100,7 +101,7 @@ final class IncomingAudioStream {
         }
 
         stream.close()
-        onEnd(peerId)
+        onEnd(peerId, id)
     }
 }
 
@@ -428,9 +429,14 @@ extension NearbyManager: ConnectionManagerDelegate {
                         )
                     }
                 },
-                onEnd: { [weak self] peerId in
+                onEnd: { [weak self] peerId, id in
                     guard let self else { return }
                     self.queue.async {
+                        // A superseded reader (replaced by a later stream for the
+                        // same peer before it finished) must end silently: only
+                        // the reader still registered for this peer may remove
+                        // itself and report the peer as stopped.
+                        guard self.incoming[peerId]?.id == id else { return }
                         self.incoming.removeValue(forKey: peerId)
                         self.delegate?.transport(self, didStopIncomingAudio: peerId)
                     }
