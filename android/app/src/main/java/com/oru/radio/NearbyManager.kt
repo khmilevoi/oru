@@ -23,6 +23,43 @@ import java.io.OutputStream
 import java.util.concurrent.ConcurrentHashMap
 
 /**
+ * Which peers are currently sending us audio, and under which stream id. Split out of
+ * [NearbyManager] because it is the one piece of the receive path that is pure Kotlin and
+ * therefore testable on the JVM, and because the rule it encodes is subtle enough to need a
+ * test: a reader thread that finishes may only end *its own* transmission.
+ *
+ * Ending unconditionally lost a whole transmission. `tx-stop`(S1) arrives over the reliable
+ * BYTES channel and ends S1 while reader thread T1 is still draining its pipe (the STREAM
+ * flush after a pipe close takes tens to hundreds of milliseconds); the user taps again and
+ * S2 opens; T1 then reaches EOF and removed whatever was mapped for that peer — S2 — while
+ * reporting S1 as stopped. `RadioEngine` dropped the peer from `incoming` and silently
+ * discarded every frame of the second transmission. An ordinary quick double tap.
+ *
+ * [Entry] identity, not the stream id, is what makes a transmission unique: a peer that
+ * sends two streams without announcing either falls back to the same id for both, and
+ * value equality would confuse them exactly as the original bug did.
+ */
+internal class IncomingStreams {
+
+    /** One incoming transmission. Compared by identity — see the class doc. */
+    class Entry(val streamId: String)
+
+    private val active = ConcurrentHashMap<String, Entry>()
+
+    /** Records a new incoming transmission, replacing whatever this peer had before. */
+    fun open(peerId: String, streamId: String): Entry =
+        Entry(streamId).also { active[peerId] = it }
+
+    /** Ends whatever this peer is sending, or returns null if it was sending nothing. */
+    fun end(peerId: String): Entry? = active.remove(peerId)
+
+    /** Ends [entry] only while it is still this peer's current transmission. */
+    fun endIfCurrent(peerId: String, entry: Entry): Boolean = active.remove(peerId, entry)
+
+    fun clear() = active.clear()
+}
+
+/**
  * The transport of spec section 7: P2P_CLUSTER, advertising and discovering at the same
  * time under one shared service id, accepting every connection, gating peers on `hello`,
  * and reconnecting natively with backoff. Nothing here knows about JavaScript.
@@ -47,8 +84,9 @@ class NearbyManager(
     private val ignored = ConcurrentHashMap.newKeySet<String>()
     private val backoffs = ConcurrentHashMap<String, ReconnectBackoff>()
     private val reconnectTimers = ConcurrentHashMap<String, Cancellable>()
+    private val helloTimers = ConcurrentHashMap<String, Cancellable>()
     private val announcedStreamIds = ConcurrentHashMap<String, String>()
-    private val activeIncoming = ConcurrentHashMap<String, String>()
+    private val incoming = IncomingStreams()
 
     @Volatile private var listener: TransportListener? = null
     @Volatile private var running = false
@@ -85,12 +123,14 @@ class NearbyManager(
         client.stopAllEndpoints()
         reconnectTimers.values.forEach { it.cancel() }
         reconnectTimers.clear()
+        helloTimers.values.forEach { it.cancel() }
+        helloTimers.clear()
         handshaked.clear()
         awaitingHello.clear()
         ignored.clear()
         backoffs.clear()
         announcedStreamIds.clear()
-        activeIncoming.clear()
+        incoming.clear()
         listener = null
     }
 
@@ -180,7 +220,7 @@ class NearbyManager(
         override fun onConnectionResult(endpointId: String, resolution: ConnectionResolution) {
             if (resolution.status.statusCode == ConnectionsStatusCodes.STATUS_OK) {
                 backoffs.remove(endpointId)
-                awaitingHello.add(endpointId)
+                awaitHello(endpointId)
                 send(endpointId, ControlMessage.Hello(RadioConfig.PROTOCOL_VERSION))
             } else {
                 scheduleReconnect(endpointId)
@@ -189,13 +229,46 @@ class NearbyManager(
 
         override fun onDisconnected(endpointId: String) {
             awaitingHello.remove(endpointId)
+            cancelHelloTimeout(endpointId)
             cancelReconnect(endpointId)
             transmission?.removePeer(endpointId)
-            activeIncoming.remove(endpointId)?.let { streamId ->
-                listener?.onIncomingAudioStopped(endpointId, streamId)
+            incoming.end(endpointId)?.let { stream ->
+                listener?.onIncomingAudioStopped(endpointId, stream.streamId)
             }
             if (handshaked.remove(endpointId)) listener?.onPeerDisconnected(endpointId)
         }
+    }
+
+    /**
+     * A connected endpoint owes us a `hello` (spec section 7), and until it arrives the
+     * endpoint counts for nothing: it is not in [handshaked], so it is not a peer, and
+     * [discoveryCallback] skips it, so it is never reconnected either. A `hello` that never
+     * comes — a lost BYTES payload, a peer of another build, a peer still under
+     * construction — used to park the endpoint there forever: `nearbyCount` stayed 0, no
+     * error was raised, nothing was logged, and only restarting the service recovered it.
+     * Phase 0 is Android to iPhone, so that was the most likely way scenarios A to D would
+     * fail with no diagnostic at all.
+     *
+     * The bound is a timer per endpoint, the same shape [reconnectTimers] already uses:
+     * replaced rather than stacked, cancelled when the `hello` arrives, when the endpoint
+     * disconnects, and in [stop].
+     */
+    private fun awaitHello(endpointId: String) {
+        awaitingHello.add(endpointId)
+        helloTimers.remove(endpointId)?.cancel()
+        helloTimers[endpointId] = scheduler.schedule(RadioConfig.HELLO_TIMEOUT_MS) {
+            helloTimers.remove(endpointId)
+            if (!awaitingHello.remove(endpointId)) return@schedule
+            Log.w(TAG, "no hello from $endpointId in ${RadioConfig.HELLO_TIMEOUT_MS} ms; dropping it")
+            // Dropped, not ignored: the endpoint is free to be rediscovered and reconnected
+            // right away, which is what turns a wedged handshake into a retry instead of a
+            // dead radio.
+            runCatching { client.disconnectFromEndpoint(endpointId) }
+        }
+    }
+
+    private fun cancelHelloTimeout(endpointId: String) {
+        helloTimers.remove(endpointId)?.cancel()
     }
 
     private fun requestConnection(endpointId: String) {
@@ -254,6 +327,7 @@ class NearbyManager(
     private fun handleControl(peerId: String, bytes: ByteArray) {
         when (val message = ControlMessageCodec.decode(bytes)) {
             is ControlMessage.Hello -> {
+                cancelHelloTimeout(peerId)
                 if (message.version != RadioConfig.PROTOCOL_VERSION) {
                     // Spec section 7: disconnect gracefully and ignore this peer.
                     ignored.add(peerId)
@@ -272,8 +346,8 @@ class NearbyManager(
                 announcedStreamIds[peerId] = message.streamId
             }
             is ControlMessage.TxStop -> if (peerId in handshaked) {
-                activeIncoming.remove(peerId)?.let { streamId ->
-                    listener?.onIncomingAudioStopped(peerId, streamId)
+                incoming.end(peerId)?.let { stream ->
+                    listener?.onIncomingAudioStopped(peerId, stream.streamId)
                 }
             }
             null -> Log.w(TAG, "ignoring an unparseable control payload from $peerId")
@@ -287,7 +361,7 @@ class NearbyManager(
      */
     private fun startReader(peerId: String, input: InputStream) {
         val streamId = announcedStreamIds.remove(peerId) ?: "unknown"
-        activeIncoming[peerId] = streamId
+        val stream = incoming.open(peerId, streamId)
         listener?.onIncomingAudioStarted(peerId, streamId)
 
         Thread({
@@ -300,7 +374,13 @@ class NearbyManager(
                 Log.w(TAG, "audio stream from $peerId ended", error)
             } finally {
                 runCatching { input.close() }
-                activeIncoming.remove(peerId)?.let { listener?.onIncomingAudioStopped(peerId, it) }
+                // Only this reader's own transmission, and only while it is still the
+                // current one: this thread routinely outlives its `tx-stop` by the length
+                // of a STREAM flush, and by then the peer may already have started the
+                // next transmission. See IncomingStreams.
+                if (incoming.endIfCurrent(peerId, stream)) {
+                    listener?.onIncomingAudioStopped(peerId, stream.streamId)
+                }
             }
         }, "oru-rx-$peerId").start()
     }

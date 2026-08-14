@@ -55,6 +55,16 @@ object RadioConfig {
      */
     const val PAIRING_TIMEOUT_MS = 60_000L
 
+    /**
+     * How long a freshly connected endpoint has to send its `hello` before the transport
+     * gives up on it, disconnects and lets discovery start over. A peer counts as connected
+     * only once its `hello` is seen (spec section 7), so without this bound one lost BYTES
+     * payload — or one peer that never sends a `hello` at all — parks that endpoint for the
+     * lifetime of the process: no retry, no error, `nearbyCount` stuck at 0 and nothing in
+     * the log. Generous compared with the handshake itself, which is one payload each way.
+     */
+    const val HELLO_TIMEOUT_MS = 10_000L
+
     const val RECONNECT_INITIAL_DELAY_MS = 1_000L
     const val RECONNECT_MAX_DELAY_MS = 30_000L
     const val RECONNECT_MULTIPLIER = 2
