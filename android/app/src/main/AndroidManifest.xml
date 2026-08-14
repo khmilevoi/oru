@@ -21,6 +21,12 @@
     <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="32" />
 
+    <!-- Nearby Connections' Wi-Fi-based mediums (advertising/discovery) need these; without
+         them the engine fails immediately on start with advertising_failed/discovery_failed
+         MISSING_PERMISSION_ACCESS_WIFI_STATE. -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+
     <!-- Spec section 11: foreground service -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />

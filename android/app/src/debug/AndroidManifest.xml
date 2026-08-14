@@ -8,11 +8,13 @@
       can launch it as the visible component that legalizes starting the microphone
       foreground service from the command line.
 
-      SpikeReceiver is NOT exported. `adb shell am broadcast` (running as the shell UID) can
-      still reach a non-exported receiver on a debug build, because the exported flag only
-      governs other apps' UIDs, so exported="false" keeps every ptt-* command reachable from
-      adb while blocking any other installed app from broadcasting radio commands directly
-      to it.
+      SpikeReceiver IS exported. The original assumption here — that `adb shell am broadcast`
+      (running as the shell UID, 2000) can reach a non-exported receiver on a debug build —
+      does not hold on every device/OS version: some (confirmed on Android 16 / ColorOS)
+      reject it with a Permission Denial ("is not exported from uid ..."), which silently
+      breaks every ptt-* command sent from adb. Since this whole surface only ships in debug
+      builds and disappears from release, exported="true" is an acceptable trade to keep it
+      actually reachable from adb everywhere.
     -->
     <application>
         <activity
@@ -22,7 +24,7 @@
 
         <receiver
             android:name="com.oru.radio.SpikeReceiver"
-            android:exported="false" />
+            android:exported="true" />
     </application>
 
 </manifest>

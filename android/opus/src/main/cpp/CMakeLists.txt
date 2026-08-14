@@ -39,3 +39,14 @@ FetchContent_MakeAvailable(opus)
 
 add_library(oru_opus SHARED opus_jni.c)
 target_link_libraries(oru_opus PRIVATE opus log)
+
+# 16 KB page size compatibility (Android 15+ devices/emulators, Google Play
+# requirement for apps with native code as of Nov 2025). NDK r27's linker
+# still defaults ELF LOAD segment alignment to the legacy 4 KB
+# (max-page-size=0x1000); the toolchain does not switch to a 16 KB default
+# until later NDK releases. Without this flag liboru_opus.so is the only
+# native library in this app that fails 16 KB device compatibility checks —
+# React Native's own prebuilt .so files (libreactnative, Hermes, fbjni,
+# react-native-safe-area-context's react_codegen_safeareacontext) are already
+# 16 KB-aligned upstream.
+target_link_options(oru_opus PRIVATE "-Wl,-z,max-page-size=16384")
