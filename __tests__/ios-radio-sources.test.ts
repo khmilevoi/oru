@@ -382,3 +382,83 @@ describe('BackgroundManager (spec section 10.2)', () => {
     expect(importers).toEqual(['BackgroundManager.swift']);
   });
 });
+
+describe('PTT subsystem (spec section 9)', () => {
+  const binding = source('PttBinding.swift');
+  const driver = source('BleGattPttDriver.swift');
+  const manager = source('PttManager.swift');
+
+  it.each([
+    'public enum PttBinding',
+    'case ble(',
+    'case hid(keyCode: Int)',
+    'public struct PttConfiguration',
+    'public final class PttBindingStore',
+    'public func load() -> PttConfiguration?',
+    'public func save(_ configuration: PttConfiguration)',
+    'public func clear()',
+  ])('PttBinding.swift declares %s', declaration => {
+    expect(binding).toContain(declaration);
+  });
+
+  it.each([
+    'deviceId',
+    'serviceUuid',
+    'characteristicUuid',
+    'pressedValue',
+    'releasedValue',
+  ])('keeps the spec 9.2 field name %s', field => {
+    expect(binding).toContain(field);
+  });
+
+  it('persists to UserDefaults under the configured key', () => {
+    expect(binding).toContain('RadioConfig.Ptt.bindingDefaultsKey');
+    expect(binding).toContain('UserDefaults');
+  });
+
+  it.each([
+    'public final class BleGattPttDriver',
+    'extension BleGattPttDriver: CBCentralManagerDelegate',
+    'extension BleGattPttDriver: CBPeripheralDelegate',
+    'func selectCandidate(deviceId: String)',
+  ])('BleGattPttDriver.swift declares %s', declaration => {
+    expect(driver).toContain(declaration);
+  });
+
+  it('treats the strongest-signal pick as a timed fallback, not the path', () => {
+    expect(driver).toContain('RadioConfig.Ptt.autoSelectFallback');
+  });
+
+  it('survives background relaunch with a restore identifier', () => {
+    expect(driver).toContain('CBCentralManagerOptionRestoreIdentifierKey');
+    expect(driver).toContain('willRestoreState');
+  });
+
+  it('learns by subscribing to notifying characteristics', () => {
+    expect(driver).toContain('setNotifyValue(true');
+    expect(driver).toContain('RadioConfig.Ptt.learningTimeout');
+  });
+
+  it.each([
+    'public final class PttManager: PttSource',
+    'public func beginLearning(',
+    'public func selectCandidate(deviceId: String)',
+    'public func forget()',
+    'pttSourceDidPress(self)',
+    'pttSourceDidRelease(self)',
+  ])('PttManager.swift declares %s', declaration => {
+    expect(manager).toContain(declaration);
+  });
+
+  it.each(['.scanning', '.learning', '.saved'])(
+    'publishes the pairing phase %s',
+    phase => {
+      expect(manager).toContain(`phase: ${phase}`);
+    },
+  );
+
+  it('publishes pairing progress as state, not as an event', () => {
+    expect(manager).toContain('pairingStateDidChange: state');
+    expect(manager).toContain('PttPairingState');
+  });
+});
