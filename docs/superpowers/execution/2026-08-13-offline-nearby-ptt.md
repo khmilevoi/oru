@@ -91,7 +91,7 @@ button's protocol → closeout (Stage 5, physical hardware).
 
 ### P3 `ios-engine` — wave 2, track B
 - [x] planned   → docs/superpowers/plans/2026-08-13-p3-ios-engine.md
-- [ ] executed  → branch plan/p3-ios-engine · worktree .claude/worktrees/p3-ios-engine
+- [x] executed  → branch plan/p3-ios-engine · worktree .claude/worktrees/p3-ios-engine
 - [ ] merged    → sync 2
 
 **Owns:** the entire iOS radio: `RadioEngine.swift` (same state machine and safety cap);
