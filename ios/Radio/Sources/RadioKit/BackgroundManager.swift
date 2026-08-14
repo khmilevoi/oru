@@ -12,6 +12,7 @@ public final class BackgroundManager: NSObject, BackgroundSession {
     public weak var delegate: BackgroundSessionDelegate?
 
     private var manager: PTChannelManager?
+    private var wantsChannel = false
     private let channelUUID = RadioConfig.Background.channelUUID
     private let log = Logger(
         subsystem: RadioConfig.Logging.subsystem,
@@ -45,6 +46,7 @@ public final class BackgroundManager: NSObject, BackgroundSession {
     // MARK: - BackgroundSession
 
     public func activate() {
+        wantsChannel = true
         Task { [weak self] in
             guard let self else { return }
             do {
@@ -53,6 +55,7 @@ public final class BackgroundManager: NSObject, BackgroundSession {
                     restorationDelegate: self
                 )
                 self.manager = manager
+                guard self.wantsChannel else { return }
                 manager.requestJoinChannel(
                     channelUUID: self.channelUUID,
                     descriptor: self.descriptor
@@ -67,6 +70,7 @@ public final class BackgroundManager: NSObject, BackgroundSession {
     }
 
     public func deactivate() {
+        wantsChannel = false
         manager?.leaveChannel(channelUUID: channelUUID)
     }
 
