@@ -59,7 +59,7 @@ export type RadioNativeApi = {
   forgetPtt(): Promise<NativeRadioError | null>;
   subscribe(
     listener: (event: RadioNativeEvent) => void,
-  ): NativeRadioUnavailableError | RadioNativeSubscription;
+  ): NativeRadioError | RadioNativeSubscription;
 };
 
 /**
@@ -111,12 +111,26 @@ export function createRadioNative(resolve: ResolveNativeRadio): RadioNativeApi {
       const native = resolve();
       if (native instanceof Error) return native;
 
-      const subscriptions: RadioNativeSubscription[] = [
-        native.onStateChanged(state => listener({type: 'stateChanged', state})),
-        native.onError(payload =>
-          listener({type: 'error', code: payload.code, message: payload.message}),
-        ),
-      ];
+      /**
+       * Collected one at a time, not built as an array literal from two calls:
+       * against a partially-wired native module (P5 must wire two emitters,
+       * the newest part of the contract) the second registration can throw,
+       * and whatever was already registered above must not leak.
+       */
+      const subscriptions: RadioNativeSubscription[] = [];
+      try {
+        subscriptions.push(
+          native.onStateChanged(state => listener({type: 'stateChanged', state})),
+        );
+        subscriptions.push(
+          native.onError(payload =>
+            listener({type: 'error', code: payload.code, message: payload.message}),
+          ),
+        );
+      } catch (cause) {
+        subscriptions.forEach(subscription => subscription.remove());
+        return new NativeRadioCallError({method: 'subscribe', cause});
+      }
 
       return {
         remove() {

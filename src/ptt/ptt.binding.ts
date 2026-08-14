@@ -37,7 +37,23 @@ function requireText(value: string | undefined) {
 }
 
 export function parsePttBinding(raw: NativePttBinding) {
-  if (raw.type === 'ble') {
+  /**
+   * `raw` crosses the Turbo Module bridge from a WritableMap (Android) or a
+   * dictionary (iOS): the declared `NativePttBinding` type is not enforced at
+   * runtime there, so an entirely absent or non-object binding value is
+   * possible and must not reach `raw.type` below. The cast is what lets the
+   * guard typecheck against a param TypeScript otherwise considers always an
+   * object.
+   */
+  const value = raw as NativePttBinding | null | undefined;
+  if (typeof value !== 'object' || value === null) {
+    return new PttBindingParseError({
+      bindingType: 'unknown',
+      reason: 'binding payload is not an object',
+    });
+  }
+
+  if (value.type === 'ble') {
     const deviceId = requireText(raw.deviceId);
     if (deviceId === null) {
       return new PttBindingParseError({bindingType: 'ble', reason: 'missing deviceId'});
@@ -111,17 +127,42 @@ export function serializePttBinding(binding: PttBinding): NativePttBinding {
 }
 
 export function parsePttConfiguration(raw: NativePttConfiguration) {
-  const name = requireText(raw.name);
+  /**
+   * As in `parsePttBinding`: `raw` crosses the native bridge, where nothing
+   * enforces the declared shape at runtime. `configurePtt()` can resolve with
+   * an entirely missing `binding` key, and both dereferences below —
+   * `raw.binding.type` in the missing-name branch and the `raw.binding` fed to
+   * `parsePttBinding` — would throw on that payload without this guard. The
+   * cast is what lets the check typecheck against a param TypeScript
+   * otherwise considers always a well-formed object.
+   */
+  const payload = raw as NativePttConfiguration | null | undefined;
+  if (typeof payload !== 'object' || payload === null) {
+    return new PttBindingParseError({
+      bindingType: 'unknown',
+      reason: 'configuration payload is not an object',
+    });
+  }
+
+  const binding = payload.binding as NativePttBinding | null | undefined;
+  if (typeof binding !== 'object' || binding === null) {
+    return new PttBindingParseError({
+      bindingType: 'unknown',
+      reason: 'missing binding',
+    });
+  }
+
+  const name = requireText(payload.name);
   if (name === null) {
     return new PttBindingParseError({
-      bindingType: raw.binding.type,
+      bindingType: binding.type,
       reason: 'missing device name',
     });
   }
 
-  const binding = parsePttBinding(raw.binding);
-  if (binding instanceof Error) return binding;
+  const parsedBinding = parsePttBinding(binding);
+  if (parsedBinding instanceof Error) return parsedBinding;
 
-  const configuration: PttConfiguration = {name, binding};
+  const configuration: PttConfiguration = {name, binding: parsedBinding};
   return configuration;
 }

@@ -30,7 +30,7 @@ import {
 } from '../src/radio/radio.model';
 import {initialRadioState} from '../src/radio/radio.types';
 import type {PttConfiguration} from '../src/ptt/ptt.types';
-import type {RadioState, ScreenState} from '../src/radio/radio.types';
+import type {RadioNativeEvent, RadioState, ScreenState} from '../src/radio/radio.types';
 
 const native = RadioNative as jest.Mocked<typeof RadioNative>;
 
@@ -245,6 +245,36 @@ describe('engine events (spec section 6.1)', () => {
     radioEventListener({type: 'stateChanged', state: readyState});
 
     expect(radio()).toEqual(readyState);
+  });
+});
+
+describe('RadioNative.subscribe wired to radioEventListener (the P7 seam)', () => {
+  it('routes a stateChanged and an error event from the subscribed engine into the mirror', () => {
+    // Collected in an array, not a `let` binding: TypeScript does not track
+    // assignments made inside a callback, so a `let` would still read as its
+    // initial value afterwards — see radio-native.test.ts's
+    // subscribingModule() for the same convention against the real module.
+    const listeners: Array<(event: RadioNativeEvent) => void> = [];
+    native.subscribe.mockImplementation(listener => {
+      listeners.push(listener);
+      return {remove: jest.fn()};
+    });
+
+    const subscription = RadioNative.subscribe(radioEventListener);
+    if (subscription instanceof Error) throw subscription;
+
+    expect(listeners).toHaveLength(1);
+
+    listeners.forEach(listener => listener({type: 'stateChanged', state: readyState}));
+    expect(radio()).toEqual(readyState);
+
+    listeners.forEach(listener =>
+      listener({type: 'error', code: 'NEARBY_FAILED', message: 'advertising failed'}),
+    );
+    const recorded = lastRadioError();
+    expect(recorded).toBeInstanceOf(RadioEngineError);
+    expect((recorded as RadioEngineError).code).toBe('NEARBY_FAILED');
+    expect(recorded?.message).toContain('advertising failed');
   });
 });
 

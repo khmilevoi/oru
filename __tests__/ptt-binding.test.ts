@@ -4,7 +4,7 @@ import {
   parsePttConfiguration,
   serializePttBinding,
 } from '../src/ptt/ptt.binding';
-import type {NativePttBinding} from '../src/ptt/ptt.binding';
+import type {NativePttBinding, NativePttConfiguration} from '../src/ptt/ptt.binding';
 import type {PttBinding} from '../src/ptt/ptt.types';
 
 const bleNative: NativePttBinding = {
@@ -93,6 +93,14 @@ describe('PttBinding parsing (spec section 9.2)', () => {
       parsePttBinding({type: 'usb', keyCode: 85} as unknown as NativePttBinding),
     ).toBeInstanceOf(PttBindingParseError);
   });
+
+  it('rejects a binding payload that is not an object, instead of throwing', () => {
+    expect(
+      // The cast is the point: an omitted or malformed `binding` value from a
+      // misbehaving native engine is exactly the case this guard exists for.
+      parsePttBinding(null as unknown as NativePttBinding),
+    ).toBeInstanceOf(PttBindingParseError);
+  });
 });
 
 describe('PttConfiguration parsing (spec section 6.1)', () => {
@@ -111,6 +119,27 @@ describe('PttConfiguration parsing (spec section 6.1)', () => {
   it('propagates a binding failure', () => {
     expect(
       parsePttConfiguration({name: 'PTT Button', binding: {type: 'hid'}}),
+    ).toBeInstanceOf(PttBindingParseError);
+  });
+
+  it('rejects a configuration whose binding is missing entirely, instead of throwing', () => {
+    expect(
+      // The cast is the point: an omitted `binding` key from a
+      // WritableMap/dictionary on the other side of the bridge is exactly the
+      // case this guard exists for.
+      parsePttConfiguration({name: 'PTT Button'} as unknown as NativePttConfiguration),
+    ).toBeInstanceOf(PttBindingParseError);
+  });
+
+  it('rejects a configuration missing both a name and a binding, instead of throwing', () => {
+    expect(
+      parsePttConfiguration({} as unknown as NativePttConfiguration),
+    ).toBeInstanceOf(PttBindingParseError);
+  });
+
+  it('rejects a configuration payload that is not an object, instead of throwing', () => {
+    expect(
+      parsePttConfiguration(null as unknown as NativePttConfiguration),
     ).toBeInstanceOf(PttBindingParseError);
   });
 });

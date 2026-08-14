@@ -277,4 +277,23 @@ describe('RadioNative event subscription (spec section 6.1)', () => {
     expect(stateSubscription.remove).toHaveBeenCalledTimes(1);
     expect(errorSubscription.remove).toHaveBeenCalledTimes(1);
   });
+
+  it('returns a call error instead of throwing when onError throws synchronously, and removes the already-collected onStateChanged subscription', () => {
+    const stateSubscription = fakeSubscription();
+    const boom = new TypeError('native.onError is not a function');
+    const native = fakeModule({
+      onStateChanged: jest.fn(() => stateSubscription.subscription),
+      onError: jest.fn(() => {
+        throw boom;
+      }),
+    });
+    const radio = createRadioNative(() => native);
+
+    const result = radio.subscribe(() => {});
+
+    expect(result).toBeInstanceOf(NativeRadioCallError);
+    expect((result as NativeRadioCallError).method).toBe('subscribe');
+    expect((result as NativeRadioCallError).cause).toBe(boom);
+    expect(stateSubscription.remove).toHaveBeenCalledTimes(1);
+  });
 });
