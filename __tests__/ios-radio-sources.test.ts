@@ -336,3 +336,49 @@ describe('AudioEngine (spec section 8)', () => {
     expect(audio).not.toContain('setActive(true');
   });
 });
+
+describe('BackgroundManager (spec section 10.2)', () => {
+  const background = source('BackgroundManager.swift');
+
+  it.each([
+    'public final class BackgroundManager',
+    'BackgroundSession',
+    'extension BackgroundManager: PTChannelManagerDelegate',
+    'extension BackgroundManager: PTChannelRestorationDelegate',
+  ])('declares %s', declaration => {
+    expect(background).toContain(declaration);
+  });
+
+  it('joins a stable channel from config', () => {
+    expect(background).toContain('RadioConfig.Background.channelUUID');
+    expect(background).toContain('requestJoinChannel(');
+    expect(background).toContain('leaveChannel(');
+  });
+
+  it('drives transmission through the framework', () => {
+    expect(background).toContain('requestBeginTransmitting(');
+    expect(background).toContain('stopTransmitting(');
+  });
+
+  it('announces incoming speech as an active remote participant', () => {
+    expect(background).toContain('setActiveRemoteParticipant(');
+  });
+
+  it('reports audio-session activation to the engine', () => {
+    expect(background).toContain('didActivate audioSession');
+    expect(background).toContain('backgroundSessionDidActivateAudio(self)');
+  });
+
+  it('takes its system-visible names from the localized bundle', () => {
+    expect(background).toContain('ptt.channel.name');
+    expect(background).toContain('ptt.participant.nearby');
+    expect(background).toContain('bundle: .module');
+  });
+
+  it('is the only file that imports PushToTalk', () => {
+    const importers = swiftFiles().filter(name =>
+      source(name).includes('import PushToTalk'),
+    );
+    expect(importers).toEqual(['BackgroundManager.swift']);
+  });
+});
