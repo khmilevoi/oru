@@ -79,8 +79,8 @@ adb shell am start -n com.oru/com.oru.radio.SpikeActivity --es cmd keys
 | Scenario | How to run it here |
 |---|---|
 | A — Android PTT → locked iPhone plays audio | start both radios, lock the iPhone, `ptt-down`, speak, `ptt-up` |
-| B — iPhone BLE PTT → locked Android plays audio | start both, lock the Android, press the iPhone's button; the Android must play without any command from here |
-| C — locked iPhone BLE PTT → Android receives | the mirror of B, driven from iOS; here you only confirm reception |
+| B — iPhone BLE PTT → locked Android plays audio | start both, lock the Android, press the iPhone's button; the Android must play without any command from here. Confirm it objectively rather than by ear: run `state` while the button is held and read `receiving=true`, then again after the release and read `receiving=false` |
+| C — locked iPhone BLE PTT → Android receives | the mirror of B, driven from iOS; here you only confirm reception — again with `state` (`receiving=true` while the iPhone transmits), not by ear alone |
 | D — out of range and back | `state` shows `nearbyCount` 1, walk out of range until it reads 0, return, and `state` must return to 1 with no restart |
 
 Record the outcome and an explicit **Go** or **No-Go** in
