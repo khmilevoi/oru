@@ -5,6 +5,13 @@
     <!-- Spec section 11: microphone -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- AudioManager.setMode() is gated on this one: without it AudioService's
+         checkAudioSettingsPermission() makes the call a silent no-op, and the radio never
+         gets the shared echo-cancelled voice route or the call-stream volume keys it asks
+         for in RadioForegroundService.setCommunicationMode(). Install-time, so nothing has
+         to request it at runtime. -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
     <!-- Spec section 11: Nearby Connections + the external PTT button -->
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
@@ -41,5 +48,9 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
       </activity>
+        <service
+            android:name="com.oru.radio.RadioForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="microphone|connectedDevice" />
     </application>
 </manifest>

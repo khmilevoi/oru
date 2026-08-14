@@ -1,0 +1,5 @@
+<resources>
+    <string name="radio_notification_channel_name">Рация</string>
+    <string name="radio_notification_title">Рация Oru</string>
+    <string name="radio_notification_text">Слушаем устройства рядом</string>
+</resources>

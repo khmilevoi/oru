@@ -1,0 +1,28 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Phase 0 spike hooks (spec section 15). Confined to the debug source set so a release
+      build never contains them.
+
+      SpikeActivity is exported so `adb shell am start -n com.oru/com.oru.radio.SpikeActivity`
+      can launch it as the visible component that legalizes starting the microphone
+      foreground service from the command line.
+
+      SpikeReceiver is NOT exported. `adb shell am broadcast` (running as the shell UID) can
+      still reach a non-exported receiver on a debug build, because the exported flag only
+      governs other apps' UIDs, so exported="false" keeps every ptt-* command reachable from
+      adb while blocking any other installed app from broadcasting radio commands directly
+      to it.
+    -->
+    <application>
+        <activity
+            android:name="com.oru.radio.SpikeActivity"
+            android:excludeFromRecents="true"
+            android:exported="true" />
+
+        <receiver
+            android:name="com.oru.radio.SpikeReceiver"
+            android:exported="false" />
+    </application>
+
+</manifest>
