@@ -248,3 +248,50 @@ describe('NearbyManager (spec section 7)', () => {
     expect(importers).toEqual(['NearbyManager.swift']);
   });
 });
+
+describe('Opus codec and jitter buffer (spec section 8)', () => {
+  const codec = source('OpusCodec.swift');
+  const jitter = source('JitterBuffer.swift');
+
+  it.each([
+    'public protocol OpusEncoding',
+    'public protocol OpusDecoding',
+    'func encode(_ pcm: Data) throws -> Data',
+    'func decode(_ packet: Data) throws -> Data',
+    'final class LibopusEncoder',
+    'final class LibopusDecoder',
+    'enum OpusFormat',
+  ])('OpusCodec.swift declares %s', declaration => {
+    expect(codec).toContain(declaration);
+  });
+
+  it('configures the codec from RadioConfig only', () => {
+    expect(codec).toContain('RadioConfig.Audio.sampleRate');
+    expect(codec).toContain('RadioConfig.Audio.channelCount');
+    expect(codec).toContain('RadioConfig.Audio.bitrate');
+    expect(codec).toContain('RadioConfig.Audio.maxEncodedFrameBytes');
+    expect(codec).not.toMatch(/16_?000/);
+  });
+
+  it('is the only file that imports Opus', () => {
+    const importers = swiftFiles().filter(name =>
+      /^import Opus$/m.test(source(name)),
+    );
+    expect(importers).toEqual(['OpusCodec.swift']);
+  });
+
+  it.each([
+    'public final class JitterBuffer',
+    'public func push(_ frame: Data)',
+    'public func pop() -> Data?',
+    'public func reset()',
+    'public private(set) var isPrimed',
+  ])('JitterBuffer.swift declares %s', declaration => {
+    expect(jitter).toContain(declaration);
+  });
+
+  it('takes its depth from config', () => {
+    expect(jitter).toContain('RadioConfig.Audio.jitterTargetFrames');
+    expect(jitter).toContain('RadioConfig.Audio.jitterMaxFrames');
+  });
+});
