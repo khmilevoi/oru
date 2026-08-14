@@ -23,7 +23,10 @@ import java.util.UUID
  * (`RadioEngine` wraps every `PttSource` call in `scheduler.execute { }`, and `PttManager`
  * calls straight through to this driver from there). [callback] fires on whatever thread
  * the Bluetooth stack picks, which is not that thread. [gatt] and [pressed] are therefore
- * touched from two threads and are `@Volatile`.
+ * touched from two threads and are `@Volatile`. `connectGatt` is called without a `Handler`,
+ * which means a binder *pool* rather than one callback thread, so `@Volatile` is not enough
+ * on its own for [pressed]: every read-and-set of it goes through a synchronized helper, or
+ * two repeats of the same value arriving at once would both pass the same check.
  *
  * Bug fix: `PttManager.attach()` calls `driver?.stop()` and immediately creates and starts
  * a *new* driver, with the same `PttManager` as [listener] for both. If this driver's
@@ -89,7 +92,7 @@ class BleGattPttDriver(
             current?.disconnect()
             current?.close()
         }
-        pressed = false
+        clearPress()
         listener.onConnectionChanged(false)
     }
 
@@ -103,7 +106,7 @@ class BleGattPttDriver(
                     runCatching { gatt.discoverServices() }
                 }
                 BluetoothProfile.STATE_DISCONNECTED -> {
-                    pressed = false
+                    clearPress()
                     if (!closing) {
                         listener.onConnectionChanged(false)
                     }
@@ -170,15 +173,36 @@ class BleGattPttDriver(
     /** Strictly hold-to-talk (spec section 9.4); unknown values are simply not ours. */
     private fun handle(valueHex: String) {
         when (valueHex) {
-            binding.pressedValue -> if (!pressed) {
-                pressed = true
-                listener.onPressed()
-            }
-            binding.releasedValue -> if (pressed) {
-                pressed = false
-                listener.onReleased()
-            }
+            binding.pressedValue -> if (takePress()) listener.onPressed()
+            binding.releasedValue -> if (takeRelease()) listener.onReleased()
             else -> Log.d(TAG, "ignoring PTT characteristic value $valueHex")
         }
+    }
+
+    /**
+     * The read-and-set of [pressed] is one step, not two. `connectGatt` is called without a
+     * `Handler`, so notifications arrive on a binder *pool* and two repeats of the same
+     * value can be in [handle] at once on different threads; `@Volatile` makes each read
+     * current but does nothing about two of them passing the same check. The listener is
+     * notified outside the lock, since it hands the event on to the engine's scheduler.
+     */
+    @Synchronized
+    private fun takePress(): Boolean {
+        if (pressed) return false
+        pressed = true
+        return true
+    }
+
+    @Synchronized
+    private fun takeRelease(): Boolean {
+        if (!pressed) return false
+        pressed = false
+        return true
+    }
+
+    /** A teardown or a dropped link forgets the press without reporting a release. */
+    @Synchronized
+    private fun clearPress() {
+        pressed = false
     }
 }

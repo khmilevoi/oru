@@ -199,6 +199,7 @@ class PttManagerTest {
     fun `selecting a candidate moves the session to learning and reaches the driver`() {
         manager.start(listener)
         manager.startPairing()
+        factory.learningListener!!.onDeviceFound("AA:BB:CC:DD:EE:FF", "PTT-Button", -54)
 
         manager.selectCandidate("AA:BB:CC:DD:EE:FF")
 
@@ -216,9 +217,27 @@ class PttManagerTest {
     }
 
     @Test
+    fun `selecting a device that was never published as a candidate is refused`() {
+        manager.start(listener)
+        manager.startPairing()
+        factory.learningListener!!.onDeviceFound("AA:BB:CC:DD:EE:FF", "PTT-Button", -54)
+
+        // The runbook's `ptt-pick --es device <address>` takes whatever the operator typed,
+        // and the bridge will happily forward anything JS passes it. Only an address this
+        // session actually published may reach the BLE stack, where a malformed one used to
+        // reach BluetoothAdapter.getRemoteDevice and take the whole process down with it.
+        manager.selectCandidate("AA:BB:CC:DD:EE:F")
+
+        assertNull(factory.selectedDevice)
+        assertEquals(listOf("unknown_device" to "AA:BB:CC:DD:EE:F"), listener.failures)
+        assertNull(listener.lastPairing)
+    }
+
+    @Test
     fun `a learned binding is saved, attached, and published as the saved phase`() {
         manager.start(listener)
         manager.startPairing()
+        factory.learningListener!!.onDeviceFound("AA:BB:CC:DD:EE:FF", "PTT-Button", -54)
         manager.selectCandidate("AA:BB:CC:DD:EE:FF")
 
         factory.learningListener!!.onLearned(bleConfiguration)
@@ -273,6 +292,7 @@ class PttManagerTest {
     fun `a learned callback that arrives after cancelling is ignored`() {
         manager.start(listener)
         manager.startPairing()
+        factory.learningListener!!.onDeviceFound("AA:BB:CC:DD:EE:FF", "PTT-Button", -54)
         manager.selectCandidate("AA:BB:CC:DD:EE:FF")
         val staleLearning = factory.learningListener!!
 
@@ -288,6 +308,7 @@ class PttManagerTest {
     fun `a learned callback that arrives after the timeout has fired is ignored`() {
         manager.start(listener)
         manager.startPairing()
+        factory.learningListener!!.onDeviceFound("AA:BB:CC:DD:EE:FF", "PTT-Button", -54)
         manager.selectCandidate("AA:BB:CC:DD:EE:FF")
         val staleLearning = factory.learningListener!!
 

@@ -135,6 +135,16 @@ class PttManager(
 
     override fun selectCandidate(deviceId: String) {
         if (pairing == null) return
+        if (deviceId !in candidates) {
+            // The pick is the user's, but the string is not: it comes from JS through the
+            // bridge, or from `ptt-pick --es device <address>` in the Phase 0 runbook, and
+            // anything may be in it. Only an address this session actually published may
+            // reach the BLE stack, where a malformed one used to reach
+            // BluetoothAdapter.getRemoteDevice and take the process down with it. Reported
+            // rather than ignored: a selection that can never succeed must say so.
+            failPairing("unknown_device", deviceId)
+            return
+        }
         publishPairing(PttPairingPhase.LEARNING)
         drivers.selectCandidate(deviceId)
     }

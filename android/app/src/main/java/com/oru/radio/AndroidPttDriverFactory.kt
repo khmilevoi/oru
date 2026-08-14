@@ -167,6 +167,15 @@ class BleLearningSession(
             // The new connection is live: further STATE_DISCONNECTED callbacks are real
             // again, not an echo of the teardown closePreviousGatt() just performed.
             closing = false
+        } catch (invalid: IllegalArgumentException) {
+            // getRemoteDevice() throws on anything that is not a well-formed MAC address,
+            // and this method is reachable from the bridge and from the spike runbook's
+            // `ptt-pick --es device <address>`. Uncaught, it unwound the engine's single
+            // looper thread and killed the process: a typo in the runbook took the whole
+            // app down. It is exactly the same condition as an address the adapter does not
+            // know, so it reports the same failure.
+            Log.w(TAG, "not a usable Bluetooth address: $deviceId", invalid)
+            listener.onLearningFailed("unknown_device", deviceId)
         } catch (security: SecurityException) {
             listener.onLearningFailed("permission_denied", "Bluetooth connect permission is not granted")
         }
@@ -313,6 +322,14 @@ class BleLearningSession(
         }
     }
 
+    /**
+     * `connectGatt` is called without a `Handler`, so notifications arrive on a binder
+     * *pool*: two of them can be inside this method at the same time, on different threads,
+     * and both can pass the [machine] null-check before [cancel] nulls it. What keeps that
+     * from emitting two configurations is not this null-check but
+     * [PttLearningStateMachine.onNotification] itself, which is synchronized and completes
+     * at most once — everything after the first winner gets null here and returns.
+     */
     private fun capture(characteristic: BluetoothGattCharacteristic, valueHex: String) {
         val learned = machine?.onNotification(
             characteristic.service.uuid.toString(),

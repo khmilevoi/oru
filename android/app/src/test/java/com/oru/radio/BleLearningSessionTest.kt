@@ -178,6 +178,21 @@ class BleLearningSessionTest {
     }
 
     @Test
+    fun `a malformed address is reported as a learning failure instead of thrown`() {
+        // BluetoothAdapter.getRemoteDevice throws IllegalArgumentException on anything that
+        // is not a well-formed MAC. The surrounding try caught only SecurityException, so a
+        // typo in `ptt-pick --es device <address>` unwound the engine's single looper
+        // thread and killed the whole process.
+        whenever(adapter.getRemoteDevice("AA:BB:CC:DD:EE:F"))
+            .thenThrow(IllegalArgumentException("not a valid Bluetooth address"))
+
+        val session = BleLearningSession(context, listener)
+        session.select("AA:BB:CC:DD:EE:F")
+
+        assertEquals(listOf("unknown_device" to "AA:BB:CC:DD:EE:F"), listener.failures)
+    }
+
+    @Test
     fun `onServicesDiscovered reports permission_denied instead of crashing when setCharacteristicNotification is not permitted`() {
         val device = mock<BluetoothDevice>()
         val gatt = mock<BluetoothGatt>()

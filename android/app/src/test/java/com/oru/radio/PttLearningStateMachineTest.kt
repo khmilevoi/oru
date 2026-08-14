@@ -1,6 +1,7 @@
 package com.oru.radio
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -84,5 +85,32 @@ class PttLearningStateMachineTest {
         subject.reset()
 
         assertNull(subject.onNotification(service, characteristic, "00"))
+    }
+
+    @Test
+    fun `a completed capture never emits a second configuration`() {
+        val subject = machine()
+        subject.onNotification(service, characteristic, "01")
+        assertNotNull(subject.onNotification(service, characteristic, "00"))
+
+        // The GATT stack delivers notifications on a binder *pool*, so a second
+        // notification can be in flight on another thread while the first one is still
+        // completing the capture. Exactly one binding may ever come out of one machine:
+        // two would save one configuration and hand a different one to the driver.
+        assertNull(subject.onNotification(service, characteristic, "01"))
+        assertNull(subject.onNotification(service, characteristic, "00"))
+        assertNull(subject.onNotification(service, characteristic, "02"))
+    }
+
+    @Test
+    fun `reset re-arms a machine that already completed`() {
+        val subject = machine()
+        subject.onNotification(service, characteristic, "01")
+        assertNotNull(subject.onNotification(service, characteristic, "00"))
+
+        subject.reset()
+        subject.onNotification(service, characteristic, "01")
+
+        assertNotNull(subject.onNotification(service, characteristic, "00"))
     }
 }
