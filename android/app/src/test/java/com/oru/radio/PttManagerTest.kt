@@ -270,6 +270,56 @@ class PttManagerTest {
     }
 
     @Test
+    fun `a learned callback that arrives after cancelling is ignored`() {
+        manager.start(listener)
+        manager.startPairing()
+        manager.selectCandidate("AA:BB:CC:DD:EE:FF")
+        val staleLearning = factory.learningListener!!
+
+        manager.cancelPairing()
+        staleLearning.onLearned(bleConfiguration)
+
+        assertNull(store.stored)
+        assertTrue(factory.created.isEmpty())
+        assertNull(listener.lastPairing)
+    }
+
+    @Test
+    fun `a learned callback that arrives after the timeout has fired is ignored`() {
+        manager.start(listener)
+        manager.startPairing()
+        manager.selectCandidate("AA:BB:CC:DD:EE:FF")
+        val staleLearning = factory.learningListener!!
+
+        scheduler.advance(RadioConfig.PAIRING_TIMEOUT_MS)
+        staleLearning.onLearned(bleConfiguration)
+
+        assertNull(store.stored)
+        assertTrue(factory.created.isEmpty())
+        assertNull(listener.lastPairing)
+        assertEquals(
+            listOf("pairing_timeout" to "No PTT button was paired in time"),
+            listener.failures,
+        )
+    }
+
+    @Test
+    fun `a learning-failed callback that arrives after the session already ended does not duplicate the failure`() {
+        manager.start(listener)
+        manager.startPairing()
+        val staleLearning = factory.learningListener!!
+
+        scheduler.advance(RadioConfig.PAIRING_TIMEOUT_MS)
+        staleLearning.onLearningFailed("scan_failed", "no adapter")
+
+        assertEquals(
+            listOf("pairing_timeout" to "No PTT button was paired in time"),
+            listener.failures,
+        )
+        assertNull(listener.lastPairing)
+    }
+
+    @Test
     fun `cancelling ends the session without reporting a failure`() {
         manager.start(listener)
         manager.startPairing()
@@ -292,6 +342,22 @@ class PttManagerTest {
         assertTrue(store.cleared)
         assertEquals(PttButtonState(false, false, null), manager.snapshot())
         assertEquals(PttButtonState(false, false, null), listener.states.last())
+    }
+
+    @Test
+    fun `forgetting during an active pairing session ends the session and cancels the timer`() {
+        store.stored = bleConfiguration
+        manager.start(listener)
+        manager.startPairing()
+
+        assertEquals(1, scheduler.pendingCount)
+
+        manager.forget()
+
+        assertEquals(0, scheduler.pendingCount)
+        assertNull(listener.lastPairing)
+        assertEquals(1, factory.learningCancelled)
+        assertTrue(store.cleared)
     }
 
     @Test

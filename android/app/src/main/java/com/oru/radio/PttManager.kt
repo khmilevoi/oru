@@ -78,7 +78,7 @@ class PttManager(
     private val store: PttBindingStore,
     private val drivers: PttDriverFactory,
     private val scheduler: Scheduler,
-) : PttSource, PttDriverListener, PttLearningListener {
+) : PttSource, PttDriverListener {
 
     private var listener: PttListener? = null
     private var driver: PttDriver? = null
@@ -88,6 +88,17 @@ class PttManager(
     private val candidates = LinkedHashMap<String, PttCandidate>()
     private var pairing: PttPairingState? = null
     private var pairingTimeout: Cancellable? = null
+
+    /**
+     * Bumped whenever a session's identity changes: [startPairing] opening a new one and
+     * [endPairing] closing the current one both advance it. [PairingSession] captures the
+     * value at construction and every one of its callbacks re-checks it before touching any
+     * state (fix round 1, Finding 1). A bare `pairing == null` check cannot tell "no
+     * session" apart from "a newer session already replaced this one"; comparing against
+     * the live generation can, because a callback from an old session that raced with
+     * [cancelPairing]/the timeout/a fresh [startPairing] always carries a stale value.
+     */
+    private var pairingGeneration = 0
 
     override fun start(listener: PttListener) {
         this.listener = listener
@@ -114,11 +125,12 @@ class PttManager(
     override fun startPairing() {
         cancelPairing()
         candidates.clear()
+        pairingGeneration++
         pairingTimeout = scheduler.schedule(RadioConfig.PAIRING_TIMEOUT_MS) {
             failPairing("pairing_timeout", "No PTT button was paired in time")
         }
         publishPairing(PttPairingPhase.SCANNING)
-        drivers.startLearning(this)
+        drivers.startLearning(PairingSession(pairingGeneration))
     }
 
     override fun selectCandidate(deviceId: String) {
@@ -135,26 +147,43 @@ class PttManager(
 
     // --- learning callbacks from the driver factory --------------------------------------
     // These may arrive on any thread (a BLE scan/GATT callback); re-post onto the
-    // scheduler before touching state, same discipline as the driver callbacks below.
+    // scheduler before touching state, same discipline as the driver callbacks below. They
+    // are registered per session (see PairingSession below) rather than implemented
+    // directly on PttManager, so each one can tell whether the session it belongs to is
+    // still the live one before it mutates anything.
 
-    override fun onDeviceFound(deviceId: String, name: String?, rssi: Int) = scheduler.execute {
-        if (pairing?.phase != PttPairingPhase.SCANNING) return@execute
-        candidates[deviceId] = PttCandidate(deviceId, name ?: deviceId, rssi)
-        publishPairing(PttPairingPhase.SCANNING)
-    }
+    /**
+     * One learning attempt's identity, registered as the [PttLearningListener] Task 9's
+     * drivers report to for the lifetime of a single [startPairing] session. Every callback
+     * re-checks [generation] against the live [pairingGeneration] before touching state, so
+     * a callback still in flight when [cancelPairing]/the timeout/a newer session already
+     * ended this one is recognised as stale and dropped instead of saving a binding, wiring
+     * up a driver, or republishing a phase nobody asked for.
+     */
+    private inner class PairingSession(private val generation: Int) : PttLearningListener {
 
-    override fun onLearned(configuration: PttConfiguration) = scheduler.execute {
-        pairingTimeout?.cancel()
-        pairingTimeout = null
-        store.save(configuration)
-        this.configuration = configuration
-        connected = false
-        attach()
-        publishPairing(PttPairingPhase.SAVED)
-    }
+        override fun onDeviceFound(deviceId: String, name: String?, rssi: Int) = scheduler.execute {
+            if (generation != pairingGeneration) return@execute
+            if (pairing?.phase != PttPairingPhase.SCANNING) return@execute
+            candidates[deviceId] = PttCandidate(deviceId, name ?: deviceId, rssi)
+            publishPairing(PttPairingPhase.SCANNING)
+        }
 
-    override fun onLearningFailed(code: String, message: String) = scheduler.execute {
-        failPairing(code, message)
+        override fun onLearned(configuration: PttConfiguration) = scheduler.execute {
+            if (generation != pairingGeneration) return@execute
+            pairingTimeout?.cancel()
+            pairingTimeout = null
+            store.save(configuration)
+            this@PttManager.configuration = configuration
+            connected = false
+            attach()
+            publishPairing(PttPairingPhase.SAVED)
+        }
+
+        override fun onLearningFailed(code: String, message: String) = scheduler.execute {
+            if (generation != pairingGeneration) return@execute
+            failPairing(code, message)
+        }
     }
 
     private fun failPairing(code: String, message: String) {
@@ -169,6 +198,11 @@ class PttManager(
         drivers.cancelLearning()
         candidates.clear()
         pairing = null
+        // Bumped here too, not just in startPairing(): ending a session with nothing new
+        // started yet must still invalidate any of its callbacks still in flight, or a
+        // bare generation match would only catch "replaced by a newer session", not "the
+        // session I belong to already ended" (fix round 1, Finding 1).
+        pairingGeneration++
     }
 
     private fun publishPairing(phase: PttPairingPhase) {
@@ -179,6 +213,7 @@ class PttManager(
     }
 
     override fun forget() {
+        cancelPairing()
         driver?.stop()
         driver = null
         configuration = null
