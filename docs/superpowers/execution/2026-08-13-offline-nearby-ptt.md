@@ -69,7 +69,7 @@ v1001, @lingui/*, errore) so later plans do not edit package.json.
 ### P2 `android-engine` — wave 2, track A
 - [x] planned   → docs/superpowers/plans/2026-08-13-p2-android-engine.md
 - [x] executed  → branch plan/p2-android-engine · worktree .claude/worktrees/p2-android-engine
-- [ ] merged    → sync 2
+- [x] merged    → sync 2
 
 **Owns:** the entire Android radio: `RadioEngine.kt` state machine (§6.3 operations, 120 s
 safety cap); `NearbyManager.kt` (P2P_CLUSTER, simultaneous advertise+discover, auto-accept,
@@ -92,7 +92,7 @@ button's protocol → closeout (Stage 5, physical hardware).
 ### P3 `ios-engine` — wave 2, track B
 - [x] planned   → docs/superpowers/plans/2026-08-13-p3-ios-engine.md
 - [x] executed  → branch plan/p3-ios-engine · worktree .claude/worktrees/p3-ios-engine
-- [ ] merged    → sync 2
+- [x] merged    → sync 2
 
 **Owns:** the entire iOS radio: `RadioEngine.swift` (same state machine and safety cap);
 `NearbyManager.swift` on Google's NearbyConnections Swift library (Podfile/SPM dependency);
@@ -114,7 +114,7 @@ build.
 ### P4 `ts-domain` — wave 2, track C
 - [x] planned   → docs/superpowers/plans/2026-08-13-p4-ts-domain.md
 - [x] executed  → branch plan/p4-ts-domain · worktree .claude/worktrees/p4-ts-domain
-- [ ] merged    → sync 2
+- [x] merged    → sync 2
 
 **Owns:** the whole TypeScript domain: `radio.types.ts` (`RadioState`, events),
 `ptt.types.ts` (`PttBinding`), `specs/NativeRadio.ts` Turbo Module spec (§6.1 contract
