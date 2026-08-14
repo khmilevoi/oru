@@ -196,3 +196,55 @@ describe('RadioEngine (spec sections 6.3, 9.4, 13)', () => {
     expect(engine).toContain('private let queue: DispatchQueue');
   });
 });
+
+describe('NearbyManager (spec section 7)', () => {
+  const nearby = source('NearbyManager.swift');
+
+  it.each([
+    'public final class NearbyManager',
+    'extension NearbyManager: AdvertiserDelegate',
+    'extension NearbyManager: DiscovererDelegate',
+    'extension NearbyManager: ConnectionManagerDelegate',
+  ])('declares %s', declaration => {
+    expect(nearby).toContain(declaration);
+  });
+
+  it('advertises and discovers on the shared service id', () => {
+    expect(nearby).toContain('RadioConfig.serviceId');
+    expect(nearby).toContain('startAdvertising');
+    expect(nearby).toContain('startDiscovery');
+  });
+
+  it('uses the P2P_CLUSTER strategy', () => {
+    expect(nearby).toContain('strategy: .cluster');
+  });
+
+  it('accepts every connection without a peer-selection UI', () => {
+    expect(nearby).toContain('connectionRequestHandler(true)');
+    expect(nearby).toContain('verificationHandler(true)');
+  });
+
+  it('gates peers behind the hello version handshake', () => {
+    expect(nearby).toContain('.hello(version: RadioConfig.protocolVersion)');
+    expect(nearby).toContain('RadioConfig.protocolVersion');
+    expect(nearby).toContain('disconnect(from:');
+  });
+
+  it('frames audio with the shared framing helpers', () => {
+    expect(nearby).toContain('AudioFraming.frame(');
+    expect(nearby).toContain('AudioFrameParser()');
+  });
+
+  it('reconnects with backoff from config', () => {
+    expect(nearby).toContain('RadioConfig.Reconnect.initialDelay');
+    expect(nearby).toContain('RadioConfig.Reconnect.maxDelay');
+    expect(nearby).toContain('RadioConfig.Reconnect.multiplier');
+  });
+
+  it('is the only file that imports NearbyConnections', () => {
+    const importers = swiftFiles().filter(name =>
+      source(name).includes('import NearbyConnections'),
+    );
+    expect(importers).toEqual(['NearbyManager.swift']);
+  });
+});
