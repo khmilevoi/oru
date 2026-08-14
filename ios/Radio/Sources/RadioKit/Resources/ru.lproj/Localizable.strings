@@ -1,0 +1,5 @@
+/* Name of the push-to-talk channel shown in system UI */
+"ptt.channel.name" = "Рация Oru";
+
+/* Shown while a nearby device is speaking */
+"ptt.participant.nearby" = "Устройство рядом";
