@@ -43,3 +43,29 @@ describe('android engine build wiring', () => {
     expect(appGradle()).toMatch(/returnDefaultValues = true/);
   });
 });
+
+describe('embedded libopus (spec section 8)', () => {
+  it('builds libopus from a pinned, hash-checked release', () => {
+    const cmake = read('android/opus/src/main/cpp/CMakeLists.txt');
+    expect(cmake).toMatch(/opus-1\.5\.2\.tar\.gz/);
+    expect(cmake).toMatch(/URL_HASH SHA256=\$\{ORU_OPUS_SHA256\}/);
+    expect(cmake).toMatch(/set\(OPUS_BUILD_SHARED_LIBRARY OFF/);
+    expect(cmake).toMatch(/add_library\(oru_opus SHARED opus_jni\.c\)/);
+  });
+
+  it('wires the native module into the app build', () => {
+    expect(read('android/settings.gradle')).toMatch(/include ':opus'/);
+    expect(read('android/app/build.gradle')).toMatch(
+      /implementation project\(':opus'\)/,
+    );
+  });
+
+  it('binds the codec from the com.oru.radio package, matching the JNI symbol names', () => {
+    expect(read('android/opus/src/main/cpp/opus_jni.c')).toMatch(
+      /Java_com_oru_radio_OpusCodec_##name/,
+    );
+    expect(read(`${RADIO_DIR}/OpusCodec.kt`)).toMatch(
+      /System\.loadLibrary\("oru_opus"\)/,
+    );
+  });
+});

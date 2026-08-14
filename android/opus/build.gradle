@@ -1,0 +1,34 @@
+apply plugin: "com.android.library"
+
+/**
+ * libopus and its JNI wrapper, built from source (spec section 8: embedded libopus,
+ * platform codecs are not used).
+ *
+ * This is a separate Gradle module on purpose: the app module's externalNativeBuild is
+ * owned by the React Native Gradle Plugin, and the radio's codec has no business inside
+ * it. Nothing here depends on React Native.
+ */
+android {
+    namespace "com.oru.opus"
+    ndkVersion rootProject.ext.ndkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk rootProject.ext.compileSdkVersion
+
+    defaultConfig {
+        minSdkVersion rootProject.ext.minSdkVersion
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
+            // Same Windows MAX_PATH lever as the app module: scripts/build-android.js
+            // exports ORU_CXX_DIR, and this module gets its own subdirectory under it so
+            // the two modules never stage objects into the same tree. Unset everywhere
+            // else, where the default .cxx is fine.
+            buildStagingDirectory System.getenv('ORU_CXX_DIR')
+                ? file("${System.getenv('ORU_CXX_DIR')}/opus")
+                : file('.cxx')
+        }
+    }
+}
