@@ -6,7 +6,8 @@ import java.util.concurrent.CopyOnWriteArrayList
 /**
  * The radio itself (spec section 18: "the UI may die, JS may sleep, the RadioEngine must
  * keep working"). Every operation of spec section 6.3 lives here, and every mutation runs
- * on the injected scheduler's single thread, so no field below is synchronized.
+ * on the injected scheduler's single thread. Fields are @Volatile for safe cross-thread
+ * reads; writes need no synchronization (single-writer discipline).
  */
 class RadioEngine(
     private val transport: Transport,
@@ -20,6 +21,7 @@ class RadioEngine(
     private val peers = LinkedHashSet<String>()
     private val incoming = LinkedHashSet<String>()
 
+    @Volatile
     private var state = RadioState()
     private var running = false
     private var currentStreamId: String? = null
