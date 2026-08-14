@@ -1,0 +1,272 @@
+package com.oru.radio
+
+import android.annotation.SuppressLint
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothGatt
+import android.bluetooth.BluetoothGattCallback
+import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
+import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothProfile
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanResult
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import android.util.Log
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedDeque
+
+/**
+ * Builds the real drivers and runs the real learning session (spec sections 9.1, 9.3).
+ *
+ * Threading: every method here ([create], [startLearning], [selectCandidate],
+ * [cancelLearning]) is called only from the engine's single scheduler thread (`RadioEngine`
+ * wraps every `PttSource`/pairing call in `scheduler.execute { }`, and `PttManager` calls
+ * straight through), so [learning] has a single writer/reader and needs no extra guarding
+ * beyond `@Volatile` for cross-thread visibility should that assumption ever loosen.
+ */
+class AndroidPttDriverFactory(private val context: Context) : PttDriverFactory {
+
+    @Volatile
+    private var learning: BleLearningSession? = null
+
+    override fun create(binding: PttBinding, listener: PttDriverListener): PttDriver? =
+        when (PttDriverSelection.kindFor(binding)) {
+            PttDriverKind.BLE ->
+                // "Null when this device cannot drive the binding" (PttDriverFactory):
+                // a device with no BLE radio at all cannot run a BleGattPttDriver.
+                if (!context.packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
+                    null
+                } else {
+                    BleGattPttDriver(context, binding as PttBinding.Ble, listener)
+                }
+            PttDriverKind.MEDIA_BUTTON ->
+                MediaButtonPttDriver(context, (binding as PttBinding.Hid).keyCode, listener)
+            PttDriverKind.HID ->
+                HidPttDriver((binding as PttBinding.Hid).keyCode, listener)
+        }
+
+    override fun startLearning(listener: PttLearningListener) {
+        cancelLearning()
+        learning = BleLearningSession(context, listener).also { it.startScan() }
+    }
+
+    override fun selectCandidate(deviceId: String) {
+        learning?.select(deviceId)
+    }
+
+    override fun cancelLearning() {
+        learning?.cancel()
+        learning = null
+    }
+}
+
+/**
+ * Spec section 9.3: scan -> select -> "press the button" -> capture. Every notifying
+ * characteristic of the picked device is subscribed to, one descriptor write at a time
+ * (the GATT stack allows exactly one outstanding operation), and the first characteristic
+ * that produces two different values wins.
+ *
+ * Threading: [startScan], [select] and [cancel] run on the engine's single scheduler
+ * thread; [scanCallback] and [gattCallback] fire on whatever thread the Bluetooth stack
+ * picks, which is a different thread. Every field either callback touches is therefore
+ * `@Volatile`, and [pendingDescriptors] — mutated from both [gattCallback] and [cancel] — is
+ * a [ConcurrentLinkedDeque] rather than a plain [ArrayDeque].
+ *
+ * Bug fix: a successful capture calls [BleLearningSession.cancel] to tear the connection
+ * down, and `cancel()` calling `gatt.disconnect()` asynchronously fires
+ * `onConnectionStateChange(STATE_DISCONNECTED)` afterwards. Without [closing], that would
+ * report a spurious `onLearningFailed("device_disconnected", ...)` right after a successful
+ * `onLearned`. [cancel] is the one deliberate-teardown path — reached both after a
+ * successful capture and from an outside caller's [AndroidPttDriverFactory.cancelLearning] —
+ * so it sets [closing] before disconnecting; the callback then tells "we did this on
+ * purpose" from "the button actually disconnected on us" and only reports failure in the
+ * latter case.
+ */
+@SuppressLint("MissingPermission")
+class BleLearningSession(
+    private val context: Context,
+    private val listener: PttLearningListener,
+) {
+    private companion object {
+        const val TAG = "OruRadio"
+        val CLIENT_CONFIG: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+    }
+
+    private val names = ConcurrentHashMap<String, String>()
+    private val pendingDescriptors = ConcurrentLinkedDeque<BluetoothGattDescriptor>()
+
+    @Volatile
+    private var gatt: BluetoothGatt? = null
+
+    @Volatile
+    private var machine: PttLearningStateMachine? = null
+
+    @Volatile
+    private var scanning = false
+
+    /** Set before any deliberate disconnect so the async STATE_DISCONNECTED it causes is
+     *  not mistaken for the button dropping out on its own. See the class doc. */
+    @Volatile
+    private var closing = false
+
+    fun startScan() {
+        try {
+            val adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
+            if (adapter == null || !adapter.isEnabled) {
+                listener.onLearningFailed("bluetooth_unavailable", "Bluetooth is off or missing")
+                return
+            }
+            val scanner = adapter.bluetoothLeScanner
+            if (scanner == null) {
+                listener.onLearningFailed("scan_unavailable", "No BLE scanner on this device")
+                return
+            }
+            scanning = true
+            scanner.startScan(scanCallback)
+        } catch (security: SecurityException) {
+            // Runtime BLE permissions (BLUETOOTH_SCAN) are P7's job; a missing permission
+            // fails the pairing session gracefully instead of crashing the radio.
+            scanning = false
+            listener.onLearningFailed("permission_denied", "Bluetooth scan permission is not granted")
+        }
+    }
+
+    fun select(deviceId: String) {
+        stopScan()
+        try {
+            val adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
+            val device = adapter?.getRemoteDevice(deviceId)
+            if (device == null) {
+                listener.onLearningFailed("unknown_device", deviceId)
+                return
+            }
+            machine = PttLearningStateMachine(deviceId, names[deviceId] ?: device.name)
+            gatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
+        } catch (security: SecurityException) {
+            listener.onLearningFailed("permission_denied", "Bluetooth connect permission is not granted")
+        }
+    }
+
+    fun cancel() {
+        // Set before disconnecting, not after: onConnectionStateChange(STATE_DISCONNECTED)
+        // can fire synchronously off the disconnect() call below, and the check inside it
+        // must already see this session as self-closing.
+        closing = true
+        stopScan()
+        val current = gatt
+        gatt = null
+        runCatching {
+            current?.disconnect()
+            current?.close()
+        }
+        machine = null
+        pendingDescriptors.clear()
+    }
+
+    private fun stopScan() {
+        if (!scanning) return
+        scanning = false
+        val adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
+        runCatching { adapter?.bluetoothLeScanner?.stopScan(scanCallback) }
+    }
+
+    private val scanCallback = object : ScanCallback() {
+        override fun onScanResult(callbackType: Int, result: ScanResult) {
+            val address = result.device?.address ?: return
+            val name = result.device?.name ?: result.scanRecord?.deviceName
+            if (name != null) names[address] = name
+            // rssi is what orders the candidate list the pairing UI shows.
+            listener.onDeviceFound(address, name, result.rssi)
+        }
+
+        override fun onScanFailed(errorCode: Int) {
+            scanning = false
+            listener.onLearningFailed("scan_failed", "BLE scan failed with code $errorCode")
+        }
+    }
+
+    private val gattCallback = object : BluetoothGattCallback() {
+
+        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+            when (newState) {
+                BluetoothProfile.STATE_CONNECTED -> runCatching { gatt.discoverServices() }
+                BluetoothProfile.STATE_DISCONNECTED ->
+                    if (!closing) {
+                        listener.onLearningFailed("device_disconnected", "The button disconnected")
+                    }
+            }
+        }
+
+        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+            pendingDescriptors.clear()
+            for (service in gatt.services) {
+                for (characteristic in service.characteristics) {
+                    val notifies = characteristic.properties and
+                        (BluetoothGattCharacteristic.PROPERTY_NOTIFY or
+                            BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0
+                    if (!notifies) continue
+                    gatt.setCharacteristicNotification(characteristic, true)
+                    characteristic.getDescriptor(CLIENT_CONFIG)?.let { pendingDescriptors.addLast(it) }
+                }
+            }
+            if (pendingDescriptors.isEmpty()) {
+                listener.onLearningFailed("no_notify_characteristic", "This device notifies nothing")
+                return
+            }
+            writeNextDescriptor(gatt)
+        }
+
+        override fun onDescriptorWrite(
+            gatt: BluetoothGatt,
+            descriptor: BluetoothGattDescriptor,
+            status: Int,
+        ) {
+            writeNextDescriptor(gatt)
+        }
+
+        override fun onCharacteristicChanged(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic,
+            value: ByteArray,
+        ) {
+            capture(characteristic, PttBindingCodec.toHex(value))
+        }
+
+        @Deprecated("Android below 13 calls this overload instead")
+        override fun onCharacteristicChanged(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic,
+        ) {
+            @Suppress("DEPRECATION")
+            capture(characteristic, PttBindingCodec.toHex(characteristic.value ?: return))
+        }
+    }
+
+    private fun writeNextDescriptor(gatt: BluetoothGatt) {
+        val descriptor = pendingDescriptors.pollFirst() ?: return
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                gatt.writeDescriptor(descriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+            } else {
+                @Suppress("DEPRECATION")
+                descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+                @Suppress("DEPRECATION")
+                gatt.writeDescriptor(descriptor)
+            }
+        }
+    }
+
+    private fun capture(characteristic: BluetoothGattCharacteristic, valueHex: String) {
+        val learned = machine?.onNotification(
+            characteristic.service.uuid.toString(),
+            characteristic.uuid.toString(),
+            valueHex,
+        ) ?: return
+        Log.i(TAG, "learned a PTT binding on ${characteristic.uuid}")
+        listener.onLearned(learned)
+        cancel()
+    }
+}
