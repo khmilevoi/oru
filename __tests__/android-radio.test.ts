@@ -1,4 +1,4 @@
-import {existsSync, readFileSync} from 'fs';
+import {existsSync, readdirSync, readFileSync} from 'fs';
 import {join} from 'path';
 
 const REPO_ROOT = join(__dirname, '..');
@@ -67,5 +67,40 @@ describe('embedded libopus (spec section 8)', () => {
     expect(read(`${RADIO_DIR}/OpusCodec.kt`)).toMatch(
       /System\.loadLibrary\("oru_opus"\)/,
     );
+  });
+});
+
+describe('nearby transport (spec section 7)', () => {
+  const nearby = () => read(`${RADIO_DIR}/NearbyManager.kt`);
+
+  it('depends on Google Play Services Nearby', () => {
+    expect(read('android/app/build.gradle')).toMatch(
+      /com\.google\.android\.gms:play-services-nearby:\d+\.\d+\.\d+/,
+    );
+  });
+
+  it('advertises and discovers at the same time with P2P_CLUSTER', () => {
+    expect(nearby()).toMatch(/client\.startAdvertising\(/);
+    expect(nearby()).toMatch(/client\.startDiscovery\(/);
+    expect(nearby().match(/Strategy\.P2P_CLUSTER/g)).toHaveLength(2);
+  });
+
+  it('accepts every connection automatically', () => {
+    expect(nearby()).toMatch(/client\.acceptConnection\(endpointId, payloadCallback\)/);
+  });
+
+  it('gates peers on the hello version and drops mismatches', () => {
+    expect(nearby()).toMatch(/message\.version != RadioConfig\.PROTOCOL_VERSION/);
+    expect(nearby()).toMatch(/client\.disconnectFromEndpoint\(peerId\)/);
+  });
+
+  it('leaves no engine file importing React Native (spec section 6)', () => {
+    const files = readdirSync(join(REPO_ROOT, RADIO_DIR)).filter(name =>
+      name.endsWith('.kt'),
+    );
+    expect(files.length).toBeGreaterThan(0);
+    files.forEach(name => {
+      expect(read(`${RADIO_DIR}/${name}`)).not.toMatch(/com\.facebook\./);
+    });
   });
 });

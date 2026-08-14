@@ -134,6 +134,15 @@ android {
             returnDefaultValues = true
         }
     }
+
+    // play-services-nearby's AAR metadata requires core library desugaring
+    // (Task 5): its transitive dependencies use java.* APIs that predate minSdk 26.
+    // Not a radio tunable, so it stays with the rest of the build wiring, not RadioConfig.
+    compileOptions {
+        coreLibraryDesugaringEnabled true
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
 }
 
 dependencies {
@@ -142,6 +151,12 @@ dependencies {
 
     // Embedded libopus (spec section 8), built from source by :opus.
     implementation project(':opus')
+
+    // Nearby Connections (spec section 7): P2P_CLUSTER, advertise and discover at once.
+    implementation("com.google.android.gms:play-services-nearby:19.4.0")
+    // Required by the AAR metadata check above: play-services-nearby's transitive
+    // dependencies use java.* APIs that need desugaring on minSdk 26.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
