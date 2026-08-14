@@ -173,4 +173,11 @@ dependencies {
     // test classpath and AGP puts android.jar last, so this one wins and the control
     // message codec is testable on the JVM exactly as it behaves on a device.
     testImplementation("org.json:json:20250517")
+    // BluetoothGatt/BluetoothDevice/BluetoothAdapter have no public constructor and are
+    // `final`, so the BLE driver/learning-session fix-round tests (leaked-gatt,
+    // permission-guard, stale-callback regressions) need real mocks, not fakes. Mockito 5's
+    // default mock maker is "inline" (bytecode retransformation), which mocks final Android
+    // framework classes without a separate mockito-inline artifact.
+    testImplementation("org.mockito:mockito-core:5.18.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
 }

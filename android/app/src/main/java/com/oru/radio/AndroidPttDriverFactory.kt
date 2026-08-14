@@ -84,6 +84,13 @@ class AndroidPttDriverFactory(private val context: Context) : PttDriverFactory {
  * so it sets [closing] before disconnecting; the callback then tells "we did this on
  * purpose" from "the button actually disconnected on us" and only reports failure in the
  * latter case.
+ *
+ * Bug fix: [select] can be called more than once in the same session — a double tap, a
+ * bridge retry, a user changing their mind about which candidate to pair with — and must
+ * not leak whatever [gatt] the previous call already opened; Android's BLE stack refuses
+ * new connections after roughly 30 such leaks. [select] therefore closes any existing
+ * [gatt] first (see `closePreviousGatt`), using the same [closing] flag so that self-close
+ * is not reported as `onLearningFailed("device_disconnected", ...)` either.
  */
 @SuppressLint("MissingPermission")
 class BleLearningSession(
@@ -136,6 +143,7 @@ class BleLearningSession(
 
     fun select(deviceId: String) {
         stopScan()
+        closePreviousGatt()
         try {
             val adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
             val device = adapter?.getRemoteDevice(deviceId)
@@ -145,8 +153,29 @@ class BleLearningSession(
             }
             machine = PttLearningStateMachine(deviceId, names[deviceId] ?: device.name)
             gatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
+            // The new connection is live: further STATE_DISCONNECTED callbacks are real
+            // again, not an echo of the teardown closePreviousGatt() just performed.
+            closing = false
         } catch (security: SecurityException) {
             listener.onLearningFailed("permission_denied", "Bluetooth connect permission is not granted")
+        }
+    }
+
+    /**
+     * A second [select] in the same pairing session (a double tap, a bridge retry, a
+     * changed mind) must not leak whatever [gatt] a previous [select] already opened —
+     * Android's BLE stack refuses new connections after roughly 30 such leaks. Uses the
+     * same [closing] flag [cancel] does, so the async STATE_DISCONNECTED this self-close
+     * causes is not mistaken for the button disconnecting and reported as a learning
+     * failure.
+     */
+    private fun closePreviousGatt() {
+        val previous = gatt ?: return
+        closing = true
+        gatt = null
+        runCatching {
+            previous.disconnect()
+            previous.close()
         }
     }
 
@@ -202,15 +231,24 @@ class BleLearningSession(
 
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
             pendingDescriptors.clear()
-            for (service in gatt.services) {
-                for (characteristic in service.characteristics) {
-                    val notifies = characteristic.properties and
-                        (BluetoothGattCharacteristic.PROPERTY_NOTIFY or
-                            BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0
-                    if (!notifies) continue
-                    gatt.setCharacteristicNotification(characteristic, true)
-                    characteristic.getDescriptor(CLIENT_CONFIG)?.let { pendingDescriptors.addLast(it) }
+            try {
+                for (service in gatt.services) {
+                    for (characteristic in service.characteristics) {
+                        val notifies = characteristic.properties and
+                            (BluetoothGattCharacteristic.PROPERTY_NOTIFY or
+                                BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0
+                        if (!notifies) continue
+                        // BLUETOOTH_CONNECT (API 31+) guards this the same as connectGatt()
+                        // and discoverServices() above; a missing runtime permission (P7's
+                        // job) must fail the pairing session gracefully, not crash the GATT
+                        // callback thread.
+                        gatt.setCharacteristicNotification(characteristic, true)
+                        characteristic.getDescriptor(CLIENT_CONFIG)?.let { pendingDescriptors.addLast(it) }
+                    }
                 }
+            } catch (security: SecurityException) {
+                listener.onLearningFailed("permission_denied", "Bluetooth connect permission is not granted")
+                return
             }
             if (pendingDescriptors.isEmpty()) {
                 listener.onLearningFailed("no_notify_characteristic", "This device notifies nothing")

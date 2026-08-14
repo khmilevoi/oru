@@ -24,6 +24,14 @@ import java.util.UUID
  * calls straight through to this driver from there). [callback] fires on whatever thread
  * the Bluetooth stack picks, which is not that thread. [gatt] and [pressed] are therefore
  * touched from two threads and are `@Volatile`.
+ *
+ * Bug fix: `PttManager.attach()` calls `driver?.stop()` and immediately creates and starts
+ * a *new* driver, with the same `PttManager` as [listener] for both. If this driver's
+ * asynchronous `onConnectionStateChange(STATE_DISCONNECTED)` fires after [stop] has already
+ * torn the connection down — or even after a newly attached driver already reported
+ * `onConnectionChanged(true)` — it must not report a disconnect again; the callback can
+ * fire synchronously off `disconnect()` too. [closing] is set before disconnecting, the
+ * same self-initiated-teardown discipline [BleLearningSession] uses for the same reason.
  */
 @SuppressLint("MissingPermission")
 class BleGattPttDriver(
@@ -43,6 +51,11 @@ class BleGattPttDriver(
     @Volatile
     private var pressed = false
 
+    /** Set before [stop] disconnects, so the async STATE_DISCONNECTED it causes is not
+     *  mistaken for the button dropping out on its own. See the class doc. */
+    @Volatile
+    private var closing = false
+
     override fun start() {
         val manager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
         // Runtime BLE permissions (BLUETOOTH_CONNECT) are P7's job; getRemoteDevice() and
@@ -60,6 +73,10 @@ class BleGattPttDriver(
     }
 
     override fun stop() {
+        // Set before disconnecting, not after: onConnectionStateChange(STATE_DISCONNECTED)
+        // can fire synchronously off the disconnect() call below, and a re-attach on the
+        // same PttManager must not see this self-initiated teardown as a real disconnect.
+        closing = true
         val current = gatt
         gatt = null
         runCatching {
@@ -80,7 +97,9 @@ class BleGattPttDriver(
                 }
                 BluetoothProfile.STATE_DISCONNECTED -> {
                     pressed = false
-                    listener.onConnectionChanged(false)
+                    if (!closing) {
+                        listener.onConnectionChanged(false)
+                    }
                 }
             }
         }
@@ -93,7 +112,17 @@ class BleGattPttDriver(
                 Log.w(TAG, "the bound characteristic is gone; the button changed firmware?")
                 return
             }
-            gatt.setCharacteristicNotification(characteristic, true)
+            // BLUETOOTH_CONNECT (API 31+) guards this the same as connectGatt()/
+            // discoverServices() above; a missing runtime permission (P7's job) must
+            // degrade to "not connected", not crash the GATT callback thread. It is not a
+            // learning flow here, so there is no onLearningFailed to report through.
+            val enabled = runCatching { gatt.setCharacteristicNotification(characteristic, true) }
+                .getOrDefault(false)
+            if (!enabled) {
+                Log.w(TAG, "could not enable PTT notifications; is BLUETOOTH_CONNECT granted?")
+                listener.onConnectionChanged(false)
+                return
+            }
             characteristic.getDescriptor(CLIENT_CONFIG)?.let { enableNotifications(gatt, it) }
         }
 
