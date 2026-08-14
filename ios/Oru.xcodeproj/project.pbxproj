@@ -10,6 +10,7 @@
 		0C80B921A6F3F58F76C31292 /* libPods-Oru.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-Oru.a */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
+		9A1E0001AAAA0000BBBB0001 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 9A1E0002AAAA0000BBBB0002 /* InfoPlist.strings */; };
 		9A1E0011AAAA0000BBBB0011 /* RadioKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9A1E0012AAAA0000BBBB0012 /* RadioKit */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 /* End PBXBuildFile section */
@@ -26,6 +27,8 @@
 		9A1E0013AAAA0000BBBB0013 /* Radio */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = Radio; path = Radio; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = Oru/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		9A1E0003AAAA0000BBBB0003 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = Oru/en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		9A1E0004AAAA0000BBBB0004 /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = Oru/ru.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -47,6 +50,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
+				9A1E0002AAAA0000BBBB0002 /* InfoPlist.strings */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
 			);
@@ -147,6 +151,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				ru,
 				Base,
 			);
 			mainGroup = 83CBB9F61A601CBA00E9B192;
@@ -166,6 +171,7 @@
 			files = (
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
+				9A1E0001AAAA0000BBBB0001 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -256,6 +262,18 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		9A1E0002AAAA0000BBBB0002 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				9A1E0003AAAA0000BBBB0003 /* en */,
+				9A1E0004AAAA0000BBBB0004 /* ru */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {

@@ -1,0 +1,3 @@
+"NSMicrophoneUsageDescription" = "Oru использует микрофон, чтобы передавать ваш голос на устройства рядом.";
+"NSBluetoothAlwaysUsageDescription" = "Oru подключается к Bluetooth-кнопке рации, в том числе при заблокированном экране.";
+"NSLocalNetworkUsageDescription" = "Oru находит устройства рядом и соединяется с ними по локальной сети.";

@@ -1,0 +1,3 @@
+"NSMicrophoneUsageDescription" = "Oru uses the microphone to transmit your voice to nearby devices.";
+"NSBluetoothAlwaysUsageDescription" = "Oru connects to your Bluetooth push-to-talk button, including while the screen is locked.";
+"NSLocalNetworkUsageDescription" = "Oru discovers and connects to nearby devices over the local network.";
