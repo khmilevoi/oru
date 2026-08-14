@@ -33,11 +33,22 @@ module.exports = {
   // out of the haste map -- each one carries a package.json named "oru", so
   // two or more concurrent worktrees would otherwise collide by name.
   //
+  // Both patterns MUST be anchored to <rootDir>. Jest matches them against
+  // absolute paths, and a worktree's own absolute path contains
+  // `.claude/worktrees/<plan>/` -- so an unanchored `[\\/]\.claude[\\/]`
+  // matches every test inside a worktree when Jest runs *in* that worktree,
+  // and the run reports "No tests found". Anchoring excludes only the
+  // `.claude/` directory of whichever checkout is currently rootDir, which is
+  // exactly the intent: hide the other checkouts, never your own.
+  //
   // The preset defines neither key, so nothing is being overridden here. Note
   // that Jest's own default for testPathIgnorePatterns is ["/node_modules/"]
   // and setting the key replaces it, which is why node_modules is repeated.
-  testPathIgnorePatterns: ['/node_modules/', '[\\\\/]\\.claude[\\\\/]'],
-  modulePathIgnorePatterns: ['[\\\\/]\\.claude[\\\\/]'],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '<rootDir>[\\\\/]\\.claude[\\\\/]',
+  ],
+  modulePathIgnorePatterns: ['<rootDir>[\\\\/]\\.claude[\\\\/]'],
   transformIgnorePatterns: [
     // @lingui/core pulls in @messageformat/date-skeleton and
     // @messageformat/parser, which also ship ESM-only ("type": "module")
