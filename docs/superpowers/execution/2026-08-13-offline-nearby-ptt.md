@@ -113,7 +113,7 @@ build.
 
 ### P4 `ts-domain` — wave 2, track C
 - [x] planned   → docs/superpowers/plans/2026-08-13-p4-ts-domain.md
-- [ ] executed  → branch plan/p4-ts-domain · worktree .claude/worktrees/p4-ts-domain
+- [x] executed  → branch plan/p4-ts-domain · worktree .claude/worktrees/p4-ts-domain
 - [ ] merged    → sync 2
 
 **Owns:** the whole TypeScript domain: `radio.types.ts` (`RadioState`, events),
