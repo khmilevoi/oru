@@ -32,6 +32,12 @@ import java.util.UUID
  * `onConnectionChanged(true)` — it must not report a disconnect again; the callback can
  * fire synchronously off `disconnect()` too. [closing] is set before disconnecting, the
  * same self-initiated-teardown discipline [BleLearningSession] uses for the same reason.
+ *
+ * Bug fix: every callback below that receives a `gatt` parameter also checks it is the
+ * instance currently held in [gatt] before touching any state, the same identity guard
+ * [BleLearningSession.gattCallback] uses and for the same reason — [closing] alone only
+ * covers a synchronous echo of [stop]'s own disconnect, not a stale callback from a
+ * connection this driver has already moved on from.
  */
 @SuppressLint("MissingPermission")
 class BleGattPttDriver(
@@ -90,6 +96,7 @@ class BleGattPttDriver(
     private val callback = object : BluetoothGattCallback() {
 
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+            if (gatt !== this@BleGattPttDriver.gatt) return
             when (newState) {
                 BluetoothProfile.STATE_CONNECTED -> {
                     listener.onConnectionChanged(true)
@@ -105,6 +112,7 @@ class BleGattPttDriver(
         }
 
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+            if (gatt !== this@BleGattPttDriver.gatt) return
             val characteristic = gatt
                 .getService(UUID.fromString(binding.serviceUuid))
                 ?.getCharacteristic(UUID.fromString(binding.characteristicUuid))
@@ -131,6 +139,7 @@ class BleGattPttDriver(
             characteristic: BluetoothGattCharacteristic,
             value: ByteArray,
         ) {
+            if (gatt !== this@BleGattPttDriver.gatt) return
             handle(PttBindingCodec.toHex(value))
         }
 
@@ -139,6 +148,7 @@ class BleGattPttDriver(
             gatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic,
         ) {
+            if (gatt !== this@BleGattPttDriver.gatt) return
             @Suppress("DEPRECATION")
             handle(PttBindingCodec.toHex(characteristic.value ?: return))
         }

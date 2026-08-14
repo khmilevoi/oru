@@ -138,6 +138,46 @@ class BleLearningSessionTest {
     }
 
     @Test
+    fun `a stale disconnect delivered after a later select completes is not reported as a failure`() {
+        val deviceA = mock<BluetoothDevice>()
+        val deviceB = mock<BluetoothDevice>()
+        val gattA = mock<BluetoothGatt>()
+        val gattB = mock<BluetoothGatt>()
+        whenever(adapter.getRemoteDevice("AA:AA:AA:AA:AA:AA")).thenReturn(deviceA)
+        whenever(adapter.getRemoteDevice("BB:BB:BB:BB:BB:BB")).thenReturn(deviceB)
+        whenever(deviceA.connectGatt(eq(context), eq(false), any(), eq(BluetoothDevice.TRANSPORT_LE)))
+            .thenReturn(gattA)
+        whenever(deviceB.connectGatt(eq(context), eq(false), any(), eq(BluetoothDevice.TRANSPORT_LE)))
+            .thenReturn(gattB)
+
+        val session = BleLearningSession(context, listener)
+        // select(deviceA) then select(deviceB) run to completion first, with no callback
+        // fired synchronously off gattA.disconnect() this time (unlike the test above) —
+        // this is the realistic case where the BLE stack takes its time to deliver the old
+        // connection's disconnect. By the time select(deviceB) returns, `closing` is already
+        // back to `false` (reset once the new connectGatt() call is made), so only an
+        // identity check on the callback's own `gatt` parameter can still catch this.
+        session.select("AA:AA:AA:AA:AA:AA")
+        session.select("BB:BB:BB:BB:BB:BB")
+        assertEquals("the session must have moved on to deviceB's gatt", gattB, gattFieldOf(session))
+
+        // Now, only after select(deviceB) has fully completed, the stack delivers gattA's
+        // stale disconnect.
+        val callback = gattCallbackOf(session)
+        callback.onConnectionStateChange(gattA, 0, BluetoothProfile.STATE_DISCONNECTED)
+
+        assertTrue(
+            "expected no device_disconnected failure, got: ${listener.failures}",
+            listener.failures.none { it.first == "device_disconnected" },
+        )
+        assertEquals(
+            "the deviceB session must be undisturbed by the stale gattA callback",
+            gattB,
+            gattFieldOf(session),
+        )
+    }
+
+    @Test
     fun `onServicesDiscovered reports permission_denied instead of crashing when setCharacteristicNotification is not permitted`() {
         val device = mock<BluetoothDevice>()
         val gatt = mock<BluetoothGatt>()

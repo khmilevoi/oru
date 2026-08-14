@@ -91,6 +91,17 @@ class AndroidPttDriverFactory(private val context: Context) : PttDriverFactory {
  * new connections after roughly 30 such leaks. [select] therefore closes any existing
  * [gatt] first (see `closePreviousGatt`), using the same [closing] flag so that self-close
  * is not reported as `onLearningFailed("device_disconnected", ...)` either.
+ *
+ * Bug fix: [closing] alone only covers the *synchronous* echo of a self-close (the case
+ * where the stack re-enters [gattCallback] from inside `disconnect()`). It does not cover
+ * the realistic asynchronous case: `closePreviousGatt()` closes the old `gatt`, `select`
+ * opens a new one and resets [closing] to `false` — and only then does the stack deliver
+ * the old connection's `STATE_DISCONNECTED`. By that point [closing] is already `false`
+ * again, so the stale echo from the dead connection would be reported as a failure against
+ * the *new* candidate. Every callback below that receives a `gatt` parameter therefore
+ * first checks it is the instance currently held in [gatt] and returns immediately
+ * otherwise — a stale callback from a connection this session has already moved on from
+ * must not touch any state or report anything.
  */
 @SuppressLint("MissingPermission")
 class BleLearningSession(
@@ -220,6 +231,7 @@ class BleLearningSession(
     private val gattCallback = object : BluetoothGattCallback() {
 
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+            if (gatt !== this@BleLearningSession.gatt) return
             when (newState) {
                 BluetoothProfile.STATE_CONNECTED -> runCatching { gatt.discoverServices() }
                 BluetoothProfile.STATE_DISCONNECTED ->
@@ -230,6 +242,7 @@ class BleLearningSession(
         }
 
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+            if (gatt !== this@BleLearningSession.gatt) return
             pendingDescriptors.clear()
             try {
                 for (service in gatt.services) {
@@ -262,6 +275,7 @@ class BleLearningSession(
             descriptor: BluetoothGattDescriptor,
             status: Int,
         ) {
+            if (gatt !== this@BleLearningSession.gatt) return
             writeNextDescriptor(gatt)
         }
 
@@ -270,6 +284,7 @@ class BleLearningSession(
             characteristic: BluetoothGattCharacteristic,
             value: ByteArray,
         ) {
+            if (gatt !== this@BleLearningSession.gatt) return
             capture(characteristic, PttBindingCodec.toHex(value))
         }
 
@@ -278,6 +293,7 @@ class BleLearningSession(
             gatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic,
         ) {
+            if (gatt !== this@BleLearningSession.gatt) return
             @Suppress("DEPRECATION")
             capture(characteristic, PttBindingCodec.toHex(characteristic.value ?: return))
         }
