@@ -132,3 +132,43 @@ describe('audio pipeline (spec section 8)', () => {
     expect(audio()).not.toMatch(/24_?000/);
   });
 });
+
+describe('foreground service (spec sections 10.1, 12.2)', () => {
+  it('declares both foreground service types and is not exported', () => {
+    const manifest = read('android/app/src/main/AndroidManifest.xml');
+    expect(manifest).toMatch(
+      /<service[^>]*android:name="com\.oru\.radio\.RadioForegroundService"/s,
+    );
+    expect(manifest).toMatch(
+      /android:foregroundServiceType="microphone\|connectedDevice"/,
+    );
+    expect(manifest).toMatch(/<service[\s\S]*?android:exported="false"[\s\S]*?\/>/);
+  });
+
+  it('localizes every notification string into en and ru', () => {
+    const keys = [
+      'radio_notification_channel_name',
+      'radio_notification_title',
+      'radio_notification_text',
+    ];
+    const en = read('android/app/src/main/res/values/strings.xml');
+    const ru = read('android/app/src/main/res/values-ru/strings.xml');
+
+    keys.forEach(key => {
+      const pattern = new RegExp(`<string name="${key}">([^<]+)</string>`);
+      const enValue = en.match(pattern);
+      const ruValue = ru.match(pattern);
+      expect(enValue).not.toBeNull();
+      expect(ruValue).not.toBeNull();
+      expect(ruValue![1]).not.toEqual(enValue![1]);
+      expect(ruValue![1]).toMatch(/[Ѐ-ӿ]/);
+    });
+  });
+
+  it('reads every notification string from resources instead of hard-coding it', () => {
+    const service = read(`${RADIO_DIR}/RadioForegroundService.kt`);
+    expect(service).toMatch(/getString\(R\.string\.radio_notification_title\)/);
+    expect(service).toMatch(/getString\(R\.string\.radio_notification_text\)/);
+    expect(service).toMatch(/getString\(R\.string\.radio_notification_channel_name\)/);
+  });
+});
