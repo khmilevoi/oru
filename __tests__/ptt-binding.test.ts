@@ -85,6 +85,14 @@ describe('PttBinding parsing (spec section 9.2)', () => {
       expect(parsePttBinding(serializePttBinding(domain))).toEqual(domain);
     },
   );
+
+  it('rejects a binding whose type is neither ble nor hid', () => {
+    expect(
+      // The cast is the point: only a misbehaving native engine can produce this,
+      // and the parser is the boundary that has to catch it.
+      parsePttBinding({type: 'usb', keyCode: 85} as unknown as NativePttBinding),
+    ).toBeInstanceOf(PttBindingParseError);
+  });
 });
 
 describe('PttConfiguration parsing (spec section 6.1)', () => {

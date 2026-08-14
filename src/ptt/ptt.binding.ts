@@ -77,15 +77,22 @@ export function parsePttBinding(raw: NativePttBinding) {
     return binding;
   }
 
-  if (typeof raw.keyCode !== 'number' || !Number.isInteger(raw.keyCode)) {
-    return new PttBindingParseError({
-      bindingType: 'hid',
-      reason: 'missing or non-integer keyCode',
-    });
+  if (raw.type === 'hid') {
+    if (typeof raw.keyCode !== 'number' || !Number.isInteger(raw.keyCode)) {
+      return new PttBindingParseError({
+        bindingType: 'hid',
+        reason: 'missing or non-integer keyCode',
+      });
+    }
+
+    const binding: PttBinding = {type: 'hid', keyCode: raw.keyCode};
+    return binding;
   }
 
-  const binding: PttBinding = {type: 'hid', keyCode: raw.keyCode};
-  return binding;
+  return new PttBindingParseError({
+    bindingType: String(raw.type),
+    reason: 'unknown binding type',
+  });
 }
 
 export function serializePttBinding(binding: PttBinding): NativePttBinding {
