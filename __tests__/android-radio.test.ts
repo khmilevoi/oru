@@ -172,3 +172,37 @@ describe('foreground service (spec sections 10.1, 12.2)', () => {
     expect(service).toMatch(/getString\(R\.string\.radio_notification_channel_name\)/);
   });
 });
+
+describe('phase 0 spike hooks (spec section 15)', () => {
+  it('keeps the hooks in the debug source set only', () => {
+    expect(
+      existsSync(join(REPO_ROOT, 'android/app/src/debug/java/com/oru/radio/SpikeActivity.kt')),
+    ).toBe(true);
+    expect(
+      existsSync(join(REPO_ROOT, 'android/app/src/debug/java/com/oru/radio/SpikeReceiver.kt')),
+    ).toBe(true);
+    expect(existsSync(join(REPO_ROOT, `${RADIO_DIR}/SpikeActivity.kt`))).toBe(false);
+    expect(read('android/app/src/main/AndroidManifest.xml')).not.toMatch(/Spike/);
+  });
+
+  it('declares them as exported debug components', () => {
+    const manifest = read('android/app/src/debug/AndroidManifest.xml');
+    expect(manifest).toMatch(/android:name="com\.oru\.radio\.SpikeActivity"/);
+    expect(manifest).toMatch(/android:name="com\.oru\.radio\.SpikeReceiver"/);
+  });
+
+  it('documents every command the operator needs for scenarios A to D', () => {
+    const runbook = read('docs/phase0-android-spike-hooks.md');
+    [
+      'start',
+      'ptt-down',
+      'ptt-up',
+      'state',
+      'ptt-scan',
+      'ptt-pick',
+      'ptt-cancel',
+      'ptt-forget',
+    ].forEach(command => expect(runbook).toContain(command));
+    expect(runbook).toMatch(/pm grant com\.oru android\.permission\.RECORD_AUDIO/);
+  });
+});
