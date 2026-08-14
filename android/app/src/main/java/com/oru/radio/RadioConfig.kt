@@ -32,6 +32,20 @@ object RadioConfig {
     /** Hard ceiling on buffered frames; the oldest are dropped past it. */
     const val JITTER_CAPACITY_FRAMES = 25
 
+    /**
+     * Capture and playback hardware buffer size, in 20 ms frames (4 frames = ~80 ms at
+     * the current constants). Directly sets capture/playback latency: bigger absorbs more
+     * OS audio-thread scheduling jitter, smaller lowers latency.
+     */
+    const val AUDIO_BUFFER_FRAMES = 4
+
+    /**
+     * After this many consecutive `AudioRecord.read`/`AudioTrack.write` errors, capture or
+     * playback gives up and reports an unrecoverable failure (spec section 13) instead of
+     * spinning a max-priority thread against dead hardware.
+     */
+    const val AUDIO_MAX_CONSECUTIVE_IO_ERRORS = 20
+
     /** Stuck-button protection: a held transmission stops itself after 120 s. */
     const val MAX_TRANSMIT_MS = 120_000L
 

@@ -23,14 +23,39 @@ class AudioEngine : AudioIo {
     private companion object {
         const val TAG = "OruRadio"
         const val BYTES_PER_SAMPLE = 2
-        const val BUFFER_FRAMES = 4
     }
 
+    /**
+     * One peer's decode pipeline. [decodeInto] (called only from `oru-playback`) and
+     * [close] (called only from the scheduler thread) share this object's monitor, so a
+     * close can never run concurrently with an in-flight decode of the same peer: close
+     * blocks until any decode already in progress finishes, and a decode that arrives
+     * after close observes [closed] and returns without touching the decoder — which may
+     * already have destroyed its native handle. This is what makes it safe for the
+     * scheduler thread to remove a peer from [playbacks] and close its decoder while the
+     * playback thread is mid-iteration over that same map.
+     */
     private class Playback(
         val jitter: JitterBuffer = JitterBuffer(),
-        val decoder: OpusDecoder = OpusDecoder(),
-        val pcm: ShortArray = ShortArray(RadioConfig.FRAME_SAMPLES),
-    )
+        private val decoder: OpusDecoder = OpusDecoder(),
+    ) {
+        val pcm = ShortArray(RadioConfig.FRAME_SAMPLES)
+        private var closed = false
+
+        /** Decodes [frame] into [pcm], returning the sample count, or -1 once closed. */
+        @Synchronized
+        fun decodeInto(frame: ByteArray, length: Int): Int {
+            if (closed) return -1
+            return decoder.decode(frame, length, pcm, RadioConfig.FRAME_SAMPLES)
+        }
+
+        @Synchronized
+        fun close() {
+            if (closed) return
+            closed = true
+            decoder.close()
+        }
+    }
 
     private val playbacks = ConcurrentHashMap<String, Playback>()
 
@@ -72,7 +97,7 @@ class AudioEngine : AudioIo {
             )
             val bufferBytes = maxOf(
                 minimum,
-                RadioConfig.FRAME_SAMPLES * BYTES_PER_SAMPLE * BUFFER_FRAMES,
+                RadioConfig.FRAME_SAMPLES * BYTES_PER_SAMPLE * RadioConfig.AUDIO_BUFFER_FRAMES,
             )
             // VOICE_COMMUNICATION gives us the system's echo cancellation and noise
             // suppression (spec section 8).
@@ -94,13 +119,33 @@ class AudioEngine : AudioIo {
             val encoded = ByteArray(RadioConfig.MAX_ENCODED_FRAME_BYTES)
 
             record.startRecording()
+            var consecutiveReadErrors = 0
             while (capturing) {
                 var offset = 0
+                var readFailed = false
                 while (offset < pcm.size && capturing) {
                     val read = record.read(pcm, offset, pcm.size - offset)
-                    if (read <= 0) break
+                    if (read < 0) {
+                        readFailed = true
+                        break
+                    }
+                    if (read == 0) break
                     offset += read
                 }
+                if (readFailed) {
+                    // A single bad read is tolerated (the hardware can hiccup); only a
+                    // persistent run of them means the device is dead, and looping on
+                    // that at Thread.MAX_PRIORITY with no backoff is exactly the spin
+                    // spec section 13 forbids.
+                    consecutiveReadErrors++
+                    if (consecutiveReadErrors >= RadioConfig.AUDIO_MAX_CONSECUTIVE_IO_ERRORS) {
+                        Log.e(TAG, "AudioRecord.read failed repeatedly")
+                        onFailure?.invoke("microphone_read_failed", "AudioRecord.read failed repeatedly")
+                        break
+                    }
+                    continue
+                }
+                consecutiveReadErrors = 0
                 if (offset < pcm.size) continue
 
                 val length = encoder.encode(pcm, RadioConfig.FRAME_SAMPLES, encoded)
@@ -135,14 +180,18 @@ class AudioEngine : AudioIo {
     }
 
     override fun closePlayback(peerId: String) {
-        playbacks.remove(peerId)?.decoder?.close()
+        playbacks.remove(peerId)?.close()
         if (playbacks.isEmpty()) stopPlayback()
     }
 
     override fun release() {
         stopCapture()
-        playbacks.keys.toList().forEach { closePlayback(it) }
+        // Stop and join the playback thread before closing any decoder: stopPlayback()'s
+        // join has a fixed 500 ms timeout and returns regardless of whether the thread
+        // actually exited, so the per-Playback lock (not just this ordering) is what keeps
+        // a decoder close from ever racing a decode still in flight on that thread.
         stopPlayback()
+        playbacks.keys.toList().forEach { peerId -> playbacks.remove(peerId)?.close() }
     }
 
     private fun startPlayback() {
@@ -184,7 +233,10 @@ class AudioEngine : AudioIo {
                         .build(),
                 )
                 .setBufferSizeInBytes(
-                    maxOf(minimum, RadioConfig.FRAME_SAMPLES * BYTES_PER_SAMPLE * BUFFER_FRAMES),
+                    maxOf(
+                        minimum,
+                        RadioConfig.FRAME_SAMPLES * BYTES_PER_SAMPLE * RadioConfig.AUDIO_BUFFER_FRAMES,
+                    ),
                 )
                 .setTransferMode(AudioTrack.MODE_STREAM)
                 .build()
@@ -193,16 +245,16 @@ class AudioEngine : AudioIo {
             val ready = ArrayList<ShortArray>(4)
             track.play()
 
+            var consecutiveWriteErrors = 0
             while (playing) {
                 ready.clear()
                 for (playback in playbacks.values) {
                     val frame = playback.jitter.pop() ?: continue
-                    val samples = playback.decoder.decode(
-                        frame,
-                        frame.size,
-                        playback.pcm,
-                        RadioConfig.FRAME_SAMPLES,
-                    )
+                    // decodeInto is synchronized on the Playback itself, so it can never
+                    // run concurrently with that same peer's close() on the scheduler
+                    // thread; it returns -1 without touching the decoder if that peer was
+                    // already closed since jitter.pop() returned this frame.
+                    val samples = playback.decodeInto(frame, frame.size)
                     // playback.pcm is reused, which is safe: it is mixed below, before
                     // this peer decodes again on the next iteration.
                     if (samples > 0) ready.add(playback.pcm)
@@ -210,7 +262,20 @@ class AudioEngine : AudioIo {
                 AudioMixer.mix(ready, mixed)
                 // A silent frame when nothing is ready keeps AudioTrack's blocking write
                 // pacing this loop at real time instead of spinning.
-                track.write(mixed, 0, mixed.size)
+                val written = track.write(mixed, 0, mixed.size)
+                if (written < 0) {
+                    // A dead AudioTrack returns an error immediately instead of blocking,
+                    // so without this check the loop would busy-spin at
+                    // Thread.MAX_PRIORITY exactly like an unchecked read failure would.
+                    consecutiveWriteErrors++
+                    if (consecutiveWriteErrors >= RadioConfig.AUDIO_MAX_CONSECUTIVE_IO_ERRORS) {
+                        Log.e(TAG, "AudioTrack.write failed repeatedly")
+                        onFailure?.invoke("speaker_write_failed", "AudioTrack.write failed repeatedly")
+                        break
+                    }
+                } else {
+                    consecutiveWriteErrors = 0
+                }
             }
         } catch (error: Exception) {
             Log.e(TAG, "playback stopped on an error", error)
