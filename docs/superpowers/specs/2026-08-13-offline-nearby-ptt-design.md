@@ -277,7 +277,7 @@ the core scenario.
 |---|---|---|
 | Android | `RECORD_AUDIO` | microphone |
 | Android | `BLUETOOTH_SCAN`, `BLUETOOTH_CONNECT`, `BLUETOOTH_ADVERTISE` | Nearby + PTT button |
-| Android | `NEARBY_WIFI_DEVICES` (13+), `ACCESS_FINE_LOCATION` (pre-13) | Nearby discovery |
+| Android | `NEARBY_WIFI_DEVICES` (13+) plus `ACCESS_FINE_LOCATION` (all versions, unconditionally -- Nearby Connections' BLE medium requires it on every API level regardless of `NEARBY_WIFI_DEVICES`; see Bug found #3, `docs/superpowers/specs/2026-08-13-phase0-spike-report.md`) | Nearby discovery |
 | Android | `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MICROPHONE`, `FOREGROUND_SERVICE_CONNECTED_DEVICE` | foreground service |
 | iOS | `NSMicrophoneUsageDescription` | microphone |
 | iOS | `NSBluetoothAlwaysUsageDescription` | PTT button |

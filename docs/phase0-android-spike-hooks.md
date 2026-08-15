@@ -18,7 +18,10 @@ adb shell pm grant com.oru android.permission.BLUETOOTH_ADVERTISE
 adb shell pm grant com.oru android.permission.POST_NOTIFICATIONS
 # Android 13+:
 adb shell pm grant com.oru android.permission.NEARBY_WIFI_DEVICES
-# Android 12 and below, instead of NEARBY_WIFI_DEVICES:
+# All API levels, not just 12 and below: Nearby Connections' BLE medium needs this granted
+# unconditionally (its own internal check, independent of NEARBY_WIFI_DEVICES) or
+# startAdvertising()/startDiscovery() fail with ConnectionsStatusCodes 8034
+# MISSING_PERMISSION_ACCESS_COARSE_LOCATION -- see Bug found #3 in the spike report.
 adb shell pm grant com.oru android.permission.ACCESS_FINE_LOCATION
 ```
 
