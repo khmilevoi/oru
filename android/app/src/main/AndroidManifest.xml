@@ -19,7 +19,19 @@
 
     <!-- Spec section 11: Nearby discovery -->
     <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="32" />
+    <!-- Unconditional on every API level, not capped at 32: Nearby Connections' BLE medium
+         (play-services-nearby 19.4.0) performs its own internal permission check ahead of
+         startAdvertising()/startDiscovery() that requires ACCESS_FINE_LOCATION (or COARSE) to
+         be granted, and throws ConnectionsStatusCodes 8034
+         MISSING_PERMISSION_ACCESS_COARSE_LOCATION when it is not; observed for real on an
+         Android 16 (API 36) device with NEARBY_WIFI_DEVICES granted and no location permission
+         at all. That check is internal to the library, not the OS's BLUETOOTH_SCAN enforcement,
+         so android:usesPermissionFlags="neverForLocation" on BLUETOOTH_SCAN below cannot
+         suppress it: that flag only changes what the OS/PackageManager require, and this is a
+         library-thrown status code, not a SecurityException. NEARBY_WIFI_DEVICES is kept for
+         the Wi-Fi-based mediums; capping ACCESS_FINE_LOCATION below 33 was the actual bug (Bug
+         found #3, docs/superpowers/specs/2026-08-13-phase0-spike-report.md). -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <!-- Nearby Connections' Wi-Fi-based mediums (advertising/discovery) need these; without
          them the engine fails immediately on start with advertising_failed/discovery_failed
