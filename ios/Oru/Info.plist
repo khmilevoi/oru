@@ -33,12 +33,28 @@
 	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-	  <!-- Do not change NSAllowsArbitraryLoads to true, or you will risk app rejection! -->
 		<key>NSAllowsArbitraryLoads</key>
 		<false/>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Oru connects to your Bluetooth push-to-talk button, including while the screen is locked.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_7384AB769DDA._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Oru discovers and connects to nearby devices over the local network.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Oru uses the microphone to transmit your voice to nearby devices.</string>
+	<key>RCTNewArchEnabled</key>
+	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>push-to-talk</string>
+		<string>bluetooth-central</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
@@ -58,20 +74,5 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Oru uses the microphone to transmit your voice to nearby devices.</string>
-	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Oru connects to your Bluetooth push-to-talk button, including while the screen is locked.</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Oru discovers and connects to nearby devices over the local network.</string>
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_7384AB769DDA._tcp</string>
-	</array>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>push-to-talk</string>
-		<string>bluetooth-central</string>
-	</array>
 </dict>
 </plist>
