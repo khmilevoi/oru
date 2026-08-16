@@ -488,13 +488,13 @@ locked-screen scenarios that need the PT entitlement, **no audio can flow at all
 not**, without it. The Nearby Connections handshake itself is unaffected by this (transport and
 audio session are independent), but there's no way to hear anything without PT.
 
-Two options are on the table: (a) wait for the paid Apple Developer Program enrollment, or
+Two options were on the table: (a) wait for the paid Apple Developer Program enrollment, or
 (b) add a debug-only fallback that manually activates the session when PT setup fails, scoped
-tightly enough not to touch the real PT-driven path. **No decision has actually been made yet** —
-an earlier note in this doc claimed a decision to wait, but that was not confirmed by the user and
-has been corrected here. No workaround has been added either way; `Oru-LocalTest.entitlements` /
-`com.oru.localtest` bundle id remain in the tree (Debug config only, Release untouched), unused
-pending that choice.
+tightly enough not to touch the real PT-driven path. **Decided (2026-08-16): wait for the paid
+account (option a).** No debug-only audio-session workaround will be built. No workaround has
+been added; `Oru-LocalTest.entitlements` / `com.oru.localtest` bundle id remain in the tree
+(Debug config only, Release untouched), unused, and can be deleted once the paid account is
+active and the local-test path is no longer needed.
 
 Separately worth flagging, not fixed today: this crash is an uncaught-exception hard-crash on any
 `PTChannelManager` setup failure, not just the "no entitlement" case tested here. A production
@@ -514,8 +514,9 @@ Program enrollment** (the free Personal Team on hand explicitly cannot hold the 
 entitlement, and the app's audio session is only ever activated as a side effect of PushToTalk
 successfully joining a channel — see the subsection above). For scenario C specifically, a
 physical BLE PTT button will also be needed, but that's secondary to the account blocker.
-**Open decision, not yet made: wait for the paid account vs. build a debug-only audio-session
-workaround.** Until the user picks one, nothing further is actionable on the audio path. The
-Nearby Connections handshake itself (transport layer, independent of audio/PT) can still be
-exercised and observed between the two devices in the meantime — that part of the pipeline
-doesn't depend on PT, and is being checked separately on the Android side right now.
+**Decided (2026-08-16): wait for the paid Apple Developer Program enrollment** rather than build a
+debug-only audio-session workaround. Until the account is active, nothing further is actionable
+on the audio path. The Nearby Connections handshake itself (transport layer, independent of
+audio/PT) can still be exercised and observed between the two devices in the meantime — that part
+of the pipeline doesn't depend on PT, and is being checked separately on the Android side right
+now.
