@@ -227,7 +227,7 @@ public final class NearbyManager: RadioTransport {
     }
 
     public func beginAudioStream(streamId: String) -> AudioStreamSink? {
-        queue.sync { [self] in
+        queue.sync { [self] () -> AudioStreamSink? in
             endAudioStreamLocked()
             let targets = handshakenPeerIds()
             guard !targets.isEmpty, let manager = connectionManager else { return nil }
@@ -236,7 +236,7 @@ public final class NearbyManager: RadioTransport {
             var input: InputStream?
             var output: OutputStream?
             Stream.getBoundStreams(
-                with: 64 * 1_024,
+                withBufferSize: 64 * 1_024,
                 inputStream: &input,
                 outputStream: &output
             )
@@ -248,7 +248,7 @@ public final class NearbyManager: RadioTransport {
                 return nil
             }
 
-            outgoingTokens = [manager.send(input, to: targets) { _ in }]
+            outgoingTokens = [manager.startStream(input, to: targets) { _ in }]
             let sink = OutgoingAudioStream(output: output, queue: queue, log: log)
             outgoing = sink
             log.info("outgoing stream \(streamId, privacy: .public) to \(targets.count)")

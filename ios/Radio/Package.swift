@@ -16,10 +16,17 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "OpusShim",
+            dependencies: [
+                .product(name: "Copus", package: "swift-opus")
+            ]
+        ),
+        .target(
             name: "RadioKit",
             dependencies: [
                 .product(name: "NearbyConnections", package: "nearby"),
-                .product(name: "Opus", package: "swift-opus")
+                .product(name: "Opus", package: "swift-opus"),
+                "OpusShim"
             ],
             resources: [.process("Resources")]
         ),

@@ -1,6 +1,8 @@
 import AVFoundation
+import Copus
 import Foundation
 import Opus
+import OpusShim
 
 /// Embedded libopus, wrapped behind two one-method protocols (spec section 8:
 /// platform codecs are not used). This file and `Package.swift` are the entire
@@ -50,21 +52,67 @@ public enum OpusFormat {
     }
 }
 
+/// Talks to the vendored libopus C library directly through `Copus` rather than
+/// through the `Opus.Encoder` convenience wrapper: that wrapper has no bitrate
+/// control in any released version, but the real C API (`opus_encoder_ctl`,
+/// `OPUS_SET_BITRATE`) is intact in the same dependency.
 public final class LibopusEncoder: OpusEncoding {
-    private let encoder: Opus.Encoder
+    private let encoder: OpaquePointer
 
     public init() throws {
-        encoder = try Opus.Encoder(format: OpusFormat.pcm, application: .voip)
-        encoder.bitrate = .bitrate(RadioConfig.Audio.bitrate)
+        var error: Int32 = OPUS_OK
+        guard
+            let encoder = opus_encoder_create(
+                Int32(RadioConfig.Audio.sampleRate),
+                Int32(RadioConfig.Audio.channelCount),
+                OPUS_APPLICATION_VOIP,
+                &error
+            ),
+            error == OPUS_OK
+        else {
+            throw RadioError.audioFailed("opus_encoder_create failed (\(error))")
+        }
+        self.encoder = encoder
+
+        let ctlResult = oru_opus_encoder_set_bitrate(encoder, RadioConfig.Audio.bitrate)
+        guard ctlResult == OPUS_OK else {
+            throw RadioError.audioFailed("opus_encoder_ctl(OPUS_SET_BITRATE) failed (\(ctlResult))")
+        }
+    }
+
+    deinit {
+        opus_encoder_destroy(encoder)
     }
 
     public func encode(_ pcm: Data) throws -> Data {
-        guard let buffer = OpusFormat.buffer(from: pcm) else {
+        guard pcm.count > 0, pcm.count % 2 == 0 else {
             throw RadioError.audioFailed("bad pcm frame of \(pcm.count) bytes")
         }
+        let frameSize = Int32(pcm.count / 2)
         var packet = Data(count: RadioConfig.Audio.maxEncodedFrameBytes)
-        let written = try encoder.encode(buffer, to: &packet)
-        return Data(packet.prefix(written))
+        let written: Int32 = try pcm.withUnsafeBytes { rawPcm in
+            let samples = rawPcm.bindMemory(to: Int16.self)
+            return try packet.withUnsafeMutableBytes { rawPacket in
+                guard
+                    let samplesBase = samples.baseAddress,
+                    let packetBase = rawPacket.bindMemory(to: UInt8.self).baseAddress
+                else {
+                    throw RadioError.audioFailed("could not address the pcm/packet buffers")
+                }
+                let result = opus_encode(
+                    encoder,
+                    samplesBase,
+                    frameSize,
+                    packetBase,
+                    Int32(RadioConfig.Audio.maxEncodedFrameBytes)
+                )
+                guard result >= 0 else {
+                    throw RadioError.audioFailed("opus_encode failed (\(result))")
+                }
+                return result
+            }
+        }
+        return Data(packet.prefix(Int(written)))
     }
 }
 
@@ -84,7 +132,9 @@ public final class LibopusDecoder: OpusDecoding {
         else {
             throw RadioError.audioFailed("could not allocate a decode buffer")
         }
-        try decoder.decode(packet, to: buffer)
+        try packet.withUnsafeBytes { raw in
+            try decoder.decode(raw.bindMemory(to: UInt8.self), to: buffer)
+        }
         return OpusFormat.data(from: buffer)
     }
 }
