@@ -26,12 +26,31 @@ health; iOS compilation happens only at closeout on macOS.
   executors into `RadioEngine.kt`/`RadioEngine.swift` — a collision, not parallelism.
 - **Sync 2 is the spec's §10.3 Go/No-Go gate.** The operator chose to pause the run there:
   the merged engines carry spike test hooks, the operator runs Phase 0 scenarios A–D on
-  physical devices, and waves 3–4 start only on a written Go. On No-Go the transport
-  sections of the spec are revised and this schedule is regenerated; nothing downstream is
-  built on a failed transport.
+  physical devices, and the transport-dependent waves start only on a written Go. On No-Go
+  the transport sections of the spec are revised and this schedule is regenerated; nothing
+  downstream is built on a failed transport. The spec's 2026-08-18 revision narrows *what*
+  the gate holds, not the gate itself: it releases waves 4–5 (P5, P7); wave 3 (P6) is exempt.
+- **The remaining work is inverted to run design first (spec §6.4): P6 `ui` precedes P5
+  `bridge`.** The UI is engine-independent by construction — it depends on the §6.1 contract
+  and nothing else, never on a Turbo Module, a transport or a device — so it does not need
+  the bridge to exist. It needs a *second* implementation of the same contract, which is why
+  the §6.5 mock engine is P6's first task and not a test fixture bolted on afterwards.
+  Swapping mock → real is then a one-line binding change (P5), and needing UI rework to make
+  that swap work is a spec violation rather than a scheduled task. The inversion is also the
+  only scheduling move actually available right now: the Phase 0 **Go decision is still
+  formally open** in the spike report, and per the revised §10.3 the design stage is exactly
+  the work that decision does not block — a transport swap changes what fills `RadioState`,
+  not the shape of `RadioState`. Waiting would idle the run; building the screens does not.
+- Waves 3, 4 and 5 each carry a single plan. That is deliberate, not a failure to
+  parallelise: what remains is three strictly sequential stages — screens first, the real
+  engine wired underneath them second, the app assembled around both third — and each stage's
+  acceptance is the next stage's precondition. It also makes the shared-file rule trivial:
+  with one plan per wave there is no intra-wave collision to declare, only ownership handoffs
+  across waves (`src/radio/radio.native.ts`: P4 → P6 → P5).
 - Stage 5's concrete-button reverse engineering and the Stage 6 reliability matrix need
   physical hardware and are closeout items, not plans. The *generic* BLE learning flow and
-  drivers are in the engine plans.
+  drivers are in the engine plans, and both remain gated on Go — §10.3 exempts the pairing
+  *screens*, never the native learning drivers.
 
 Host environment facts collected for the planners (agents run in fresh shells — none of this
 is in the environment by default):
@@ -129,57 +148,102 @@ screens → P6 · app-entry wiring → P7.
 **Spec sections:** §6.1, §6.2, §7 (message shapes), §13, §16.
 **Model override:** —
 
-### P5 `bridge` — wave 3, track A
+### P6 `ui` — wave 3, track A
+- [ ] planned   → docs/superpowers/plans/2026-08-13-p6-ui.md
+- [ ] executed  → branch plan/p6-ui · worktree .claude/worktrees/p6-ui
+- [ ] merged    → sync 3
+
+**Owns, first — the mock engine (§6.5):** `src/radio/radio.native.mock.ts`, a complete,
+deterministic TypeScript implementation of the §6.1 contract — every method of
+`specs/NativeRadio.ts` including the candidate-selection step the §9.3 pairing flow needs,
+both `stateChanged` and `error` events, an injectable clock, no randomness and no real I/O —
+driven by the seven named scenarios `happy`, `solo`, `pairing-success`, `pairing-empty`,
+`button-lost`, `engine-error`, `onboarding`; the `RADIO_BACKEND` build-time flag
+(`mock` | `native`) — `babel-plugin-transform-inline-environment-variables` added as a
+devDependency and wired into the Babel config so the value is inlined, the backend resolved
+through the **existing `createRadioNative(resolve)` seam** in `src/radio/radio.native.ts`
+(this file transfers from P4's ownership to P6 for this wave) so that release builds are
+always `native` and the mock module is dropped from release bundles, with the dev default
+`mock` until P5 flips it; one `DevSettings.addMenuItem` entry per scenario under `__DEV__`
+for live switching, while tests set the scenario directly.
+
+**Owns, then — every screen,** against the Reatom model only (no direct native calls):
+`RadioScreen` with the four `screenState` states and full-screen PTT touch area;
+`SettingsScreen` ("PTT button" section, configured / not configured); the four-step pairing
+flow (scan → pick → learn → saved); onboarding (three permission screens + done), with the
+runtime-permission gateway behind a port of the same shape so the mock can answer it (§6.4);
+the visual direction from the Claude Design project "Offline Nearby PTT" (dark radio-hardware
+aesthetic, TX red / RX green / learning amber, Oswald + IBM Plex Mono bundled as assets,
+`prefers-reduced-motion` respected); all UI copy through Lingui macros with filled `en`/`ru`
+catalogs; error-state screen with restart action.
+**Not here:** the Turbo Module and the dev-default flip → P5 · app entry, navigation glue and
+runtime permission sequencing against the real OS prompts → P7 · native learning logic →
+merged P2/P3. Per §6.4 no screen may import `radio.native.ts`, `TurboModuleRegistry`, or any
+API that only behaves correctly on a device; a fact a screen needs but the contract does not
+carry means the contract is extended, not reached around.
+**Acceptance beyond the gates — spec §15 Stage 2, with no devices, no native code,
+`RADIO_BACKEND=mock`:**
+- all four main-screen states are reachable and visually distinct;
+- the pairing flow completes end-to-end on `pairing-success`, and its empty / retry path on
+  `pairing-empty`;
+- onboarding walks through every step, including a denied permission;
+- the error state appears on `engine-error` and its restart action returns the UI to
+  `starting`;
+- all of the above in **both locales** (`en`/`ru`), with `prefers-reduced-motion` honoured.
+
+On-device end-to-end behaviour is deliberately **not** asserted here — it is P7's (§15
+Stage 4).
+
+**Needs:** P4. **Not gated on the Go decision** — per the revised §10.3 UI and design work is
+explicitly exempt, so this wave runs while the decision is still open. (Does not need P5 —
+the UI talks to the model, and the mock is the engine underneath it.)
+**Spec sections:** §6.4, §6.5, §12, §12.1, §12.2, §13, §15 Stage 2.
+**Model override:** —
+
+### P5 `bridge` — wave 4, track A
 - [ ] planned   → docs/superpowers/plans/2026-08-13-p5-bridge.md
 - [ ] executed  → branch plan/p5-bridge · worktree .claude/worktrees/p5-bridge
-- [ ] merged    → sync 3
+- [ ] merged    → sync 4
 
 **Owns:** the `RadioNative` Turbo Module made real on both platforms: codegen config in
 package.json; Kotlin module + package registration (MainApplication) calling into the
 merged Android engine; Swift/ObjC++ module registration calling into the merged iOS engine;
 the `stateChanged`/`error` event stream from engine to JS; adjustments to
-`src/radio/radio.native.ts` so the wrapper matches the real module (this file transfers
-from P4's ownership to P5 for this wave).
-**Not here:** engine internals → merged P2/P3 (touch only what the bridge exposes) · UI →
-P6 · app bootstrap wiring → P7.
-**Needs:** P2, P3, P4, Go decision (sync 2).
-**Spec sections:** §6.1, §15 Stage 2.
+`src/radio/radio.native.ts` so the wrapper matches the real module, **and the flip of the dev
+default `RADIO_BACKEND` binding from `mock` to `native`** in that same file (§6.5) — the file
+transfers from P6's ownership to P5 for this wave. `RADIO_BACKEND=mock` must keep working
+after the flip: it stays the way design work, demos and screenshots run.
+**Not here:** engine internals → merged P2/P3 (touch only what the bridge exposes) · screens
+and the mock engine → merged P6 · app bootstrap wiring → P7.
+**Acceptance beyond the gates:** spec §15 Stage 3 — JS drives a full session against the real
+engines, **and the merged Stage 2 screens do it without a single UI edit**. A UI change needed
+to make the real binding work is a §6.4 violation and is reported as one, not absorbed.
+**Needs:** P2, P3, P4, P6, Go decision (sync 2). P6 comes first so the screens this wave must
+not break already exist and the no-UI-edit acceptance is checkable.
+**Spec sections:** §6.1, §6.4, §6.5, §15 Stage 3.
 **Model override:** —
 
-### P6 `ui` — wave 3, track B
-- [ ] planned   → docs/superpowers/plans/2026-08-13-p6-ui.md
-- [ ] executed  → branch plan/p6-ui · worktree .claude/worktrees/p6-ui
-- [ ] merged    → sync 3
-
-**Owns:** every screen, against the Reatom model only (no direct native calls):
-`RadioScreen` with the four `screenState` states and full-screen PTT touch area;
-`SettingsScreen` ("PTT button" section, configured / not configured); the four-step pairing
-flow (scan → pick → learn → saved); onboarding (three permission screens + done); the
-visual direction from the Claude Design project "Offline Nearby PTT" (dark radio-hardware
-aesthetic, TX red / RX green / learning amber, Oswald + IBM Plex Mono bundled as assets,
-`prefers-reduced-motion` respected); all UI copy through Lingui macros with filled `en`/`ru`
-catalogs; error-state screen with restart action.
-**Not here:** bridge → P5 · app entry, navigation glue and runtime permission sequencing →
-P7 · native learning logic → merged P2/P3.
-**Needs:** P4, Go decision (sync 2). (Does not need P5 — the UI talks to the model.)
-**Spec sections:** §12, §12.1, §12.2, §13, §15 Stage 4.
-**Model override:** —
-
-### P7 `integration` — wave 4, track A
+### P7 `integration` — wave 5, track A
 - [ ] planned   → docs/superpowers/plans/2026-08-13-p7-integration.md
 - [ ] executed  → branch plan/p7-integration · worktree .claude/worktrees/p7-integration
-- [ ] merged    → sync 4
+- [ ] merged    → sync 5
 
 **Owns:** the app as a whole: app entry (`i18n.loadAndActivate` with system locale + en
 fallback, engine event subscription into the Reatom model, `radio.start()`, AppState resume
 re-sync); navigation glue between Radio / Settings / pairing / onboarding; first-launch
-permission sequencing (onboarding screen → system prompt, per §11 order); §11 cross-check
-of every manifest/plist declaration against what the merged code actually uses; JS-layer
-smoke tests of the assembled app; README with run instructions for both platforms.
+permission sequencing against the real OS prompts behind P6's onboarding screens (per §11
+order, including the `ACCESS_BACKGROUND_LOCATION` step §11 records as still open — Data
+Safety disclosure plus Android's two-step "Allow all the time" Settings redirect); §11
+cross-check of every manifest/plist declaration against what the merged code actually uses;
+JS-layer smoke tests of the assembled app; README with run instructions for both platforms.
 **Not here:** everything else is merged — fix only wiring; behavioral fixes in engines,
 bridge or screens are reported, not silently absorbed.
-**Needs:** P5, P6.
-**Spec sections:** §4, §6.2, §11, §12, §15 Stages 3–4 assembly.
+**Acceptance beyond the gates:** spec §15 Stage 4 — **full flow on both platforms from
+install to talking**. This on-device end-to-end acceptance moved here from the old UI stage
+when the spec was re-cut design-first; it is precisely the acceptance P6 deliberately does
+not carry.
+**Needs:** P5 (P6 is already merged at sync 3).
+**Spec sections:** §4, §6.2, §11, §12, §15 Stage 4.
 **Model override:** —
 
 ## Sync 1 — after P1
@@ -198,20 +262,45 @@ is a decomposition violation and is reported as one.
 physical devices (Android + iPhone, internet off, screens locked), runs §15 Phase 0
 scenarios A–D using the engines' native test hooks, and records the outcome in
 `docs/superpowers/specs/2026-08-13-phase0-spike-report.md` with an explicit **Go** or
-**No-Go**. Waves 3–4 run only on Go. On No-Go: the spec's transport sections (§7, §10) are
-revised and this schedule is regenerated — P5–P7 as written assume Nearby Connections.
+**No-Go**. On No-Go: the spec's transport sections (§7, §10) are revised and this schedule is
+regenerated — P5 and P7 as written assume Nearby Connections.
+**Gate scope — revised 2026-08-18.** As executed, this pause held *every* downstream wave,
+because the schedule then ran the bridge first and there was nothing downstream that was not
+transport-dependent. The spec's §10.3 revision narrows what the pause blocks: the Go decision
+now releases **waves 4 and 5** (P5 bridge, P7 integration) only, and **wave 3 (P6 design) is
+exempt** — by §6.4 the UI depends on the §6.1 contract alone and by §6.5 it is accepted
+against the mock, so a transport replacement changes what fills `RadioState`, not its shape.
+The record of the pause above stands as it happened; only its downstream scope changed. The
+decision itself is still open in the spike report as of this revision, which is why wave 3 is
+the wave that runs next.
 
-## Sync 3 — after P5, P6
-**Merges:** P5, P6, plus whichever of the two went green first if the other is still
-running (readiness is computed from Needs).
-**Regenerate, never text-merge:** pnpm-lock.yaml → `pnpm install`, committed separately;
-Lingui catalogs (`*.po`) on conflict → `pnpm lingui extract`, then re-fill `ru`.
-**Declared shared surface:** package.json — P5 adds `codegenConfig`, P6 may add font/asset
-config. A conflict is resolved by union of both changes, then the lockfile is regenerated.
-Any other shared file between P5 and P6 is a decomposition violation.
-**Gate:** merge gate green.
+## Sync 3 — after P6
+**Merges:** P6.
+**Regenerate, never text-merge:** pnpm-lock.yaml → `pnpm install`, committed separately —
+P6 adds `babel-plugin-transform-inline-environment-variables` as a devDependency, so the
+lockfile *will* move at this sync and must be regenerated, never text-merged; Lingui catalogs
+(`*.po`) on conflict → `pnpm lingui extract`, then re-fill `ru`.
+**Declared shared surface:** package.json — P6 adds the Babel devDependency (§6.5) and may
+add font/asset config. This relaxes P1's "later plans do not edit package.json" invariant by
+design: the `RADIO_BACKEND` flag mechanism needs a build-time plugin that did not exist when
+P1 pre-installed the spec's runtime dependencies. Resolution is union of the changes followed
+by lockfile regeneration. `babel.config.js` and `src/radio/radio.native.ts` are P6's alone
+for this wave.
+**Gate:** merge gate green. One plan in the wave, so there is no cross-plan conflict to
+resolve — anything beyond trunk drift here is a merge-mechanics problem, not a decomposition
+violation.
 
-## Sync 4 — after P7
+## Sync 4 — after P5
+**Merges:** P5.
+**Regenerate, never text-merge:** pnpm-lock.yaml → `pnpm install`, committed separately.
+**Declared shared surface:** package.json — P5 adds `codegenConfig` alongside P6's already
+merged Babel devDependency; union, then regenerate the lockfile.
+`src/radio/radio.native.ts` is P5's for this wave (ownership transferred from P6).
+**Gate:** merge gate green, **plus the §15 Stage 3 no-UI-edit check** — the merger confirms
+P5's branch changed no screen. A UI edit needed to make the real binding work is a §6.4
+violation: it is reported before the merge is accepted, not quietly merged.
+
+## Sync 5 — after P7
 **Merges:** P7.
 **Regenerate, never text-merge:** pnpm-lock.yaml → `pnpm install`, committed separately.
 **Append-only surfaces:** none.
@@ -247,15 +336,18 @@ flowchart TB
     P4["P4 ts-domain"]
   end
   S2{{"sync 2 · Phase 0 Go/No-Go pause"}}
-  subgraph W3["Wave 3"]
-    P5["P5 bridge"]
-    P6["P6 ui"]
+  subgraph W3["Wave 3 · design first"]
+    P6["P6 ui + mock engine"]
   end
   S3{{"sync 3"}}
   subgraph W4["Wave 4"]
-    P7["P7 integration"]
+    P5["P5 bridge"]
   end
   S4{{"sync 4"}}
+  subgraph W5["Wave 5"]
+    P7["P7 integration"]
+  end
+  S5{{"sync 5"}}
   C["Closeout: macOS build · Stage 5 button · Stage 6 matrix · DoD"]
 
   P1 --> S1
@@ -265,15 +357,17 @@ flowchart TB
   P2 --> S2
   P3 --> S2
   P4 --> S2
-  S2 --> P5
   S2 --> P6
-  P5 --> S3
   P6 --> S3
-  S3 --> P7
-  P7 --> S4
-  S4 --> C
+  S3 --> P5
+  P5 --> S4
+  S4 --> P7
+  P7 --> S5
+  S5 --> C
 
-  P4 -. "P6 needs only P4 (+ Go)" .-> P6
+  S2 -. "Go gates P5 and P7 only — P6 is exempt (§10.3)" .-> P5
+  P4 -. "P6 needs only P4 — a mock, not the bridge (§6.4)" .-> P6
+  P6 -. "screens must survive the swap unedited (§15 Stage 3)" .-> P5
   P2 -. "bridge calls the merged engines" .-> P5
   P3 -. "bridge calls the merged engines" .-> P5
 ```

@@ -155,6 +155,104 @@ mirror current. If the UI was suspended, the native radio kept working; resume o
 `startRadio / stopRadio`, `startTransmit / stopTransmit`, `peerConnected / peerDisconnected`,
 `incomingAudioStarted / incomingAudioStopped`.
 
+### 6.4 Design-first ordering and UI independence
+
+**The design is implemented first; the internals are wired underneath it afterwards.**
+
+Every screen of §12 and §12.1 — Radio with its four states, Settings, the four-step pairing
+flow, onboarding, the error state — is built, runnable and accepted before any further work
+on the bridge, the integration layer or background behaviour. §15 orders the stages
+accordingly.
+
+Ordering the work this way is only safe because of a structural rule, implied by the layering
+above and made binding here:
+
+> The UI layer depends on the `RadioNative` contract (§6.1) and on nothing else. It never
+> references a Turbo Module, a transport, a platform or a device — directly or transitively.
+
+Concretely:
+
+- Screens read the Reatom model (§6.2) and call its actions. They do not import
+  `radio.native.ts`, `TurboModuleRegistry`, or any API that only behaves correctly on a
+  device.
+- Everything a screen renders comes from `RadioState` plus the `stateChanged` / `error`
+  event stream. If a screen needs a fact the contract does not carry, the contract is
+  extended — the screen does not reach around it.
+- What the OS owns rather than the engine (the runtime permission prompts behind onboarding)
+  goes through a port of the same shape, so it too can be answered by a mock.
+
+The consequences are the point of the rule:
+
+- The UI builds and runs with **zero native code present** — no device, no entitlement, no
+  pairing hardware, no Nearby session in the loop.
+- The UI is acceptance-testable on its own (§15 Stage 2).
+- Swapping the mock for the real Turbo Module later is a **one-line binding change** and must
+  require no UI rework. Needing UI rework is a violation of this rule, not a task for the
+  integration stage.
+- Nothing the transport decision could still change (§10.3) can invalidate UI work.
+
+```text
+        ┌───────────────────────────────────┐
+        │      Screens (§12, §12.1)         │
+        └─────────────────┬─────────────────┘
+                          │ Reatom model (§6.2)
+                          ▼
+        ┌───────────────────────────────────┐
+        │      RadioNative contract (§6.1)  │  ← the only thing the UI knows
+        └────────┬─────────────────┬────────┘
+                 │                 │
+   radio.native.mock.ts     radio.native.ts → Turbo Module → RadioEngine
+   (dev / demo / UI                (production binding)
+    acceptance, §6.5)
+```
+
+### 6.5 Mock engine
+
+`src/radio/radio.native.mock.ts` is a pure TypeScript implementation of the §6.1 contract.
+It is the enabler that makes the design-first order a non-problem, and the acceptance vehicle
+for the design stage.
+
+- **Complete.** It implements every method of the Turbo Module spec (`specs/NativeRadio.ts`),
+  including the candidate-selection step the four-step pairing flow of §9.3 needs, and emits
+  both `stateChanged` and `error` events.
+- **Deterministic.** No randomness, no real I/O, no network, no BLE. All timing goes through
+  an injectable clock, so tests advance it instead of waiting and two runs are identical.
+- **Drives every UI surface** through named scenarios:
+
+  | Scenario | What it drives |
+  |---|---|
+  | `happy` | `starting → searching → ready` as the peer count rises; scripted inbound transmission → `receiving`; `pressPtt`/`releasePtt` → `transmitting` and back |
+  | `solo` | never finds a peer — `searching` holds indefinitely |
+  | `pairing-success` | `configurePtt` yields a scripted candidate list → selection → scripted learn result → saved binding |
+  | `pairing-empty` | the scan finds nothing; the pairing flow's empty / retry path |
+  | `button-lost` | a configured button flips to `connected: false` and back — the "state, not error" path of §13 |
+  | `engine-error` | an `error` event plus `status: 'error'`, so the error screen and its restart action can be exercised |
+  | `onboarding` | the scripted permission gateway answers granted / denied / permanently-denied in turn |
+
+- **Selected by a build-time flag**, resolved once where the binding is already chosen:
+
+  ```ts
+  // src/radio/radio.native.ts
+  const backend = __DEV__ ? process.env.RADIO_BACKEND ?? 'mock' : 'native'
+
+  export const RadioNative = createRadioNative(
+    backend === 'mock' ? resolveMockRadio : resolveRadioNativeModule,
+  )
+  ```
+
+  `__DEV__` and `RADIO_BACKEND` are both inlined at build time (the latter by Babel's
+  `babel-plugin-transform-inline-environment-variables`), so `backend` is a compile-time
+  constant and the unused branch — the whole mock module with it — is dropped from release
+  bundles. A release build is always `native`: the flag cannot reach it and nothing can switch
+  it at runtime. While the Turbo Module does not exist yet the dev default is `mock`; once the
+  bridge lands (§15 Stage 3) the dev default becomes `native`, and `RADIO_BACKEND=mock` remains
+  available for design work, demos and screenshots. Switching scenarios inside a running dev
+  build is one Dev Menu entry per scenario, registered with `DevSettings.addMenuItem` under
+  `__DEV__`; tests set the scenario directly.
+- **The real Turbo Module is the production binding.** The mock is a development tool, never
+  a fallback: it is not selected because the native module is missing, only because the flag
+  says so.
+
 ## 7. Transport and protocol
 
 - **Transport:** Google Nearby Connections, strategy `P2P_CLUSTER` (M:N). Android uses Google
@@ -268,8 +366,20 @@ independently; the service and engine keep working.
 
 If "locked iPhone + incoming Nearby stream" cannot be made reliable with Nearby
 Connections, the transport / background architecture must change **before any further
-development**. No UI or Bluetooth-configuration work is built on a transport that fails
-the core scenario.
+transport-dependent development**. Until the gate passes, nothing that touches the transport
+is built on it: bridging the Turbo Module to the real engines (§15 Stage 3), integration
+(Stage 4), and background reliability work (Stage 6) all wait.
+
+**UI and design work is explicitly exempt from this gate.** By §6.4 the UI depends only on
+the §6.1 contract, and by §6.5 it is built and accepted against the mock engine with no
+device and no native code in the loop. Replacing the transport changes what fills
+`RadioState`, not the shape of `RadioState` — so design work done before or during the gate
+survives a No-Go unchanged, and there is no transport for it to be "built on" in the first
+place. This is why the design stage runs first (§15 Stage 2) rather than waiting.
+
+Bluetooth configuration splits along the same line: the pairing **screens** are UI and are
+exempt; the native learning **drivers** and the concrete button (Stage 5) are engine work and
+are not.
 
 ## 11. Permissions
 
@@ -305,6 +415,9 @@ PTT touch area with a settings gear in a corner.
 
 Settings screen: a single "PTT button" section — configured (name, "Connected", actions
 "Test" / "Replace") or not configured ("Not connected", "Connect" → learning flow).
+
+Per §6.4 every screen here is built and accepted against the mock engine (§6.5) before the
+internals are wired underneath it; §15 Stage 2 is that stage and carries its acceptance.
 
 ### 12.1 Visual design
 
@@ -348,12 +461,30 @@ The visual design lives in the Claude Design project **"Offline Nearby PTT"**:
 
 | # | Risk | Mitigation |
 |---|---|---|
-| R1 | Suspended iOS app may not reliably receive incoming Nearby audio | Phase 0 spike proves or refutes on physical devices; hard Go/No-Go gate before any further work |
+| R1 | Suspended iOS app may not reliably receive incoming Nearby audio | Phase 0 spike proves or refutes on physical devices; hard Go/No-Go gate before any further transport-dependent work (§10.3 — UI and design work is exempt, it depends only on the §6.1 contract) |
 | R2 | The unbranded button may be HID-only, which cannot drive background PTT on iOS | GATT path is mandatory for iOS; if the button is HID-only, it remains Android-only and a GATT-capable button is purchased for iOS |
 | R3 | Nearby Connections iOS library maturity/behavior differs from Android | Spike exercises the exact Android↔iPhone pairs; No-Go path allows transport replacement |
 | R4 | OS battery optimization kills long-running background operation | Stage 6 reliability matrix (5 min / 30 min / hours locked) validates; Android battery-exemption prompt added only if the matrix fails |
 
 ## 15. Development phases
+
+Phase 0 is a gate. Everything after it runs **design first** (§6.4): the whole design of §12
+and §12.1 is implemented against the mock engine (§6.5), and only then are the internals
+wired underneath it.
+
+> **Stage numbering note (2026-08-18 revision).** Phase 0 and Stages 1, 5 and 6 keep their
+> identifiers; every existing reference to **Stage 5** (concrete Bluetooth button) and
+> **Stage 6** (background reliability) stays valid — see §5, §9.5, §14 R4, §16. Stages 2–4
+> were re-cut for the design-first order: the former "Stage 2 — React Native bridge",
+> "Stage 3 — Reatom" and "Stage 4 — Minimal UI" become **Stage 2 — design implementation**,
+> **Stage 3 — React Native bridge** and **Stage 4 — integration**, with the Reatom model
+> folded into Stage 1, where it was in fact built. Documents that cite the old Stage 2/3/4
+> names must be updated to the new ones.
+
+Stage 1 and the Phase 0 spike work have already happened in reality; they are kept here for
+the record. The Phase 0 **decision** is a separate thing and is still open — which is precisely
+why the design stage goes first: it is the one stage the gate does not hold up (§10.3). The
+go-forward order is Stage 2 → 3 → 4, then 5 and 6.
 
 ### Phase 0 — Background feasibility spike (gate)
 
@@ -364,28 +495,54 @@ No UI. Two physical devices (Android + iPhone), internet off, screens locked. Pr
 - C: locked iPhone BLE PTT → microphone starts → Android receives audio.
 - D: devices separated beyond range and returned → connection restores automatically.
 
-Deliverable: a written spike report and an explicit **Go / No-Go** decision. On No-Go this
-spec's transport sections are revised before any further stage.
+Deliverable: a written spike report
+(`docs/superpowers/specs/2026-08-13-phase0-spike-report.md`) and an explicit **Go / No-Go**
+decision. On No-Go this spec's transport sections (§7, §10) are revised before any further
+transport-dependent stage; per §10.3 the design stage is not blocked either way.
 
-### Stage 1 — Native RadioEngine
+### Stage 1 — Native RadioEngine and TypeScript domain
 
-`start/stop`, peer connections, native audio pipeline, PTT — without React Native.
-Acceptance: two devices exchange voice driven by native test hooks.
+`start/stop`, peer connections, native audio pipeline, PTT — without React Native — plus the
+TypeScript side of the contract: `RadioState` and event types, the Turbo Module spec, and the
+Reatom model with `screenState` and resume re-sync (§6.2).
+Acceptance: two devices exchange voice driven by native test hooks; unit tests for the model,
+which mirrors the engine through suspend/resume.
 
-### Stage 2 — React Native bridge
+### Stage 2 — Design implementation (first)
+
+Every screen of §12 and §12.1, built against the mock engine (§6.5) and nothing else:
+RadioScreen with its four `screenState` states and full-screen PTT area, Settings, the
+four-step pairing flow, the three permission steps of onboarding plus its final screen, and
+the error state with its restart action — in the visual direction of the Claude Design
+project, with all copy through Lingui.
+
+Acceptance — **no devices, no native code, `RADIO_BACKEND=mock`**:
+
+- all four main-screen states are reachable and visually distinct;
+- the pairing flow completes end-to-end on `pairing-success`, and its empty / retry path on
+  `pairing-empty`;
+- onboarding walks through every step, including a denied permission;
+- the error state appears on `engine-error` and its restart action returns the UI to
+  `starting`;
+- all of the above in **both locales**, with `prefers-reduced-motion` honoured.
+
+On-device end-to-end behaviour is **not** asserted here; it is Stage 4's acceptance.
+
+### Stage 3 — React Native bridge
 
 `RadioNative` Turbo Module: `start`, `stop`, `pressPtt`, `releasePtt`, `getState`,
-`configurePtt`, `forgetPtt` + event stream. Acceptance: JS can drive a full session.
+`configurePtt`, `forgetPtt` + event stream, made real on both platforms; the dev default flips
+to `RADIO_BACKEND=native` (§6.5). Acceptance: JS drives a full session against the real
+engines, and the Stage 2 screens do it **unmodified**. Any UI change needed to make the real
+binding work is a §6.4 violation and is reported as one rather than absorbed.
 
-### Stage 3 — Reatom
+### Stage 4 — Integration
 
-`radioState`, `screenState`, native event synchronization, resume re-sync.
-Acceptance: unit tests for the model; state mirrors engine through suspend/resume.
-
-### Stage 4 — Minimal UI
-
-RadioScreen (4 states), Settings, permissions onboarding. Acceptance: full flow on both
-platforms from install to talking.
+App entry and navigation glue, `i18n.loadAndActivate` with the system locale, engine event
+subscription into the Reatom model, AppState resume re-sync, and first-launch permission
+sequencing against the real OS prompts behind the onboarding screens.
+Acceptance: full flow on both platforms from install to talking — the on-device acceptance
+that the design stage deliberately does not carry.
 
 ### Stage 5 — The concrete Bluetooth button
 
@@ -402,18 +559,22 @@ Acceptance: Definition of Done (section 4) holds in full.
 ## 16. Testing strategy
 
 - **Automated:** control-message codec (TS + native), Reatom model tests, `PttBinding`
-  parsing/persistence.
+  parsing/persistence, and screen behaviour driven by the mock engine's scenarios (§6.5) —
+  deterministic and hardware-free.
 - **Physical devices are the only source of truth** for Nearby, BLE, and background
-  behavior — simulators cannot emulate them. Each stage carries a short written manual
-  acceptance checklist executed on real Android + iPhone hardware; the Stage 6 matrix is
-  the final MVP acceptance.
+  behavior — simulators cannot emulate them. Every transport-dependent stage — Stage 1, and
+  Stages 3 onwards — carries a short written manual acceptance checklist executed on real
+  Android + iPhone hardware; the Stage 6 matrix is the final MVP acceptance.
+- **Stage 2 is the deliberate exception:** it is accepted entirely against the mock engine,
+  which is exactly what lets the design be built before the internals (§6.4). It asserts
+  appearance and flow, never transport, BLE or background behaviour.
 
 ## 17. Project structure
 
 ```text
 src/
 ├── app/app.model.ts
-├── radio/{radio.model.ts, radio.native.ts, radio.types.ts}
+├── radio/{radio.model.ts, radio.native.ts, radio.native.mock.ts, radio.types.ts}
 ├── screens/{RadioScreen.tsx, SettingsScreen.tsx}
 └── ptt/ptt.types.ts
 
@@ -434,6 +595,9 @@ ios/Radio/
 └── BackgroundManager.swift
 ```
 
+`radio.native.mock.ts` is the §6.5 mock engine: the second implementation of the §6.1
+contract, selected by `RADIO_BACKEND` and stripped from release bundles.
+
 ## 18. Guiding principle
 
 ```text
@@ -442,4 +606,8 @@ Reatom v1001  = application/UI state
 RadioEngine   = the radio itself
 
 The UI may die. JS may sleep. The RadioEngine must keep working.
+
+Design first: the interface is built and accepted before the internals under it exist.
+It knows one contract and never a device — so the internals are swapped underneath it
+without touching a single screen.
 ```
