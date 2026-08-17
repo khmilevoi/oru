@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!--
       Phase 0 spike hooks (spec section 15). Confined to the debug source set so a release
@@ -17,10 +18,30 @@
       actually reachable from adb everywhere.
     -->
     <application>
+        <!-- Debug builds have no useful RN screen yet. The real MainActivity is
+             removed and an alias with its exact component name points at the
+             spike panel instead, so every entry point — the launcher icon AND
+             stale home-screen shortcuts that target com.oru/.MainActivity
+             explicitly — lands in the spike UI. Release builds are untouched. -->
+        <activity
+            android:name="com.oru.MainActivity"
+            tools:node="remove" />
+
         <activity
             android:name="com.oru.radio.SpikeActivity"
-            android:excludeFromRecents="true"
+            android:label="Oru Spike"
             android:exported="true" />
+
+        <activity-alias
+            android:name="com.oru.MainActivity"
+            android:targetActivity="com.oru.radio.SpikeActivity"
+            android:label="Oru Spike"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <receiver
             android:name="com.oru.radio.SpikeReceiver"
