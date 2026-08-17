@@ -17,7 +17,13 @@ public final class RadioAssembly {
         )
         let audio = AudioEngine(queue: DispatchQueue(label: "com.oru.radio.audio"))
         let ptt = PttManager(queue: DispatchQueue(label: "com.oru.radio.ptt"))
-        let background = BackgroundManager()
+        let background: BackgroundSession
+        switch RadioConfig.Background.mode {
+        case .pushToTalk:
+            background = BackgroundManager()
+        case .alwaysHot:
+            background = AlwaysHotBackgroundManager()
+        }
 
         self.ptt = ptt
         engine = RadioEngine(

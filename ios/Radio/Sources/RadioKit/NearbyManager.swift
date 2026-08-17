@@ -118,7 +118,10 @@ final class IncomingAudioStream {
             for frame in parser.append(Data(buffer[0..<read])) {
                 onFrame(frame, peerId)
             }
-            if parser.isDesynchronised { break }
+            if parser.isDesynchronised {
+                HeartbeatLogger.shared.record("rx stream DESYNC peer=\(peerId)")
+                break
+            }
         }
 
         stream.close()
@@ -443,6 +446,11 @@ extension NearbyManager: ConnectionManagerDelegate {
     ) {
         queue.async { [self] in
             guard peers[endpointID]?.didHandshake == true else {
+                // The one gate at which a Stream payload the C++ core already
+                // logged dies without a trace — so leave one.
+                HeartbeatLogger.shared.record(
+                    "rx stream REJECTED (no handshake) peer=\(endpointID)"
+                )
                 token.cancel()
                 return
             }

@@ -23,6 +23,16 @@ public enum RadioConfig {
         public static let jitterMaxFrames: Int = 25
         /// Opus hard maximum for one packet.
         public static let maxEncodedFrameBytes: Int = 1_275
+        /// Transmit-path software makeup gain, applied to the 16 kHz PCM just
+        /// before the Opus encoder (hardware finding 2026-08-17: iPhone
+        /// capture is quiet on the Android side). 2.0 ≈ +6 dB; 1.0 restores
+        /// today's bit-exact path.
+        public static let captureGain: Float = 2.0
+        /// How often the transmit path writes a `tx level` heartbeat line.
+        public static let txMeterSeconds: TimeInterval = 2
+        /// How often the keep-alive tap writes an `idle level` line, so the
+        /// idle mic floor and the transmit level can be compared.
+        public static let idleMeterSeconds: TimeInterval = 30
     }
 
     public enum Transmit {
@@ -48,10 +58,33 @@ public enum RadioConfig {
     }
 
     public enum Background {
+        /// How the app earns the right to run while locked. `.pushToTalk` is
+        /// the product architecture (spec section 10.2); `.alwaysHot` is Spike
+        /// Test #1 — a continuously active `.playAndRecord` session under the
+        /// `audio` UIBackgroundMode, no PushToTalk anywhere. `RadioAssembly`
+        /// picks the `BackgroundSession` implementation from this.
+        public enum Mode {
+            case pushToTalk
+            case alwaysHot
+        }
+
+        /// Defaults to `.alwaysHot` on this spike branch; flip back to
+        /// `.pushToTalk` to restore the entitlement-gated PTT path unchanged.
+        public static let mode: Mode = .alwaysHot
+
+        /// How often the always-hot heartbeat appends a line to heartbeat.log.
+        public static let heartbeatSeconds: TimeInterval = 10
+
         /// Stable PushToTalk channel identity, the same across launches.
         public static let channelUUID = UUID(
             uuidString: "6F5C1C2E-7C1B-4B7A-9F1A-2C3D4E5F6A7B"
         )!
+    }
+
+    public enum Spike {
+        /// Debug builds only: the UDP port `SpikeCommandServer` listens on for
+        /// Phase 0 commands from a Mac on the same Wi-Fi (iOS has no adb).
+        public static let commandPort: UInt16 = 47999
     }
 
     public enum Logging {

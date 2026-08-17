@@ -26,6 +26,9 @@ public final class RadioEngine {
     private var sink: AudioStreamSink?
     private var safetyCap: RadioCancellable?
     private var receivingPeers: Set<String> = []
+    /// Receive-path instrumentation (heartbeat.log): per-peer frame totals,
+    /// sampled every 50 frames so no line is formatted per frame.
+    private var rxFrameCounts: [String: Int] = [:]
     private var observers: [String: (RadioEvent) -> Void] = [:]
 
     public init(
@@ -109,6 +112,7 @@ public final class RadioEngine {
         ptt.stop()
 
         receivingPeers.removeAll()
+        rxFrameCounts.removeAll()
         isStarted = false
         state = RadioState(status: .starting, pttButton: ptt.buttonState)
         emitStateLocked()
@@ -286,6 +290,7 @@ extension RadioEngine: RadioTransportDelegate {
         didStartIncomingAudio peerId: String
     ) {
         queue.async {
+            HeartbeatLogger.shared.record("rx start peer=\(peerId)")
             let wasSilent = self.receivingPeers.isEmpty
             self.receivingPeers.insert(peerId)
             // PushToTalk activates the audio session in response to an active
@@ -308,6 +313,13 @@ extension RadioEngine: RadioTransportDelegate {
     ) {
         queue.async {
             guard self.receivingPeers.contains(peerId) else { return }
+            let count = (self.rxFrameCounts[peerId] ?? 0) + 1
+            self.rxFrameCounts[peerId] = count
+            if count == 1 || count % 50 == 0 {
+                HeartbeatLogger.shared.record(
+                    "rx frames peer=\(peerId) n=\(count) bytes=\(frame.count)"
+                )
+            }
             self.audio.enqueue(frame: frame, from: peerId)
         }
     }
@@ -318,6 +330,10 @@ extension RadioEngine: RadioTransportDelegate {
     ) {
         queue.async {
             guard self.receivingPeers.remove(peerId) != nil else { return }
+            HeartbeatLogger.shared.record(
+                "rx stop peer=\(peerId) "
+                    + "frames=\(self.rxFrameCounts.removeValue(forKey: peerId) ?? 0)"
+            )
             self.audio.endIncoming(peerId: peerId)
             guard self.receivingPeers.isEmpty else { return }
             self.background.setReceiving(false)
