@@ -127,16 +127,19 @@ export const radio = atom<RadioState>(initialRadioState, 'radio').extend(
   },
 );
 
-/** Spec section 6.2, verbatim. */
+/** Spec section 6.2, verbatim. `off` is checked first: a stopped radio is off
+ * however stale the rest of the snapshot looks. */
 export const screenState = computed<ScreenState>(
   () =>
-    radio().transmitting
-      ? 'transmitting'
-      : radio().receiving
-        ? 'receiving'
-        : radio().nearbyCount === 0
-          ? 'searching'
-          : 'ready',
+    radio().status === 'off'
+      ? 'off'
+      : radio().transmitting
+        ? 'transmitting'
+        : radio().receiving
+          ? 'receiving'
+          : radio().nearbyCount === 0
+            ? 'searching'
+            : 'ready',
   'screenState',
 );
 

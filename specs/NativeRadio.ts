@@ -29,7 +29,7 @@ export type NativePttPairingState = {
 };
 
 export type NativeRadioState = {
-  status: 'starting' | 'ready' | 'error';
+  status: 'off' | 'starting' | 'ready' | 'error';
   nearbyCount: number;
   transmitting: boolean;
   receiving: boolean;
