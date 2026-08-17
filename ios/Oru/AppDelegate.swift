@@ -36,6 +36,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       launchOptions: launchOptions
     )
 
+#if DEBUG
+    // Phase 0 spike UI: covers the stock RN template screen entirely. The RN
+    // root stays rootViewController; the panel is a full-screen child on top.
+    if let window {
+      SpikeControlPanelPresenter.attach(over: window)
+    }
+#endif
+
     return true
   }
 }

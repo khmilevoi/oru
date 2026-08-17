@@ -53,6 +53,12 @@ public enum RadioSpike {
 
         engine.startRadio()
         log.notice("[spike] radio started")
+
+#if DEBUG
+        // UDP twin of the Android spike's adb broadcasts; logs its own
+        // `command server on <ip>:<port>` line once listening.
+        SpikeCommandServer.shared.start()
+#endif
     }
 
     public static func startTransmit() {
@@ -71,6 +77,11 @@ public enum RadioSpike {
     public static func selectPttCandidate(_ deviceId: String) {
         log.notice("[spike] selectPttCandidate \(deviceId, privacy: .public)")
         RadioAssembly.shared.engine.selectPttCandidate(deviceId: deviceId)
+    }
+
+    public static func forgetPtt() {
+        log.notice("[spike] forgetPtt")
+        RadioAssembly.shared.engine.forgetPtt()
     }
 
     public static func configurePtt() {
