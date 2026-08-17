@@ -1,0 +1,21 @@
+{
+  "extraKnownMarketplaces": {
+    "reatom": {
+      "source": { "source": "github", "repo": "khmilevoi/reatom-skill" }
+    },
+    "waves-skill": {
+      "source": { "source": "github", "repo": "khmilevoi/waves-skill" }
+    }
+  },
+  "pluginSuggestionMarketplaces": ["reatom", "waves-skill"],
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "kotlin-lsp@claude-plugins-official": true,
+    "swift-lsp@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "reatom@reatom": true,
+    "waves@waves-skill": true
+  }
+}

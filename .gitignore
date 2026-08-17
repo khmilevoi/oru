@@ -78,4 +78,5 @@ yarn-error.log
 .metro-bundle-check/
 
 # Local agent worktrees
-.claude/
+.claude/*
+!.claude/settings.json
