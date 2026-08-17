@@ -62,6 +62,7 @@ The MVP is complete only if all of the following hold:
 | TS error handling | errore convention — errors as values (`Error \| T` unions), no thrown domain errors |
 | Encryption | Nearby Connections built-in only |
 | Transmit safety cap | Auto-stop transmission after 120 s of continuous hold (stuck-button protection) |
+| Radio power switch | An explicit radio on/off toggle is a **first-class control on the main screen, not a settings item**. Rationale: the always-hot architecture keeps the microphone and the audio session live for as long as radio mode is on, so the battery cost is inherent to the design and the user must be able to cut it in one deliberate action. Source: the product note "radio power switch is a design requirement (verbatim intent)" in `docs/superpowers/specs/2026-08-13-phase0-spike-report.md`. Goes through the design stage (§12, §12.1, §15 Stage 2) and then implementation |
 | Localization | English (default) + Russian via Lingui; language follows the system locale, English fallback |
 | Target PTT button | Unbranded BLE PTT button (marketplace listing: manufacturer code 687266, EAN 4005658953957); protocol unknown, resolved in Stage 5 via reverse engineering |
 
@@ -118,7 +119,7 @@ type RadioNativeEvent =
 type PttConfiguration = { name: string; binding: PttBinding }  // result of the learning flow
 
 type RadioState = {
-  status: 'starting' | 'ready' | 'error'
+  status: 'off' | 'starting' | 'ready' | 'error'
   nearbyCount: number
   transmitting: boolean
   receiving: boolean
@@ -130,22 +131,36 @@ type RadioState = {
 }
 ```
 
+`status: 'off'` is the state the radio is in **before `start()` and after `stop()`**: nothing is
+advertising, discovering, capturing or playing, and the mirror carries no peers. It exists because
+the main screen owns a first-class power toggle (§5, §12) and, by §6.4's own rule, a fact a screen
+needs but the contract does not carry means the contract is extended rather than reached around —
+so this is a contract extension, not a UI-local flag. The TS types (`src/radio/radio.types.ts`) and
+the mock engine (§6.5) pick `'off'` up in the design stage (§15 Stage 2); the real bridge maps the
+engines' stopped state onto it in Stage 3.
+
 ### 6.2 Reatom model
 
 ```ts
 export const radio = atom<RadioState>(initialState).extend((target) => ({
   async sync() { target.set(await RadioNative.getState()) },
   async start() { await RadioNative.start(); await this.sync() },
+  async stop() { await RadioNative.stop(); await this.sync() },
   pressPtt() { void RadioNative.pressPtt() },
   releasePtt() { void RadioNative.releasePtt() },
 }))
 
 export const screenState = computed(() =>
-  radio().transmitting ? 'transmitting'
+  radio().status === 'off' ? 'off'
+  : radio().transmitting ? 'transmitting'
   : radio().receiving ? 'receiving'
   : radio().nearbyCount === 0 ? 'searching'
   : 'ready')
 ```
+
+The main screen's power toggle needs no new action of its own: it drives the model's existing
+`start()` / `stop()`, and `off` becomes visible through `status` the same way every other state
+does.
 
 On UI start or resume: `getState()` → Reatom sync, then live `stateChanged` events keep the
 mirror current. If the UI was suspended, the native radio kept working; resume only re-syncs.
@@ -159,10 +174,10 @@ mirror current. If the UI was suspended, the native radio kept working; resume o
 
 **The design is implemented first; the internals are wired underneath it afterwards.**
 
-Every screen of §12 and §12.1 — Radio with its four states, Settings, the four-step pairing
-flow, onboarding, the error state — is built, runnable and accepted before any further work
-on the bridge, the integration layer or background behaviour. §15 orders the stages
-accordingly.
+Every screen of §12 and §12.1 — Radio with its five states and its power toggle, Settings, the
+four-step pairing flow, onboarding, the error state — is built, runnable and accepted before
+any further work on the bridge, the integration layer or background behaviour. §15 orders the
+stages accordingly.
 
 Ordering the work this way is only safe because of a structural rule, implied by the layering
 above and made binding here:
@@ -229,6 +244,11 @@ for the design stage.
   | `engine-error` | an `error` event plus `status: 'error'`, so the error screen and its restart action can be exercised |
   | `onboarding` | the scripted permission gateway answers granted / denied / permanently-denied in turn |
 
+- **Every scenario honours `start()` / `stop()`,** so the main screen's power toggle (§5, §12) is
+  fully exercisable against the mock. `stop()` from any point in any script yields
+  `status: 'off'` with `nearbyCount: 0`, peers cleared and transmit/receive false; `start()`
+  re-enters the scenario's script from its beginning (`starting → …`). Per §6.1 the mock reports
+  `'off'` until the first `start()`, in every scenario.
 - **Selected by a build-time flag**, resolved once where the binding is already chosen:
 
   ```ts
@@ -403,15 +423,24 @@ not built yet, open work for P7.
 
 ## 12. UI specification
 
-Four main-screen states driven by `screenState`; the whole screen is effectively one giant
-PTT touch area with a settings gear in a corner.
+Five main-screen states driven by `screenState`; the whole screen is effectively one giant
+PTT touch area with a settings gear in a corner and a **radio power toggle as a first-class
+control** (§5) — the one deliberate way to turn the always-hot radio, and its battery cost, on
+and off. The toggle is on the main screen and never behind Settings; it drives the model's
+`start()` / `stop()` (§6.2).
 
 | State | Content (EN / RU) |
 |---|---|
+| `off` | "RADIO OFF" + "TAP TO TURN ON" / «РАЦИЯ ВЫКЛЮЧЕНА» + «НАЖМИТЕ ЧТОБЫ ВКЛЮЧИТЬ» — visibly dead air: no scanning cue, PTT area inert, clearly distinct from `searching` |
 | `searching` | "SEARCHING FOR DEVICES..." / «ИЩЕМ УСТРОЙСТВА...» + subtle scanning cue |
 | `ready` | "● N nearby" + "HOLD TO TALK" / «● N рядом» + «УДЕРЖИВАЙТЕ ЧТОБЫ ГОВОРИТЬ» |
 | `transmitting` | "TRANSMITTING..." + "RELEASE TO FINISH" / «ПЕРЕДАЧА...» + «ОТПУСТИТЕ ЧТОБЫ ЗАКОНЧИТЬ» — strong peripheral-visible change |
 | `receiving` | "RECEIVING..." / «ПРИЁМ...» — clearly distinct from transmitting |
+
+The **exact visual form** of the power control — a switch, a hardware-style power key, a long-press
+on the PTT area, the copy above — is decided in the design project (§12.1). What is fixed here and
+not open for the design to reinterpret: it is on the main screen, it is first-class rather than a
+settings item, and `off` is a full main-screen state, not a dimmed variant of `searching`.
 
 Settings screen: a single "PTT button" section — configured (name, "Connected", actions
 "Test" / "Replace") or not configured ("Not connected", "Connect" → learning flow).
@@ -424,15 +453,19 @@ internals are wired underneath it; §15 Stage 2 is that stage and carries its ac
 The visual design lives in the Claude Design project **"Offline Nearby PTT"**:
 <https://claude.ai/design/p/d07936f3-e452-4039-bda7-bb80b599e104>
 
-- Screens: `01 Radio` (four states + alternate-locale frame), `02 Settings` (configured /
-  not configured), `03 Pairing` (scan → pick → learn → saved), `04 Onboarding`
-  (microphone, Bluetooth, nearby devices, done) — phone frames 390×844.
+- Screens: `01 Radio` (four state frames as designed so far + alternate-locale frame),
+  `02 Settings` (configured / not configured), `03 Pairing` (scan → pick → learn → saved),
+  `04 Onboarding` (microphone, Bluetooth, nearby devices, done) — phone frames 390×844.
 - Direction: dark, high-contrast "radio hardware" aesthetic; status colors TX = red,
   RX = green, button learning = amber; Oswald + IBM Plex Mono (Cyrillic-capable).
 - Every file exposes a `lang` tweak (`en` default / `ru`) switching the whole canvas
   between locales; animations respect `prefers-reduced-motion`.
 - The design refines the pairing flow to four steps and onboarding to three permission
   steps plus a final screen; both refinements are part of this spec.
+- **Pending design work, added by this revision:** the `01 Radio` screen does **not** yet have an
+  `off` state frame and no frame yet shows the power control — the design project predates the §5
+  power-switch decision. Both are to be designed there as part of the design stage, in the same
+  visual direction and in both locales, before the `off` state is built (§15 Stage 2).
 
 ### 12.2 Localization
 
@@ -511,14 +544,16 @@ which mirrors the engine through suspend/resume.
 ### Stage 2 — Design implementation (first)
 
 Every screen of §12 and §12.1, built against the mock engine (§6.5) and nothing else:
-RadioScreen with its four `screenState` states and full-screen PTT area, Settings, the
-four-step pairing flow, the three permission steps of onboarding plus its final screen, and
-the error state with its restart action — in the visual direction of the Claude Design
-project, with all copy through Lingui.
+RadioScreen with its five `screenState` states, its first-class power toggle and full-screen PTT
+area, Settings, the four-step pairing flow, the three permission steps of onboarding plus its
+final screen, and the error state with its restart action — in the visual direction of the
+Claude Design project, with all copy through Lingui.
 
 Acceptance — **no devices, no native code, `RADIO_BACKEND=mock`**:
 
-- all four main-screen states are reachable and visually distinct;
+- all five main-screen states are reachable and visually distinct;
+- the power toggle turns the radio off — the `off` state is reachable from any scenario and is
+  visually distinct — and back on, returning to the scenario's normal flow;
 - the pairing flow completes end-to-end on `pairing-success`, and its empty / retry path on
   `pairing-empty`;
 - onboarding walks through every step, including a denied permission;

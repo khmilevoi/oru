@@ -165,10 +165,26 @@ through the **existing `createRadioNative(resolve)` seam** in `src/radio/radio.n
 (this file transfers from P4's ownership to P6 for this wave) so that release builds are
 always `native` and the mock module is dropped from release bundles, with the dev default
 `mock` until P5 flips it; one `DevSettings.addMenuItem` entry per scenario under `__DEV__`
-for live switching, while tests set the scenario directly.
+for live switching, while tests set the scenario directly. Every scenario must honour
+`start()` / `stop()`: `stop()` from any point yields `status: 'off'` with peers cleared, `start()`
+re-enters the scenario's script — that is what makes the power toggle exercisable against the mock
+(§6.5).
+
+**Owns, also — the §6.1 `status: 'off'` contract extension.** The spec's `RadioState.status` is now
+`'off' | 'starting' | 'ready' | 'error'` — the state before `start()` and after `stop()`, which is
+what the power toggle needs to render. Extending it is **contract-extension work under §6.4** ("a
+fact the contract does not carry means the contract is extended, not reached around"), not a
+UI-local flag, so it happens in the contract, not in a screen. Concretely, this wave touches three
+further P4-built files and they are P6's for it: `src/radio/radio.types.ts` (the `RadioStatus` and
+`ScreenState` unions), `specs/NativeRadio.ts` (the Codegen-facing mirror), and
+`src/radio/radio.model.ts` (the `off` branch of the `screenState` computed — the model already
+carries `start()` / `stop()`, so the toggle needs no new action). The mock is the implementation
+that fills `'off'`; the real bridge maps it in P5.
 
 **Owns, then — every screen,** against the Reatom model only (no direct native calls):
-`RadioScreen` with the four `screenState` states and full-screen PTT touch area;
+`RadioScreen` with the five `screenState` states (`off`, `searching`, `ready`, `transmitting`,
+`receiving`), a full-screen PTT touch area, and the **radio power toggle as a first-class
+main-screen control** — not a settings item — driving the model's `start()` / `stop()` (§6.2);
 `SettingsScreen` ("PTT button" section, configured / not configured); the four-step pairing
 flow (scan → pick → learn → saved); onboarding (three permission screens + done), with the
 runtime-permission gateway behind a port of the same shape so the mock can answer it (§6.4);
@@ -176,6 +192,16 @@ the visual direction from the Claude Design project "Offline Nearby PTT" (dark r
 aesthetic, TX red / RX green / learning amber, Oswald + IBM Plex Mono bundled as assets,
 `prefers-reduced-motion` respected); all UI copy through Lingui macros with filled `en`/`ru`
 catalogs; error-state screen with restart action.
+
+*On the power toggle, for the planner:* the always-hot architecture keeps the microphone and the
+audio session live for as long as radio mode is on, so the battery cost is inherent to the design
+and the user needs one deliberate way to cut it. Recorded as an approved decision in spec §5 and
+sourced from the product note "radio power switch is a design requirement (verbatim intent)" in
+`docs/superpowers/specs/2026-08-13-phase0-spike-report.md`. Its exact visual form is the design
+project's call (§12.1), where the `off` state frame and the power control are **pending design
+work** to be done as part of this wave; first-class-on-the-main-screen (never a settings item) is
+fixed and not open to reinterpretation, and `off` is a full main-screen state rather than a dimmed
+`searching`.
 **Not here:** the Turbo Module and the dev-default flip → P5 · app entry, navigation glue and
 runtime permission sequencing against the real OS prompts → P7 · native learning logic →
 merged P2/P3. Per §6.4 no screen may import `radio.native.ts`, `TurboModuleRegistry`, or any
@@ -183,7 +209,9 @@ API that only behaves correctly on a device; a fact a screen needs but the contr
 carry means the contract is extended, not reached around.
 **Acceptance beyond the gates — spec §15 Stage 2, with no devices, no native code,
 `RADIO_BACKEND=mock`:**
-- all four main-screen states are reachable and visually distinct;
+- all five main-screen states are reachable and visually distinct;
+- the power toggle turns the radio off — the `off` state is reachable from any scenario and is
+  visually distinct — and back on, returning to the scenario's normal flow;
 - the pairing flow completes end-to-end on `pairing-success`, and its empty / retry path on
   `pairing-empty`;
 - onboarding walks through every step, including a denied permission;
@@ -213,6 +241,9 @@ the `stateChanged`/`error` event stream from engine to JS; adjustments to
 default `RADIO_BACKEND` binding from `mock` to `native`** in that same file (§6.5) — the file
 transfers from P6's ownership to P5 for this wave. `RADIO_BACKEND=mock` must keep working
 after the flip: it stays the way design work, demos and screenshots run.
+The real bridge must map the engines' stopped state (before `start()`, after `stop()`) to
+`status: 'off'` per the extended §6.1 contract, so the merged power toggle behaves against the real
+engines exactly as it did against the mock.
 **Not here:** engine internals → merged P2/P3 (touch only what the bridge exposes) · screens
 and the mock engine → merged P6 · app bootstrap wiring → P7.
 **Acceptance beyond the gates:** spec §15 Stage 3 — JS drives a full session against the real
