@@ -1421,3 +1421,179 @@ one was chosen, and why the others were rejected.
     device), and a UDP command server on the LAN was accepted (headless, scriptable). Ghost Nearby
     endpoints after repeated reinstalls were cleared by restarting both radios; endpoint hygiene was
     noted for later.
+
+## Next phase groundwork: BLE L2CAP as the true-offline transport, and a product note — 2026-08-18
+
+Desk research (web only, no device work) de-risked the next transport spike: BLE L2CAP
+connection-oriented channels as the iPhone↔Android path when no shared Wi-Fi LAN exists. Findings
+are separated below into documented (platform docs / engineer answers), practitioner (forum and
+project reports), and uncertain (must be measured in the spike).
+
+### 1. Cross-platform API pairing and PSM discovery
+
+**Documented.** The API pair exists on both sides: iOS `CBPeripheralManager.publishL2CAPChannel`
+(iOS 11+) listens and yields a PSM; Android `BluetoothDevice.createL2capChannel(psm)` /
+`createInsecureL2capChannel(psm)` (API 29+, Android 10) dials it
+(https://developer.apple.com/documentation/corebluetooth/cbperipheralmanager/publishl2capchannel(withencryption:),
+https://learn.microsoft.com/en-us/dotnet/api/android.bluetooth.bluetoothdevice.createinsecurel2capchannel).
+
+**Practitioner.** iPhone↔Android interop over *insecure* CoC was confirmed working by multiple
+independent reports (Apple forums thread 675960; JuulLabs/kable discussion 588,
+https://github.com/JuulLabs/kable/discussions/588). The universal PSM-discovery pattern was a small
+GATT service with a characteristic holding the PSM — iOS cannot place the PSM in advertising data,
+so the GATT read is the interop-standard handshake. Kable also recorded two Android quirks: the
+socket exposes only a bare `isConnected` boolean (no INIT/CONNECTED/CLOSED state), and a ~2 s
+post-connect settling delay was needed before first use.
+
+### 2. Secure vs insecure channels
+
+**Practitioner, consistent across sources.** Secure CoC iPhone↔Android was reported broken:
+bonding is triggered and completes, then the channel open fails with iOS error 104 "Unknown ATT
+error"; the same developer's insecure channel worked (Apple forums thread 675960, unanswered). The
+kable contributor summarized: insecure channels "fairly robust and usable," secure channels "a bit
+cursed" on both platforms. The practitioner norm is therefore the insecure channel with
+app-level payload encryption, which also avoids the OS bonding dialog entirely. Bonding would have
+one side benefit (reconnect-by-identity through iOS's rotating random address) but was not shown to
+work end-to-end cross-platform with CoC.
+
+### 3. Throughput, roles, and radio coexistence
+
+**Documented proof point.** Android's own ASHA hearing-aid protocol streams real-time voice over
+L2CAP CoC from an Android phone: G.722 at 64 kbit/s, 20 ms connection interval, 167-byte MTU/MPS,
+8-credit buffering, sequence byte per frame (https://source.android.com/docs/core/connect/bluetooth/asha).
+That is 2.7× our 24 kbps budget, shipped platform-wide — CoC carries live voice.
+
+**Practitioner.** Role choice matters asymmetrically: with the Apple device as *peripheral*
+(publisher), tens of kB/s were reported reachable (DLE + large SDU; Apple supports SDU up to
+2048); with the Apple device as *central*, throughput was reported poor because iOS exposes no
+control over connection interval or channel parameters (Apple forums threads 723218/89644). Android
+as central can call `requestConnectionPriority(CONNECTION_PRIORITY_HIGH)` (7.5–15 ms CI). So the
+best-throughput arrangement — iPhone publishes, Android dials as central — is also the only
+arrangement the APIs naturally allow, since iOS's publish API lives on `CBPeripheralManager`.
+Counter-report: some Android handsets skipped Data Length Extension on CoC, fragmenting at the link
+layer and cutting throughput (https://devzone.nordicsemi.com/f/nordic-q-a/87529/) — per-handset
+variance is real.
+
+**Uncertain.** No published iPhone↔Android CoC numbers with concurrent A2DP/SCO to a headset were
+found. Coexistence is documented only at the principle level: one 2.4 GHz radio, time-division
+arbitration, Classic audio prioritized (https://www.ezurio.com/resources/blog/dual-mode-bluetooth-classic-ble-coexistence).
+With PTT headsets active on both phones this is the single biggest unmeasured risk — spike item.
+
+### 4. Background behavior
+
+**Documented (the blessed pattern, with its exact limits).** An Apple engineer stated that an
+L2CAP channel neither prevents suspension nor wakes the app (unlike GATT), but that an app with an
+active `AVAudioSession` stays alive in background and can then use L2CAP — naming audio streaming
+as the example (https://developer.apple.com/forums/thread/746286). This matches the always-hot
+architecture exactly: the mic session is genuinely active, so the keep-alive is not a pretext
+(the engineer flagged App Review 2.5.4 for pretext cases).
+
+**Practitioner pitfall found — discovery, not the channel, is the background risk.** A backgrounded
+iOS peripheral moves its advertised service UUIDs into the Apple-proprietary "overflow area,"
+discoverable only by iOS scanners; Android cannot see them (reverse-engineering and a hashed-bit
+workaround: https://github.com/davidgyoung/ios-overflow-area,
+https://davidgyoungtech.com/2020/05/07/hacking-the-overflow-area). iOS also advertises a rotating
+private address, so an unbonded Android cannot reconnect by cached MAC. Consequence: the channel
+must be established while the iPhone app is foreground (radio-on moment) and the ACL kept alive;
+after a link drop with the iPhone locked, Android-side rediscovery may fail until the iPhone is
+foregrounded. This is the likely killer failure mode and a mandatory spike measurement.
+
+**Android side.** A foreground service holding the socket is unrestricted and survives
+backgrounding; practitioner reports warn that aggressive OEM Doze can still drop BLE links when
+the screen is off, with battery-optimization exemption as the standard mitigation
+(https://dev.to/ble_advertiser/beyond-the-foreground-service-reliable-background-ble-connection-management-on-android-12-2n78).
+ColorOS on the test device makes this a real spike item, not a footnote.
+
+### 5. Reliability patterns for real-time audio
+
+CoC is reliable and in-order (credit-based flow control), so head-of-line blocking is the failure
+shape under stall — but at 24 kbps against even pessimistic tens-of-kbps capacity the queue stays
+shallow if the sender refuses to let it grow. Practitioner patterns: length-prefixed framing (the
+socket APIs surface byte streams; SDU boundaries are not reliably exposed on Android), a sequence
+byte per frame (ASHA does exactly this), a drop-oldest send queue so stale audio is never
+transmitted after a stall, and treating reconnect as a full re-dial (GATT connect → read PSM →
+open channel); kable deliberately treated sockets as short-lived. A small receive-side jitter
+buffer remains necessary — the Android-only BLE walkie-talkie project denizetkar/walkie-talkie-app
+reported 300–800 ms mouth-to-ear with a conservative jitter buffer over unstable BLE
+(https://github.com/denizetkar/walkie-talkie-app), a useful pessimistic anchor.
+
+### 6. Range and coded PHY
+
+**Practitioner consensus.** Phone-to-phone BLE at 1M PHY: roughly 30–50 m indoors, ~100 m
+line-of-sight, with 3–6 dB per wall and body absorption on top
+(https://sheridantech.io/2026/07/24/range-of-bluetooth-low-energy/). Throughput degrades toward the
+edge, so voice-usable range is the low end of that.
+
+**Documented.** Coded PHY (long range) is not a cross-platform option: iOS 13.4 briefly supported
+it, iOS 14 removed it, and it remains absent (https://developer.apple.com/forums/thread/804458,
+https://www.developer.apple.com/forums/thread/665542); Android support is per-handset. L2CAP is
+therefore a same-area/short-range fallback, not a replacement for the Wi-Fi LAN path's reach.
+
+### 7. Ready-made libraries and SDKs (build-vs-buy survey)
+
+Candidates were assessed for: license/pricing, true serverless iPhone↔Android transfer, health,
+and fit under the `RadioTransport` seam.
+
+- **Ditto** (https://docs.ditto.live/sync/concepts/transports-overview) — commercial closed SDK;
+  genuinely does iPhone↔Android BLE + LAN mesh with no servers, actively maintained, RN binding
+  exists. But it is a CRDT *database sync* engine: the abstraction is replicated documents, not a
+  low-latency byte stream; pricing is enterprise-opaque. Wrong shape for 20 ms voice frames.
+- **Bridgefy** (https://bridgefy.me/sdk/, https://github.com/bridgefy) — commercial freemium,
+  SDKs updated through 2026, real iOS↔Android BLE mesh; explicitly message-oriented, with
+  practitioner guidance that continuous audio "will glitch out a lot." Voice notes yes, live PTT no.
+- **Berty weshnet** (https://github.com/berty) — open source (MIT/Apache), libp2p-based; the BLE
+  driver was historically Android↔Android only, iOS↔Android transport remained unstable, and the
+  expo module went stale. Not dependable as a transport today.
+- **HypeLabs Hype SDK** — effectively dormant (no releases or activity found in recent years);
+  discarded.
+- **bitchat** (https://github.com/permissionlesstech, MIT/Unlicense) — open-source BLE GATT chat
+  mesh, iOS+Android, but GATT-based messaging with known iOS↔Android bridging bugs at launch;
+  valuable as a protocol/discovery reference, not a voice transport.
+- **Thin BLE wrappers with L2CAP:** `munim-bluetooth` (https://github.com/munimtechnologies/munim-bluetooth,
+  Apache-2.0, RN Nitro modules, L2CAP on both platforms including iOS peripheral publish; young —
+  22 stars, single vendor); JuulLabs **kable** (KMP; L2CAP client-side only, still at discussion
+  stage); `kmp-ble` (typed L2CAP streams, very small); blue-falcon / ble.net (GATT only).
+
+**Verdict: build.** No SDK carries real-time voice iPhone↔Android offline; every mesh SDK is
+message-oriented and warns against continuous audio. The driver must live in native code next to
+the audio engines anyway — bridging 20 ms frames through the RN layer would add latency for
+nothing. `munim-bluetooth` is the best reference implementation to crib API shapes from, and the
+kable discussion is the best catalogue of interop pitfalls. Estimated surface is small: a GATT
+service, a socket, and framing.
+
+### Recommended spike scope and Go/No-Go criteria
+
+Shape of the driver behind the existing transport seam (`RadioTransport` on iOS, its Android
+counterpart): iPhone runs `CBPeripheralManager` alongside the existing PTT-button
+`CBCentralManager` (concurrent central+peripheral is supported; practitioner reports of latency
+degradation under load make it a measurement, not an assumption —
+https://developer.apple.com/forums/thread/107591). iPhone publishes the insecure L2CAP channel
+once per radio-on and advertises a service whose GATT exposes PSM + protocol version; Android
+scans, connects GATT, reads the PSM, requests `CONNECTION_PRIORITY_HIGH`, dials
+`createInsecureL2capChannel`, and holds the socket in the existing foreground service. Framing:
+length-prefixed Opus frames + sequence byte; drop-oldest send queue; app-level encryption deferred
+past the spike. Nearby remains primary when a LAN exists; L2CAP is the no-LAN fallback, selected
+by transport health, with sequence-number dedupe at the engine if both are ever live.
+
+Go/No-Go measurements, in order of kill-likelihood:
+1. Reconnect with the iPhone locked: after a forced link drop, can Android re-establish without
+   the iPhone being foregrounded (overflow-area problem)? If not, is "reconnect requires a glance
+   at the iPhone" acceptable? — the decisive criterion.
+2. Sustained goodput ≥ 32 kbps for 10 min in both directions, iPhone↔Android, phones locked.
+3. Coexistence: the same measurement with A2DP/SCO headsets active on both phones (PTT headset
+   use case) — no worse than intermittent single-frame loss.
+4. Mouth-to-ear latency ≤ 500 ms with the jitter buffer tuned for BLE.
+5. iPhone central+peripheral concurrency: PTT button latency unaffected while the channel streams.
+6. 30+ min locked-screen soak with audio flowing both ways, heartbeat-logged on both sides.
+
+### Product note — radio power switch is a design requirement (verbatim intent)
+
+The always-hot architecture keeps the microphone and audio session live whenever radio mode is on,
+so battery cost is inherent to the design. The design must therefore include an explicit radio
+on/off toggle (power switch) as a first-class control — not a settings item. This requirement goes
+through the design phase and then implementation.
+
+### Superseded item
+
+The planned overnight duration test was superseded: extended locked-screen operation was verified
+in practice across the day's sessions on 2026-08-17/18.
