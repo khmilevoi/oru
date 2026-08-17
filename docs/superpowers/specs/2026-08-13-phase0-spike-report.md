@@ -724,8 +724,116 @@ entitlement, and the app's audio session is only ever activated as a side effect
 successfully joining a channel — see the subsection above). For scenario C specifically, a
 physical BLE PTT button will also be needed, but that's secondary to the account blocker.
 **Decided (2026-08-16): wait for the paid Apple Developer Program enrollment** rather than build a
-debug-only audio-session workaround. Until the account is active, nothing further is actionable
-on the audio path. The Nearby Connections handshake itself (transport layer, independent of
-audio/PT) can still be exercised and observed between the two devices in the meantime — that part
-of the pipeline doesn't depend on PT, and is being checked separately on the Android side right
-now.
+debug-only audio-session workaround. **Revisited (2026-08-17): the user chose to build the
+debug-only workaround after all** — see the new section immediately below. The Nearby Connections
+handshake itself (transport layer, independent of audio/PT) can still be exercised and observed
+between the two devices in the meantime — that part of the pipeline doesn't depend on PT, and is
+being checked separately on the Android side right now.
+
+## Local-test debug workaround, and two real crash bugs found — 2026-08-17
+
+The 2026-08-16 decision above (wait for the paid account) was revisited and reversed: the user
+chose to build the debug-only audio-session workaround instead. Iterated entirely on the physical
+iPhone 12 (iOS 26.6) already on hand, via `ios/Oru/Oru-LocalTest.entitlements` /
+`com.oru.localtest` (from the 2026-08-15 session).
+
+**`BackgroundManager.swift`** now skips `PTChannelManager` entirely in `#if DEBUG` builds instead
+of calling it and reacting to its failure: calling it without the push-to-talk entitlement does
+not fail with a Swift-catchable error on this iOS version — several attempts at reacting to a
+`catch` block around it changed nothing, because the failure exits before any `try`/`catch` in
+this app ever runs. `activate()`/`deactivate()` now call the `BackgroundSessionDelegate` callbacks
+directly in DEBUG without touching `AVAudioSession` themselves (that responsibility moved to
+`AudioEngine`, below, to keep category-then-activate ordering correct). Mic permission
+(`AVAudioSession.recordPermission`) was also `.undetermined` on this fresh bundle id;
+`AudioEngine.swift` now blocks once, synchronously, on `requestRecordPermission` before touching
+the engine (`awaitRecordPermissionIfUndetermined`) if so — the user granted it via the resulting
+system dialog.
+
+None of that, by itself, stopped the app from crashing at launch with `*** Terminating app due to
+uncaught exception 'com.apple.coreaudio.avfaudio', reason: 'required condition is false: inputNode
+!= nullptr || outputNode != nullptr'` in `-[AVAudioEngine prepare]`. Seven independent fix
+attempts around session category/activation ordering and thread (main vs. background queue) all
+reproduced the identical crash — confirmed via on-device `.ips` crash reports, which this iOS
+version ships with real symbols for a Debug build, no `atos` needed. An Opus-model advisory pass
+(not a build attempt — pure code reading) found the actual cause:
+
+- **Bug: `AVAudioEngine` creates its I/O nodes lazily**, on first access to `inputNode`,
+  `outputNode`, or `mainMixerNode` — `AVAudioEngine()`'s initializer leaves the graph empty, and
+  `prepare()`/`start()` both assert at least one I/O node exists before doing anything else,
+  independent of session state. Every other call path into this engine
+  (`beginIncoming`→`mainMixerNode`, `startCapture`→`inputNode`) already touched a node before ever
+  calling `start()` and never crashed; `AudioEngine.swift`'s `startPlayback()` was the one path
+  that called `prepare()` without touching a node first. **Fixed unconditionally** (not a
+  local-test-only workaround — this would crash a Release `com.oru` build identically): touch
+  `engine.inputNode` and `engine.mainMixerNode` before `engine.prepare()`.
+
+With that fixed, the app got much further — launched cleanly, set up audio, and reached Nearby
+Connections, which discovered a real peer over WiFi-Lan and began a secure `UKey2Handshake` — then
+died ~14s in with a different, unrelated crash: `EXC_BAD_ACCESS` / `SIGKILL` /
+`KERN_PROTECTION_FAILURE`, `termination.namespace = CODESIGNING`, `indicator = "Invalid Page"`,
+inside BoringSSL's `OPENSSL_free`→`sdallocx`, called from
+`securemessage::CryptoOps::GenerateEcP256KeyPair()`. A second Opus-model pass root-caused this
+precisely, down to fault-address arithmetic:
+
+- **Bug: a weak-symbol collision between BoringSSL and React Native's prebuilt dependencies.**
+  `firebase/boringssl-SwiftPM` (pulled in transitively via `google/nearby`) declares `sdallocx` as
+  a *weak* symbol that falls back to `free()`. React Native's prebuilt
+  `ReactNativeDependencies.framework` separately exports a *strong* `sdallocx` — folly's
+  jemalloc-detection shim, a null `__DATA,__common` function-pointer variable, never actually
+  called on Apple platforms since `folly::usingJEMalloc()` is always false there. dyld's
+  weak-symbol coalescing prefers the strong definition process-wide, so BoringSSL's own internal
+  `OPENSSL_free` call bound to folly's non-executable data page instead of running code; the fault
+  address matched that framework's page-aligned base address exactly. The CocoaPods flavor of this
+  same BoringSSL guards against exactly this class of collision by prefixing its symbols
+  (`GRPC_SHADOW_*`); the SwiftPM flavor resolved here ships that defense commented out. **Fixed**
+  with a new local SPM target, `ios/Radio/Sources/MallocCompatShim/` (mirrors the existing
+  `OpusShim` pattern), providing a real, strong `sdallocx` definition and wired as a dependency of
+  `RadioKit` in `Package.swift` — confirmed at the binary level with `nm -m` (the app image's
+  `_sdallocx` moved from `weak external` in `__DATA,__common` to a plain `external` symbol in
+  `__TEXT,__text`) and by a live run that survived 115+ seconds with no crash, well past the
+  previous ~14s failure point.
+
+**Current blocker, transport layer.** The run that proved the `sdallocx` fix didn't reach the
+handshake again — Nearby Connections found a peer (`endpoint_id=VJ7M`, WiFi-Lan, service id
+`com.oru.radio`) but `RequestConnection` failed three times with
+`Error Domain=com.google.nearby.network.error Code=1`, which the resolved `google/nearby` source
+decodes as `GNCNWFrameworkErrorTimedOut` — its own internal 4-second connection timeout firing, not
+a distinct Apple-level error. In the same run, CoreBluetooth's peripheral manager stayed stuck at
+`CBManagerStateUnknown` for a full 12 seconds (it normally resolves near-instantly) before an
+internal timeout gave up, and no BLE-medium peer was ever found either. Neither result is
+conclusive on its own, but both are the classic signature of an **unanswered iOS system
+permission dialog** — Local Network (`NSLocalNetworkUsageDescription`) and/or Bluetooth
+(`NSBluetoothAlwaysUsageDescription`), both already declared in `Info.plist` — sitting on the
+device's screen with nobody there to tap it. There is no CLI/`devicectl` way to read an app's
+actual TCC/privacy grant state on a non-jailbroken device to confirm this directly.
+
+A follow-up diagnostic (uninstalling and reinstalling the app via `devicectl`, to test whether the
+discovered peer was a stale/self-referential mDNS record left over from earlier crash cycles)
+backfired: the app now refuses to launch at all with `"invalid code signature, inadequate
+entitlements or its profile has not been explicitly trusted"` — the standard first-run
+developer-certificate trust prompt (per `Settings > General > VPN & Device Management`) has to be
+answered again, exactly as it did the first time this build ever ran on this phone
+(2026-08-15). **Needs the user physically at the device**: re-trust the certificate, then check for
+and answer the Local Network / Bluetooth permission prompts, before iOS-side investigation can
+continue.
+
+**Android, separately**: the user installed Android Studio on this same Mac (previously all
+Android work happened on a separate Windows machine). SDK/NDK/build-tools resolved automatically
+on first `pnpm build:android` run (NDK/CMake downloaded fresh, per the execution schedule's own
+documented first-run caveat) and the build succeeded, producing a working debug APK — this Mac can
+now build the Android side end-to-end. One real, general config bug was found and fixed along the
+way (not Mac-specific — would break on any machine with a modern pnpm, Windows included):
+`.npmrc`'s `node-linker=hoisted` is silently ignored by pnpm 11.x (`pnpm config get node-linker`
+returned `undefined`), which left `@react-native/gradle-plugin` un-hoisted and broke
+`android/settings.gradle`'s `includeBuild`. Fixed with a new `pnpm-workspace.yaml` declaring
+`nodeLinker: hoisted` — pnpm 11.x reads linker config from there instead. No physical Android
+device is connected to this Mac yet, so the Android half of Phase 0 scenarios still needs to run
+on hardware, same as before.
+
+**Net status, still No Go/No-Go.** Two real, previously-unknown crash bugs are fixed and verified
+on physical iOS hardware (the `AVAudioEngine` lazy-node crash, unconditionally; the `sdallocx`
+symbol collision, also unconditionally — neither is DEBUG-only or local-test-specific, both would
+have hit a real `com.oru` Release build the first time it tried this code path). The local-test
+audio/transport pipeline is meaningfully healthier than at the start of this session, but a
+peer-to-peer connection has still not been observed completing end-to-end, and further iOS
+investigation is blocked again on physical device access.
