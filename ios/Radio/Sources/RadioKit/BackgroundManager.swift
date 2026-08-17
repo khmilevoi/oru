@@ -47,6 +47,22 @@ public final class BackgroundManager: NSObject, BackgroundSession {
 
     public func activate() {
         wantsChannel = true
+        #if DEBUG
+        // Local-test builds run on a free Personal Team, which Apple flatly
+        // refuses the push-to-talk entitlement for. Calling
+        // PTChannelManager.channelManager(...) without one does not fail with a
+        // catchable Swift error: two independent fixes downstream of its `catch`
+        // block (self-activating the session there, and pre-activating it before
+        // AudioEngine ever touches the engine) had zero effect on an identical,
+        // reproducible launch crash -- meaning the failure exits the process
+        // before any Swift try/catch here runs at all. So local-test builds must
+        // never call into PTChannelManager; activate the session ourselves
+        // instead, synchronously, so it is guaranteed active before
+        // RadioEngine's next line touches AudioEngine. Remove this branch once a
+        // paid Apple Developer account is in place, so Debug builds exercise the
+        // real PushToTalk path again.
+        activateAudioSessionForLocalTesting()
+        #else
         Task { [weak self] in
             guard let self else { return }
             do {
@@ -67,12 +83,38 @@ public final class BackgroundManager: NSObject, BackgroundSession {
                 )
             }
         }
+        #endif
     }
 
     public func deactivate() {
         wantsChannel = false
-        manager?.leaveChannel(channelUUID: channelUUID)
+        guard let manager else {
+            #if DEBUG
+            deactivateAudioSessionForLocalTesting()
+            #endif
+            return
+        }
+        manager.leaveChannel(channelUUID: channelUUID)
     }
+
+    #if DEBUG
+    private func activateAudioSessionForLocalTesting() {
+        // Deliberately does not touch AVAudioSession itself: this runs before
+        // RadioEngine.startRadioLocked() calls AudioEngine.startPlayback(),
+        // which hasn't set the .playAndRecord category yet -- activating here
+        // would activate under whatever category was previously in effect
+        // (the platform default), leaving AVAudioEngine with no real
+        // input/output route once it does switch category, which is exactly
+        // what crashed `engine.prepare()` in an earlier version of this fix.
+        // AudioEngine.startPlayback() itself now does the local-test
+        // activation, in the correct order: category first, then active.
+        delegate?.backgroundSessionDidActivateAudio(self)
+    }
+
+    private func deactivateAudioSessionForLocalTesting() {
+        delegate?.backgroundSessionDidDeactivateAudio(self)
+    }
+    #endif
 
     public func requestBeginTransmitting() {
         guard let manager else {

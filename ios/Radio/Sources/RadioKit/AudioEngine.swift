@@ -59,8 +59,65 @@ public final class AudioEngine: AudioIO {
             mode: .voiceChat,
             options: [.allowBluetooth, .allowBluetoothA2DP, .defaultToSpeaker]
         )
-        engine.prepare()
+        awaitRecordPermissionIfUndetermined(session)
+        try prepareEngineOnMainThread(session)
         log.info("audio session configured")
+    }
+
+    /// Category, permission and (in local-test builds) activation all being
+    /// correct still wasn't enough on real hardware: `engine.prepare()`
+    /// crashed identically (`inputNode != nullptr || outputNode != nullptr`)
+    /// every time it ran on `AudioEngine`'s own background queue. Forcing it
+    /// onto the main thread -- the norm in every Apple sample and most
+    /// real-world reports of this exact assertion -- is the one variable
+    /// changed here.
+    private func prepareEngineOnMainThread(_ session: AVAudioSession) throws {
+        var activationError: Error?
+        DispatchQueue.main.sync {
+            #if DEBUG
+            // Local-test builds skip PushToTalk entirely (see
+            // BackgroundManager), so nothing else will ever activate this
+            // session. Do it here, now that the category and permission are
+            // both settled -- activating before the category is set (an
+            // earlier version of this fix did that, from BackgroundManager)
+            // leaves the engine with no real input/output route once the
+            // category *does* switch.
+            do {
+                try session.setActive(true)
+            } catch {
+                activationError = error
+            }
+            #endif
+            // AVAudioEngine creates its I/O nodes lazily, on first property
+            // access -- `AVAudioEngine()` itself leaves the graph empty.
+            // `prepare()`/`start()` both assert that at least one I/O node
+            // exists ("inputNode != nullptr || outputNode != nullptr") before
+            // doing anything else, session state notwithstanding. Every other
+            // entry point into this engine (`beginIncoming`, `startCapture`)
+            // touches a node before ever calling `start()` and has never hit
+            // this; `startPlayback()` was the one path that called into
+            // `prepare()` without touching a node first. Building the graph
+            // here, now that category and permission are both settled, fixes
+            // that.
+            _ = engine.inputNode
+            _ = engine.mainMixerNode // also creates and connects outputNode
+            engine.prepare()
+        }
+        if let activationError { throw activationError }
+    }
+
+    /// `engine.prepare()` needs a resolved microphone route and crashes hard
+    /// (`inputNode != nullptr || outputNode != nullptr`) if permission is still
+    /// `.undetermined` -- the state of every fresh install, since proper
+    /// ahead-of-time onboarding is P7's job and doesn't exist yet. Blocks only
+    /// on that one first launch, waiting for the system prompt the app has
+    /// never triggered before; every launch after the user answers it returns
+    /// immediately.
+    private func awaitRecordPermissionIfUndetermined(_ session: AVAudioSession) {
+        guard session.recordPermission == .undetermined else { return }
+        let semaphore = DispatchSemaphore(value: 0)
+        session.requestRecordPermission { _ in semaphore.signal() }
+        semaphore.wait()
     }
 
     public func stopPlayback() {

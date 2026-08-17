@@ -21,12 +21,14 @@ let package = Package(
                 .product(name: "Copus", package: "swift-opus")
             ]
         ),
+        .target(name: "MallocCompatShim"),
         .target(
             name: "RadioKit",
             dependencies: [
                 .product(name: "NearbyConnections", package: "nearby"),
                 .product(name: "Opus", package: "swift-opus"),
-                "OpusShim"
+                "OpusShim",
+                "MallocCompatShim"
             ],
             resources: [.process("Resources")]
         ),
