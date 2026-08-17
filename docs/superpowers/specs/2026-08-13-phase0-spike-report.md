@@ -1015,3 +1015,409 @@ have hit a real `com.oru` Release build the first time it tried this code path).
 audio/transport pipeline is meaningfully healthier than at the start of this session, but a
 peer-to-peer connection has still not been observed completing end-to-end, and further iOS
 investigation is blocked again on physical device access.
+
+## Evening session: PushToTalk dropped for an always-hot spike; locked-screen receive verified — 2026-08-17
+
+### Research — the PushToTalk framework can be dropped entirely (desk research, three parallel investigations)
+
+Desk research (no device work in this part) established that the only paid-account blocker in the
+whole design is the `com.apple.developer.push-to-talk` entitlement itself. The `UIBackgroundModes`
+values (`audio`, `bluetooth-central`, `bluetooth-peripheral`) are plain Info.plist keys, available
+on a free Personal Team. Per Apple's `UIBackgroundModes` documentation and the Audio Session
+guide, with the `audio` background mode an app that is playing *or recording* audio keeps running
+indefinitely in the background/locked — continuous mic capture started in the **foreground** is
+the sanctioned keep-alive, with no silent-playback hack needed.
+
+One hard system restriction shapes the whole design (iOS 12.4/13+, CoreMedia's
+`CMSUtility_IsAllowedToStartRecording`, error `'!rec'` 561145187): recording cannot be *started*
+from the background without CallKit/PushToTalk/special entitlements. Consequence: any
+"BLE-wake then open mic" design is non-viable on the free path; the viable free design is
+**always-hot** — the mic opened in the foreground and kept pulling, with samples discarded when
+idle. Known interruption risk (documented behavior plus practitioner reports, including Apple
+forums thread 813278, Jan 2026): after a phone call or Siri while locked, a `.playAndRecord`
+session cannot restart recording from the background — the radio stays mute until the user
+foregrounds the app. Accepted as the known cost of the free path; PushToTalk (paid) is the only
+real fix.
+
+On the transport side: Google Nearby Connections on iOS supports **only** the Wi-Fi LAN medium
+(same infrastructure network, mDNS discovery) per Google maintainers (github.com/google/nearby
+discussion #2447) — no AWDL, no BLE medium yet. So "offline with no shared network" has no Nearby
+transport on iOS; BLE L2CAP (explicitly blessed by an Apple engineer for the
+active-audio-session-keeps-app-alive pattern, forums thread 746286; real-world throughput 36–50
+kbps, enough for Opus at 16–24 kbps) is the candidate for a true offline channel.
+MultipeerConnectivity is explicitly unsupported in the background per DTS. **Decision: spike the
+always-hot architecture, with the PushToTalk path preserved behind a config switch.**
+
+### Implementation (working tree, uncommitted)
+
+- New `AlwaysHotBackgroundManager.swift` — a `BackgroundSession` implementation that never
+  imports PushToTalk: it sets the audio session category itself, then `setActive(true)`
+  (category-before-activate, avoiding the documented `engine.prepare()` crash), reports
+  `backgroundSessionDidActivateAudio` for RadioEngine parity, and handles interruption
+  notifications with a logged reactivation attempt.
+- New `HeartbeatLogger.swift` — every 10 s appends to Documents/heartbeat.log: timestamp, app
+  state, session state, `engine.isRunning`, and the age of the most recent input-tap buffer; plus
+  out-of-band `record()` lines.
+- `AudioEngine.swift` — a keep-alive input tap in always-hot mode (engine runs continuously, idle
+  samples discarded, each buffer stamps the heartbeat); the tap is swapped for the real capture
+  tap during transmission.
+- `RadioConfig.Background.mode` switch: `.alwaysHot` (spike default) / `.pushToTalk` (original
+  path intact, one-line revert). `RadioAssembly` selects the implementation.
+- `Info.plist`: `audio` added to `UIBackgroundModes` (kept `push-to-talk`,
+  `bluetooth-central`).
+- RadioKit built and all 38 package tests passed; the device build (Debug, Oru-LocalTest signing)
+  succeeded.
+
+### On-device results — iPhone 12 (iOS 26) + Oplus Android phone, same Wi-Fi LAN
+
+The local-test build now **launched and ran without the PTT entitlement** — the hard crash
+recorded in the previous session (PTChannelManager init failure → uncaught AVAudioEngine
+exception) is gone by construction in always-hot mode. The Nearby Connections handshake succeeded
+(medium: ENCRYPTED_WIFI_LAN) — the first successful iOS↔Android connection of the project.
+
+First transmissions delivered payloads (Nearby C++ logs confirmed `onPayloadReceived
+type:Stream`) but produced **silence** on the iPhone. Root cause found by inspection: in
+always-hot mode the AVAudioEngine is already running when `beginIncoming` attaches the player
+node, and a node attached to a running engine never joined the active render graph (engine and
+player reported healthy throughout). Fixed with an `engine.stop()`/`start()` cycle in
+`beginIncoming` when the engine was already running (`restarted=true` recorded in the heartbeat).
+Receive-path instrumentation (rx start / rx frames / rx scheduled / decode counters) was added via
+HeartbeatLogger.
+
+After the fix, audible speech was confirmed in the foreground, and then the key result —
+**locked-screen receive verified**: with the iPhone locked (`app=background` in the heartbeat), a
+15 s transmission delivered 750 frames, 748 decoded, 0 decode failures, all scheduled, and the
+user audibly confirmed speech playback from the locked phone. This is the Go-milestone for the
+PTT-free architecture.
+
+Diagnostic note: Opus DTX encodes silence as ~8-byte frames, while real speech runs 22–60 bytes —
+frame size in the rx log is a quick content-vs-silence discriminator. A long-duration lock test
+started ~18:36 local; the heartbeat was continuous at last check, with the result to be recorded
+when it concludes. Still open: the iPhone→Android transmit direction (the spike build has no
+iPhone-side transmit trigger), the interruption (phone-call) test, and the long-test conclusion.
+
+### BLE PTT button (Android side) — blocked, diagnosis in progress
+
+The app's GATT pairing scan (ptt-scan) found zero candidates across three 60 s sessions
+(including one with the button actively held). After OS-level pairing the button exposed **no**
+HID input device (`getevent` listed only internal devices) and no media-key events were captured.
+The button demonstrably works with Zello. Working hypothesis: it is a vendor-GATT button that
+Zello's background service connects to directly; a connected GATT device stops advertising,
+hiding it from scans (and OS bonding may hide it further). Next step: force-stop Zello, unpair the
+button, put it in pairing mode, rescan.
+
+## Late evening session: full symmetric radio verified; buttons, UIs, and three bugs — 2026-08-17
+
+### Reverse direction (iPhone → Android) verified, including from the locked screen
+
+The iOS spike had no transmit trigger — no RN UI exists yet, and the PTT lock-screen button went
+away with the framework. New `SpikeCommandServer.swift` filled the gap: a DEBUG-only UDP command
+server in RadioKit (port from `RadioConfig.Spike.commandPort` = 47999) accepting the text commands
+`ptt-down` / `ptt-up` / `ptt-scan` / `ptt-pick <id>` / `ptt-forget` / `state`, driven from the Mac
+via `nc -u`; it announced its en0 IP in heartbeat.log on start.
+
+iPhone→Android audio was confirmed audible — and transmit **while the iPhone is locked** worked.
+The always-hot design keeps the mic capturing continuously, so background transmit needed no new
+rights: the "cannot START recording from background" restriction is irrelevant while capture never
+stops.
+
+### Both physical PTT-Z01 buttons paired; the full chain verified both ways
+
+Physical button → Android mic → Nearby → locked iPhone speaker was verified (the previous
+section's Go-milestone) — and now the symmetric chain too: second button → locked iPhone mic →
+Nearby → Android. Both directions were user-confirmed audible, and the user confirmed the buttons
+now work correctly, one per phone.
+
+The BLE-scan mystery from the previous section resolved: it was NOT Zello or the buttons. Android
+8.1+ silently returns ZERO results for unfiltered BLE scans (`startScan(callback)`, no filters)
+when the app has no visible activity — and every earlier scan ran while the spike had no
+foreground UI. Foregrounding the (new) pairing screen instantly yielded ~25 devices, including
+both PTT-Z01 units. iOS mirrors this: `scanForPeripherals(withServices: nil)` yields results only
+in the foreground. Production note: the pairing UI must be a foreground screen (natural UX
+anyway), or scans must filter by service UUID.
+
+New pitfall documented: these buttons accept multiple simultaneous central connections, so BOTH
+phones can silently bind the SAME physical unit. This happened — presses triggered both phones at
+once, and with both transmitting, a feedback loop played audio on both devices. The units are
+visually identical; disambiguation required deterministic re-pairing (Android binds by stable MAC
+— A4:C1:38:44:08:C1 vs A4:C1:38:47:40:CB; iOS sees only phone-local CoreBluetooth UUIDs) plus
+physically labeling the units. Production consideration: surface identifying info and/or hold an
+exclusive connection.
+
+### Bug found and fixed: inverted press/release learning (both platforms)
+
+The PTT-Z01 (Telink-style: service 0000ffe0, characteristic 0000ffe1, 01 = down, 00 = up) pushes
+its current IDLE state (00) immediately on CCCD subscription. The learning rule "first two
+different values become pressed/released in arrival order" therefore latched idle as pressed on
+every pairing → transmit-on-release. A stored-binding dump
+(`{"pressedValue":"00","releasedValue":"01"}`) confirmed it.
+
+Fix (mirrored on both platforms, with unit tests): when exactly one learned value is all-zero
+bytes, the nonzero one is pressedValue regardless of arrival order; otherwise the arrival-order
+rule stands. Android: `PttLearningStateMachine.kt` (13 tests pass). iOS: `PttBinding.swift`
+(`PttLearnedValues.ordered`) + `BleGattPttDriver.swift` (RadioKit suite passes).
+
+### Bug found and fixed: Android audio pinned to loudspeaker with earbuds connected
+
+`RadioForegroundService.kt:156` set `AudioManager.MODE_IN_COMMUNICATION` unconditionally at radio
+start; the in-call policy excludes A2DP/LE from the route and nothing started SCO, so playback
+fell to the loudspeaker even with Bluetooth earbuds connected.
+
+Fix: the mode is now applied conditionally — `MODE_IN_COMMUNICATION` only when no external
+playback device is present (`getDevices(GET_DEVICES_OUTPUTS)`, checked types including
+A2DP/LE/wired/USB/hearing aid), with an `AudioDeviceCallback` re-evaluating live on
+connect/disconnect. This mirrors iOS's "speaker as fallback, not a pin". Known limitation: a
+route change mid-reception is up to platform dynamic re-routing; the next transmission is
+guaranteed correct. In-earbuds playback is still pending hardware verification.
+
+### Debug UX: real pairing/control UIs on both platforms (agent-built)
+
+- iOS: `SpikeControlPanel.swift` — a DEBUG-only SwiftUI panel (state header, hold-to-talk,
+  scan/candidate list sorted by RSSI with named devices highlighted, learning countdown, forget),
+  shown in a dedicated UIWindow at `.alert` level — a plain child VC got covered when the RN root
+  finished loading asynchronously.
+- Android: `SpikeActivity` was rewritten with a programmatic-views UI (same features), subscribing
+  via `RadioController.addListener` — the same path the spike logger uses. Being a foreground
+  screen also un-breaks the BLE scan restriction by construction.
+- Debug manifest: the real `MainActivity` was removed (`tools:node="remove"`) and replaced by an
+  activity-alias with the same component name targeting `SpikeActivity`, so every entry point —
+  launcher icon and stale home-screen shortcuts alike — opens the panel. Release manifests were
+  left untouched.
+
+### Operational notes
+
+- Repeated reinstalls left ghost Nearby endpoints (`nearbyCount=3` on Android with one real peer,
+  duplicate streams); clearing them required restarting the radio on both ends.
+  Reconnect/endpoint-hygiene logic is worth attention later.
+- Android grants: `pm grant` from adb is blocked on this ColorOS device (SecurityException) —
+  permissions were granted by hand on-device.
+- Still open, deferred: the overnight lock-duration test (28 gap-free minutes recorded so far),
+  the interruption test (incoming call while locked → expected mute-until-foregrounded), battery
+  measurement of the always-hot mode, and the real RN UI + NativeRadio TurboModule (P5) — the
+  spike panels are debug-only stand-ins.
+
+### Closing addendum — 2026-08-17, night
+
+The buttons were re-verified by the user after the deterministic re-pair: one PTT-Z01 per phone,
+no cross-triggering. The units are now physically labeled.
+
+Bluetooth-headset MICROPHONE routing was attempted and parked. A three-way routing policy was
+implemented in `RadioForegroundService.kt`: input-capable headset present → `MODE_IN_COMMUNICATION`
+plus `setCommunicationDevice` (SCO fallback) for both capture and playback; output-only device →
+`MODE_NORMAL`, A2DP playback with the phone mic; nothing external → communication mode on the
+speaker. On the ColorOS test device, switching the buds into the communication profile dropped
+them from the app's audio route entirely, and without verbose route logging the failure point is
+not attributable. The headset-mic path is parked behind
+`RadioForegroundService.ROUTE_MIC_TO_HEADSET = false` with the code retained. Current shipped
+behavior: playback follows the buds over A2DP, capture stays on the phone mic. TODO recorded: add
+route-decision logging and debug on-device.
+
+A "quiet audio from the iPhone" report arrived late in the session; the Android voice-call and
+media stream volumes were raised to max via adb as the first-line fix, verdict pending. It was
+left open alongside a "hearing myself in the earbuds" report that telemetry could not reproduce —
+the radio path was idle at the time; most likely the nearby iPhone's loudspeaker was playing the
+user's own transmission in the same room.
+
+Session close: the free-architecture spike is functionally complete — symmetric locked-screen
+radio with per-phone hardware buttons on a free Apple account. The deferred items are unchanged:
+overnight duration test, interruption test, battery measurement, real RN UI/TurboModule, and the
+headset-mic debug.
+
+## Night session: Bluetooth-headset routing brought to full duplex on both platforms — 2026-08-17/18
+
+### Research pass: how PTT apps actually do Bluetooth routing
+
+Three parallel web investigations ran earlier in the session; a dedicated routing study followed
+and settled the design. **iOS:** the option set `[.allowBluetooth, .allowBluetoothA2DP,
+.defaultToSpeaker]` mixes three conflicting routing signals and was identified as the root of the
+iOS route flapping (documented iOS 17/18 regressions match). The canonical recipe is one profile
+per session, `setPreferredInput` re-asserted on route change, and `overrideOutputAudioPort` on
+demand instead of `.defaultToSpeaker`. **Android:** the canonical pattern is WebRTC's
+AppRTCBluetoothManager state machine — establishment timeout, bounded retries, a single reducer.
+Production PTT apps pin HFP for the whole session because SCO setup latency makes per-transmission
+switching unusable; Zello ships a "Legacy Bluetooth" toggle (the old startBluetoothSco API) as the
+escape hatch for broken OEM stacks. **Cost check:** 16 kHz mono Opus matches wideband HFP exactly,
+so pinning HFP costs nothing on the wire.
+
+### iOS: profile-conditional session, and a chicken-and-egg bug found on hardware
+
+The first implementation selected the profile by inspecting `availableInputs`/`currentRoute`
+BEFORE any Bluetooth option was set — but iOS only exposes BT ports when the current options allow
+them, so a connected headset was invisible forever (hardware heartbeat: `session profile builtIn`
+with a headset connected). **Fix:** a two-phase flow — configure permissively
+(`[.allowBluetooth]`) → check for an HFP input → pin it; else narrow to `[.allowBluetoothA2DP]`,
+activate, and decide the speaker override from the resolved route. Re-detection re-runs the full
+sequence on device add/remove, and `.defaultToSpeaker` is gone. 70 RadioKit tests are green, 20 of
+them covering the two-phase selector.
+
+Also landed this session: capture-level metering in the heartbeat (`tx level peak/rms` in dBFS), a
+transmit-path makeup gain `RadioConfig.Audio.captureGain = 2.0` with a clamp (response to the
+"quiet iPhone audio" report), and the finding that voice processing
+(`setVoiceProcessingEnabled`) was never engaged on the input node — noted, not enabled.
+
+### Android: phantom decoded, legacy SCO required, full duplex achieved
+
+The zero-MAC phantom `TYPE_BLUETOOTH_SCO` input turned out to be ColorOS's REPRESENTATION of the
+connected HFP headset — the user confirmed the buds' "Phone calls" toggle was on, and the HFP
+profile proxy listed OPENEAR Bone G1 as connected. **New rule:** a zero-MAC SCO input is accepted
+iff `BluetoothProfile.HEADSET.getConnectedDevices()` is non-empty (logged with the real device
+name/address); otherwise it is rejected as a true phantom.
+
+`setCommunicationDevice` alone was confirmed insufficient on this device
+(`scoManagedByAudio:false` — the BT stack still owns SCO): the platform "confirmed" the selection
+but no SCO link rose → total silence (the earlier "I hear nothing" failure). **Fix:** dual
+establishment — `setCommunicationDevice` plus legacy `startBluetoothSco()` /
+`setBluetoothScoOn(true)` — with `ACTION_SCO_AUDIO_STATE_UPDATED` as the real confirmation signal:
+only SCO_AUDIO_STATE_CONNECTED cancels the 6 s establishment timeout; error or timeout →
+blacklist + fallback to the output-only row instead of silence.
+
+**Hardware verification:** SCO went CONNECTING → CONNECTED in ~200 ms and the user confirmed the
+radio fully working — the Bone G1 now carries both playback and capture on Android. The earlier
+hardening from this session was all retained: audio focus with USAGE_VOICE_COMMUNICATION
+(previously never requested at all), mode-before-device ordering with read-back,
+OnCommunicationDeviceChangedListener re-assert, HFP cross-validation, and route labels in both
+debug panels.
+
+### Open items and notes
+
+- Two transient engine `status=error` states occurred between builds; both times the cause rotated
+  out of logcat before capture. Android needs a persistent error log (iOS-heartbeat-style file) —
+  recorded as a TODO. Buttons refusing to fire was the error-state guard working as designed; UX
+  needs auto-recovery or a visible restart affordance on error.
+- SCO playback is telephone-profile quality by design (it matches the 16 kHz wire format); the
+  route label in both panels now makes the active route visible.
+- Still deferred: overnight duration test, interruption test, battery, RN UI/TurboModule (P5).
+
+## Decision log — problems met on 2026-08-17 and why each solution won
+
+A consolidated record of the day: every problem or bug met, the solution options considered, which
+one was chosen, and why the others were rejected.
+
+1. **Problem:** the PushToTalk entitlement (`com.apple.developer.push-to-talk`) is paid-account-only
+   and blocked even local API use — the hard blocker for the whole spike.
+   **Options:** (a) pay $99 and use the official framework; (b) the `audio` UIBackgroundMode with an
+   always-hot mic session; (c) BLE-wake + start recording on demand.
+   **Decision + why:** (b) accepted and verified on hardware the same day. (c) was rejected
+   outright: iOS forbids STARTING recording from the background (CoreMedia's `'!rec'` guard) —
+   unfixable without entitlements, so any wake-then-record design was dead on arrival. (a) was
+   deferred, not rejected on merit: it costs money, and PushToTalk provides no transport anyway —
+   the transport work was needed either way. It remains the fallback if the always-hot limitations
+   (no recovery after call interruptions, battery cost, permanent mic indicator) prove unacceptable.
+
+2. **Problem:** transport under lock on iOS — Google Nearby on iOS supports only the Wi-Fi LAN
+   medium (maintainer-confirmed, no AWDL, no BLE).
+   **Options:** MultipeerConnectivity; AWDL via Network.framework; BLE L2CAP; same-LAN Wi-Fi via
+   Nearby.
+   **Decision + why:** same-LAN Wi-Fi via Nearby accepted for the spike — the test environment has
+   a shared network, so it unblocked everything else. MultipeerConnectivity was rejected because
+   Apple (DTS) explicitly calls it unsupported in the background. AWDL via Network.framework was
+   rejected for now — undocumented and coupled to screen state. BLE L2CAP was kept as the
+   true-offline candidate and deferred.
+
+3. **Problem:** silent receive on the iPhone despite healthy telemetry — payloads arrived, engine
+   and player reported fine, no sound. Root cause: an AVAudioPlayerNode attached to an
+   ALREADY-RUNNING engine (always-hot starts it early) never joins the active render graph.
+   **Options:** restructure the engine to pre-attach all nodes; a defensive engine stop/start cycle
+   in `beginIncoming`.
+   **Decision + why:** the stop/start cycle was accepted (`restarted=true` heartbeat evidence
+   confirmed it fired and fixed playback); restructuring was rejected as too invasive for a spike.
+   Full rx-path instrumentation (rx start / frames / scheduled / decode counters) was added so any
+   future silence would be attributable in one run.
+
+4. **Problem:** the BLE button scan always came back empty across multiple 60 s sessions.
+   **Hypotheses tested and discarded in order:** Zello's service holding the button (force-stopped
+   — no change); a HID-type button (keys-capture mode — no key events at all); an OS bond hiding
+   the advertisement (unpaired — no change).
+   **Decision + why:** the real cause was none of these — Android 8.1+ silently returns zero
+   results for UNFILTERED BLE scans from apps without a visible activity (iOS behaves the same for
+   `scanForPeripherals(withServices: nil)`). Accepted: run the pairing UI in the foreground during
+   scans, which is the natural UX anyway; the production alternative — filtering by service UUID
+   — was noted.
+
+5. **Problem:** one physical button triggered BOTH phones (the buttons accept multiple simultaneous
+   central connections; the two units are visually identical and unlabeled), producing a feedback
+   loop.
+   **Options:** RSSI-based guessing; deterministic assignment.
+   **Decision + why:** deterministic assignment accepted — Android binds by stable MAC, the
+   iPhone's unit was verified by exclusion, and the units were physically labeled. RSSI guessing
+   was rejected because it had already proved wrong once during the session. Production note
+   recorded: surface identifying info and/or hold exclusive connections.
+
+6. **Problem:** inverted press/release on every pairing — the button pushes its idle state ("00")
+   immediately on CCCD subscribe, and the "first two distinct values in arrival order" learning rule
+   latched idle as pressed.
+   **Options:** pairing choreography ("press cleanly after a pause"); hand-editing the stored
+   binding; two-cycle learning; nonzero-value-wins normalization at learning completion.
+   **Decision + why:** nonzero-value-wins accepted, mirrored on both platforms with unit tests for
+   both arrival orders. Choreography was rejected — it failed twice on hardware. Hand-editing the
+   binding was used once as a stopgap only. Two-cycle learning was rejected as more UX friction than
+   the problem required.
+
+7. **Problem:** Android playback pinned to the loudspeaker with earbuds connected. Root cause:
+   unconditional `MODE_IN_COMMUNICATION` — the in-call policy excludes A2DP from the route.
+   **Decision + why:** conditional mode accepted — communication mode only when no external
+   playback device is present, with an `AudioDeviceCallback` re-evaluating live on
+   connect/disconnect: "speaker as fallback, not a pin", mirroring the iOS behavior.
+
+8. **Problem:** the first headset-mic attempt dropped the earbuds from the app's route entirely
+   (ColorOS), with no way to attribute the failure point.
+   **Options:** revert the feature; park it behind a flag until debuggable; verbose route logging +
+   web research + a hardened sequence.
+   **Decision + why:** the feature was briefly parked behind `ROUTE_MIC_TO_HEADSET = false` to
+   restore a working state for the user, then the logging-plus-research-plus-hardening path was
+   taken to completion. Reverting outright was rejected — a full-duplex headset was a hard
+   requirement.
+
+9. **Problem:** the zero-MAC phantom `TYPE_BLUETOOTH_SCO` input.
+   **Evolution of the rule, each step evidence-driven:** reject by zero MAC (a half-measure — a
+   phantom could carry a plausible address); cross-validate against
+   `BluetoothProfile.HEADSET.getConnectedDevices()` (stronger); finally, ACCEPT the zero-MAC device
+   iff the HFP proxy lists a connected headset.
+   **Decision + why:** the final rule was a reversal justified by new evidence — on ColorOS the
+   "phantom" turned out to BE the representation of the real headset (the user's "Phone calls"
+   toggle was on; the proxy listed OPENEAR Bone G1) — and it stayed safe because the SCO fallback
+   below catches the true-phantom case.
+
+10. **Problem:** the SCO link never rose — `setCommunicationDevice` returned true and the platform
+    "confirmed" the selection, yet total silence. `scoManagedByAudio:false` showed the BT stack, not
+    the audio framework, owns SCO on this device.
+    **Options:** trust the modern API alone; legacy `startBluetoothSco` alone; dual establishment.
+    **Decision + why:** dual establishment accepted — modern plus legacy, with only
+    SCO_AUDIO_STATE_CONNECTED counting as confirmation and a 6 s timeout falling back to
+    A2DP-playback + phone-mic. The modern API alone was rejected by direct evidence; the legacy API
+    alone was rejected as deprecated and wrong for future devices. This is the Zello "Legacy
+    Bluetooth" lesson, made automatic instead of a user toggle.
+
+11. **Problem:** iOS route flapping. Root cause: `[.allowBluetooth, .allowBluetoothA2DP,
+    .defaultToSpeaker]` — three conflicting routing signals in one option set.
+    **Decision + why:** one profile per session accepted. The first implementation had a
+    chicken-and-egg bug — it inspected ports before allowing them, so a connected headset was
+    invisible. Options there: always `[.allowBluetooth]` only (rejected — A2DP-only headphones
+    like the user's bone-conduction unit would lose audio entirely) versus a two-phase
+    permissive-detect-then-narrow flow (accepted, covered by 20 unit tests).
+
+12. **Problem:** quiet iPhone transmissions.
+    **Options in order:** raise the Android stream volumes via adb (tried first — insufficient);
+    software makeup gain.
+    **Decision + why:** +6 dB makeup gain with a clamp accepted, plus dBFS metering on the capture
+    path so level problems are measurable rather than anecdotal. The work also surfaced that voice
+    processing was never engaged on the input node — noted, deliberately not enabled mid-spike.
+
+13. **Problem:** the RN template stub hijacked the app entry point on Android.
+    **Decision + why:** the first fix — stripping MainActivity's launcher intent-filter in the
+    debug manifest — was superseded: stale home-screen shortcuts target the component explicitly.
+    Accepted fix: remove the real MainActivity in the debug manifest and install an activity-alias
+    with the SAME component name targeting SpikeActivity, so every entry point lands in the panel;
+    release manifests untouched.
+
+14. **Problem:** transient engine `status=error` states blocked all transmit (the guard working as
+    designed), with the cause rotating out of logcat before capture — twice.
+    **Decision + why:** recorded as a TODO rather than fixed tonight — Android needs a persistent
+    error log (iOS-heartbeat-style file) and an error-state recovery affordance; chasing an
+    unreproducible cause without those tools was not worth the night.
+
+15. **Tooling decisions along the way:** the iOS transmit trigger for the spike — a URL scheme was
+    rejected (needs foregrounding), `devicectl` process launch was rejected (unreliable on this
+    device), and a UDP command server on the LAN was accepted (headless, scriptable). Ghost Nearby
+    endpoints after repeated reinstalls were cleared by restarting both radios; endpoint hygiene was
+    noted for later.
