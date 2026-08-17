@@ -711,6 +711,184 @@ observation window before concluding restart still works as a fallback. This is 
 independent threat to spec §15 scenario D on top of Bug #5, discovered by accident while verifying
 Bug #5's fix.
 
+### Bug #6 follow-up — 2026-08-17: root-caused, and the original root cause was wrong. `MEDIUM_NOT_AVAILABLE` self-heals in 6 s; the real mechanism is Nearby's own 300-second low-power discovery switch. No code fix written, deliberately
+
+**Environment caveat, stated first because it bounds every claim below.** The physical OPPO
+CPH2747 that played the peer in every earlier pass is off the LAN today:
+
+```
+$ ~/bin/adb shell ping -c 3 192.168.1.172
+3 packets transmitted, 0 received, 100% packet loss, time 2055ms
+$ ping -n 3 192.168.1.172          # from the Windows host itself
+Reply from 192.168.1.88: Destination host unreachable.
+```
+
+So `nearbyCount` never left `0` in this pass and **no end-to-end "`nearbyCount` recovers to 1"
+claim is made here**. Everything below is established one layer lower, at the medium layer, from
+`NearbyMediums` / `NearbyConnections` / `serviceDiscovery` logcat and `dumpsys servicediscovery` —
+which is where the mechanism actually lives and which needs no second device. Synthesising a peer
+was attempted and failed: a Nearby-shaped mDNS record (`_7384AB769DDA._tcp`, TXT keys copied
+verbatim from the emulator's own `[MdnsAdvertiser]` line) published from the host with
+`bonjour-service` was visible to a host-side browse — which also saw the *emulator's real
+advertisement* at `10.0.2.16`, so guest→host multicast works — but `dumpsys servicediscovery` on
+the emulator only ever listed the emulator's own record (`foundServices 2` = its own, found twice),
+so host→guest mDNS multicast does not reach this AVD in the current network setup.
+
+**Finding 1 — the `MEDIUM_NOT_AVAILABLE` race is real, and it self-heals in under six seconds with
+no app involvement.** Same repro as the original: `cmd start` at `13:08:30`, `adb shell svc wifi
+disable` at `13:09:19`, `adb shell svc wifi enable` at `13:09:50`, one continuous `adb logcat -v
+time` capture throughout:
+
+```
+13:09:20.093 I NearbyConnections: Trigger updateAdvertisingOptions per wifi status changed.
+13:09:20.103 I serviceDiscovery: [MdnsDiscoveryManager] Unregistering listener for serviceType:_7384AB769DDA._tcp.local
+13:09:51.151 W NearbyMediums: MEDIUM_ERROR [DEVICE][WIFI_LAN][START_ADVERTISING][MEDIUM_NOT_AVAILABLE][WITHOUT_CONNECTED_WIFI_NETWORK], service-id=com.oru.radio
+13:09:51.155 W NearbyMediums: MEDIUM_ERROR [DEVICE][WIFI_LAN][START_DISCOVERING][MEDIUM_NOT_AVAILABLE][WITHOUT_CONNECTED_WIFI_NETWORK], service-id=com.oru.radio
+13:09:54.699 I wpa_supplicant: wlan0: CTRL-EVENT-CONNECTED - Connection to 00:13:10:85:fe:01 completed
+13:09:56.457 I NearbyMediums: WifiNetwork defaultNetworkCallback onAvailable netId:105
+13:09:56.977 I NearbyMediums: WIFI_LAN registered service name:IlFSQzBzhKsAAA type:null at ip:null port:0
+13:09:56.982 I NearbyMediums: Successfully started Wifi LAN discovery for serviceID com.oru.radio.
+13:09:57.095 I NearbyMediums: WIFI_LAN discovered service IlFSQzBzhKsAAA, but that's us. Ignoring.
+```
+
+`WIFI_LAN` was fully back **5.83 s** after the failure and **0.52 s** after GMS's *own*
+`WifiNetwork defaultNetworkCallback onAvailable` fired. The last line is the device receiving its
+own freshly re-published mDNS record back off the network, i.e. both halves of the medium were
+live again. No `MEDIUM_ERROR` recurred for the next six minutes. The original entry's "never
+retried" was a false negative — the retry is logged under `NearbyMediums` at `I`, and it happens
+after the 3.4 s association gap the original entry (correctly) measured but (incorrectly) read as
+terminal.
+
+**So the fix proposed in the previous entry — a `ConnectivityManager.NetworkCallback` in
+`NearbyManager` that waits for Wi-Fi to settle and then force-cycles
+`stopAdvertising()`+`startAdvertising()` / `stopDiscovery()`+`startDiscovery()` — is the wrong
+fix and was not built.** It would duplicate a mechanism GMS already owns and race it, for no gain.
+
+**Finding 2 — what actually leaves `WIFI_LAN` permanently deaf: Nearby's own low-power discovery
+switch, exactly 300 s after `startDiscovery`.** It fired twice in this session, both times with
+nothing else happening on the device:
+
+```
+13:08:33.710 I NearbyMediums: Successfully started Wifi LAN discovery for serviceID com.oru.radio.
+   ...
+13:13:33.715 I NearbyConnections: Trigger discovery switches for service id : com.oru.radio
+13:13:33.722 I NearbyMediums: Stopped BLE scanning, service-id=com.oru.radio
+13:13:33.724 I serviceDiscovery: [MdnsDiscoveryManager] Unregistering listener for serviceType:_7384AB769DDA._tcp.local
+13:13:33.725 I NearbyMediums: Stopped Wifi LAN discovery.
+13:13:33.764 I NearbyMediums: Started BLE scanning, service-id=com.oru.radio, is-extended-advert=true, power-level=1, scan-mode=low-power
+```
+
+and again after the restart in Finding 4:
+
+```
+13:16:07.271 I NearbyMediums: Successfully started Wifi LAN discovery for serviceID com.oru.radio.
+13:21:07.274 I NearbyConnections: Trigger discovery switches for service id : com.oru.radio
+13:21:07.284 I NearbyMediums: Stopped Wifi LAN discovery.
+13:21:07.292 I NearbyMediums: Started BLE scanning, service-id=com.oru.radio, is-extended-advert=true, power-level=1, scan-mode=low-power
+```
+
+300.005 s and 300.003 s after the preceding `Successfully started Wifi LAN discovery` — a fixed
+five-minute timer, not a reaction to anything the app or the network did. BLE scanning is dropped
+from `power-level=3, scan-mode=low-latency` to `power-level=1, scan-mode=low-power` and restarted;
+`WIFI_LAN` discovery is stopped and **not** restarted. Advertising is untouched.
+`adb shell dumpsys servicediscovery` at `13:23:56`, after the second switch, shows the asymmetry
+directly — one `Advertiser` and no discovery listener at all for GMS:
+
+```
+  mUid 10223, mPid 1406, mPackageName com.google.android.gms, ... mClientRequests:
+    22: Advertiser: serviceFullName=IlFSQzBzhKsAAA._7384AB769DDA._tcp, net=null {26, startTime 2026-08-17T13:16:06.323834 ...}
+```
+
+(the same dump taken at `13:20:3x`, before the switch, additionally listed
+`23: Discovery/DiscoveryListener: serviceType=_7384AB769DDA._tcp.local ... foundServices 2, sentQueries 7`).
+
+This one is corroborated in the open-source implementation the GMS one derives from
+(`google/nearby`, `P2pClusterPcpHandler::UpdateDiscoveryOptionsImpl`): when `low_power` is turned
+on it calls `WifiLan().StopDiscovery(service_id)` and there is no branch anywhere in that method
+that starts `WIFI_LAN` discovery again, so it is dropped for the remainder of the discovery
+session; BLE scanning is restarted with the new low-power setting, and advertising is not touched.
+
+**Finding 3 — once that switch has fired, a Wi-Fi bounce restores advertising only. Discovery
+stays dead.** Second bounce, deliberately run *after* the `13:21:07` switch:
+
+```
+13:25:34.960 I BUG6          : R3 wifi enable
+13:25:35.903 W NearbyMediums : MEDIUM_ERROR [DEVICE][WIFI_LAN][START_ADVERTISING][MEDIUM_NOT_AVAILABLE][WITHOUT_CONNECTED_WIFI_NETWORK], service-id=com.oru.radio
+13:25:40.910 I serviceDiscovery: [MdnsAdvertiser] Adding service name: IlFSQzBzhKsAAA, type: _7384AB769DDA._tcp, ... with ID 28
+13:25:41.131 I NearbyMediums : WifiNetwork defaultNetworkCallback onAvailable netId:106
+```
+
+Only `START_ADVERTISING` failed this time — there was no `WIFI_LAN` discovery left to fail — and
+advertising self-healed again ~5 s later. Grepping the capture from the bounce to `13:36:36`
+(11 minutes) for `Successfully started Wifi LAN discovery`, `[MdnsDiscoveryManager] Registering
+listener for serviceType: _7384AB769DDA` and `Trigger discovery switches` returns **nothing at
+all** — discovery never came back, and no further switch cycle fired either, so the degradation is
+a one-way drop rather than a rotation. `dumpsys servicediscovery` at `13:32:05`, 6.4 minutes after
+the bounce, shows the same one-sided state — the advertiser is the one re-registered by the bounce
+(`startTime ... 13:25:40`), and there is still no discovery listener:
+
+```
+  mUid 10223, mPid 1406, mPackageName com.google.android.gms, ... mClientRequests:
+    24: Advertiser: serviceFullName=IlFSQzBzhKsAAA._7384AB769DDA._tcp, net=null {28, startTime 2026-08-17T13:25:40.91061 ...}
+```
+
+BLE scanning was neither stopped nor restarted by the bounce; it is still running from `13:21:07`
+at `power-level=1, scan-mode=low-power`. **The device stays findable and becomes unable to find.**
+
+**That composition is the whole of Bug #6.** On this emulator `WIFI_LAN` is the only medium that
+can physically reach the OPPO (emulated BLE does not reach a real phone), so once the 300 s switch
+has fired, `nearbyCount` can never return to `1` however long you poll or however many times you
+bounce Wi-Fi — exactly what the original entry observed, and mis-attributed to the
+`MEDIUM_NOT_AVAILABLE` line that happened to sit next to it in the log. The original repro simply
+crossed the 300 s mark before the bounce; the earlier Bug #5 pass, where the peer *was* re-found
+over `WIFI_LAN` after the same bounce (`Found WifiLanServiceInfo IlZKN01zhKsAAA`), ran inside it.
+
+**Finding 4 — a full radio restart does recover it, answering the previous entry's open question.**
+`cmd stop` at `13:15:56`, `cmd start` at `13:16:04`:
+
+```
+13:15:56.613 I OruRadio     : spike: radio stopped
+13:16:05.016 I OruRadio     : spike: radio starting
+13:16:07.216 I NearbyMediums: Successfully advertised IlFSQzBzhKsAAA on serviceID com.oru.radio over Wifi LAN.
+13:16:07.255 I NearbyMediums: Started BLE scanning, service-id=com.oru.radio, is-extended-advert=true, power-level=3, scan-mode=low-latency
+13:16:07.271 I NearbyMediums: Successfully started Wifi LAN discovery for serviceID com.oru.radio.
+```
+
+Full high-power state back 2.2 s after `cmd start`, and it held for the whole five minutes until
+the next switch removed `WIFI_LAN` again at `13:21:07`. So a restart is a reliable fallback, and
+its effect lasts exactly one 300-second window — the previous entry's "not even a restart recovered
+it within ~30 s" was measuring the wrong signal (`nearbyCount`, which needs a peer) rather than the
+medium.
+
+**Not fixed, and that is the recommendation, not an omission.** The only client-side reset for the
+low-power switch is `stopDiscovery()` + `startDiscovery()`: `javap` on the pinned
+`play-services-nearby:19.4.0` AAR (`~/.gradle/caches/.../play-services-nearby-19.4.0.aar`) shows
+`ConnectionsClient` exposes only `startDiscovery`/`stopDiscovery`/`startAdvertising`/
+`stopAdvertising` with no `updateDiscoveryOptions`, and `DiscoveryOptions.Builder` has only
+`setStrategy(Strategy)` and `setLowPower(boolean)` — nothing that opts out of the switch. The
+candidate fix is therefore a periodic `stopDiscovery()`+`startDiscovery()` in `NearbyManager` (say
+every ~4 minutes while `handshaked` is empty) to keep resetting the 300 s window. **It was not
+built**, for two reasons that both point the same way:
+
+- **It cannot be verified here.** With no peer on the LAN, there is no `nearbyCount` to watch
+  recover, so any such change would ship on a medium-layer log line and an argument — which is how
+  the original wrong root cause got recorded in the first place.
+- **It is a battery decision, not a bug fix.** It deliberately defeats Nearby's own power
+  management on a locked, pocketed phone for a ride-length session (the group-cycling use case),
+  and outdoors — where two riders share no Wi-Fi LAN — the medium it rescues is the *irrelevant*
+  one. What matters on the road is BLE, and BLE keeps scanning after the switch; it only drops from
+  `low-latency` to `low-power`, so rediscovery gets slower, not impossible. Whether that slowdown
+  actually breaks scenario D is **unmeasured** and is precisely what the real two-device pass is
+  for.
+
+**Recommendation for whoever runs the real scenario D pass:** measure rediscovery latency after a
+peer has been away for more than five minutes (the switch will have fired), and only if that
+latency is unacceptable, evaluate the periodic-refresh change with battery measured alongside it.
+Separately, and independently of any product decision: **emulator-based transport checks are only
+valid inside a five-minute window from `cmd start`** — past that, `WIFI_LAN` discovery is gone and
+the emulator will look permanently broken when nothing is wrong with the app. That is worth
+knowing before anyone re-runs the Wi-Fi-toggle repro.
+
 ## Status (repeated)
 
 **No Go/No-Go decision has been made.** This report documents pre-gate smoke testing, bug fixes,
