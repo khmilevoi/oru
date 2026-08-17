@@ -453,19 +453,23 @@ internals are wired underneath it; §15 Stage 2 is that stage and carries its ac
 The visual design lives in the Claude Design project **"Offline Nearby PTT"**:
 <https://claude.ai/design/p/d07936f3-e452-4039-bda7-bb80b599e104>
 
-- Screens: `01 Radio` (four state frames as designed so far + alternate-locale frame),
-  `02 Settings` (configured / not configured), `03 Pairing` (scan → pick → learn → saved),
-  `04 Onboarding` (microphone, Bluetooth, nearby devices, done) — phone frames 390×844.
+- Screens: `01 Radio` (five state frames `off → searching → ready → transmitting →
+  receiving` + alternate-locale frames for `off` and `ready`), `02 Settings` (configured /
+  not configured), `03 Pairing` (scan → pick → learn → saved), `04 Onboarding`
+  (microphone, Bluetooth, nearby devices, done) — phone frames 390×844.
 - Direction: dark, high-contrast "radio hardware" aesthetic; status colors TX = red,
   RX = green, button learning = amber; Oswald + IBM Plex Mono (Cyrillic-capable).
 - Every file exposes a `lang` tweak (`en` default / `ru`) switching the whole canvas
   between locales; animations respect `prefers-reduced-motion`.
 - The design refines the pairing flow to four steps and onboarding to three permission
   steps plus a final screen; both refinements are part of this spec.
-- **Pending design work, added by this revision:** the `01 Radio` screen does **not** yet have an
-  `off` state frame and no frame yet shows the power control — the design project predates the §5
-  power-switch decision. Both are to be designed there as part of the design stage, in the same
-  visual direction and in both locales, before the `off` state is built (§15 Stage 2).
+- **Power control (designed 2026-08-18, closing the §5 power-switch decision):** the control
+  is a hardware-style IEC power key. In `off` the whole screen is the on-switch — the key
+  drawn large at center over visibly dead air ("TAP TO TURN ON"). When the radio is on, a
+  small power key mirrors the settings gear in the opposite corner, receding while
+  transmitting/receiving, and turning the radio off is a **press-and-hold** — a guard against
+  accidental shut-off on a screen that is one giant touch area. Like the pairing and
+  onboarding refinements above, these refinements are part of this spec.
 
 ### 12.2 Localization
 

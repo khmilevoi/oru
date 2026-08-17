@@ -197,11 +197,12 @@ catalogs; error-state screen with restart action.
 audio session live for as long as radio mode is on, so the battery cost is inherent to the design
 and the user needs one deliberate way to cut it. Recorded as an approved decision in spec §5 and
 sourced from the product note "radio power switch is a design requirement (verbatim intent)" in
-`docs/superpowers/specs/2026-08-13-phase0-spike-report.md`. Its exact visual form is the design
-project's call (§12.1), where the `off` state frame and the power control are **pending design
-work** to be done as part of this wave; first-class-on-the-main-screen (never a settings item) is
-fixed and not open to reinterpretation, and `off` is a full main-screen state rather than a dimmed
-`searching`.
+`docs/superpowers/specs/2026-08-13-phase0-spike-report.md`. Its visual form is now designed in
+the project (§12.1, 2026-08-18): a hardware-style IEC power key — in `off` the whole screen is
+the on-switch, when the radio is on the key mirrors the settings gear in the opposite corner
+(receding during transmit/receive), and turning off is a press-and-hold;
+first-class-on-the-main-screen (never a settings item) is fixed and not open to reinterpretation,
+and `off` is a full main-screen state rather than a dimmed `searching`.
 **Not here:** the Turbo Module and the dev-default flip → P5 · app entry, navigation glue and
 runtime permission sequencing against the real OS prompts → P7 · native learning logic →
 merged P2/P3. Per §6.4 no screen may import `radio.native.ts`, `TurboModuleRegistry`, or any
