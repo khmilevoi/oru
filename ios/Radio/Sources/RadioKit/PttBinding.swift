@@ -100,6 +100,35 @@ public enum PttHex {
         }
         return bytes
     }
+
+    /// True for hex strings that decode to only zero bytes ("00", "0000", ...).
+    public static func isAllZero(_ hex: String) -> Bool {
+        !hex.isEmpty && hex.allSatisfy { $0 == "0" }
+    }
+}
+
+/// The completion rule of the learning flow (spec section 9.3), mirrored
+/// rule-for-rule by the Android engine's `PttLearningStateMachine`.
+///
+/// Order of appearance alone is not enough to tell which of the two captured
+/// values is the press. Telink-style buttons (PTT-Z01) push their *current*
+/// state — the idle all-zero bytes — the moment the CCCD subscription lands, so
+/// the first value seen is usually `00`, not the press; latching it as
+/// pressedValue inverted every binding (transmit on release). So: when exactly
+/// one of the two values is all-zero bytes, the nonzero value is pressedValue
+/// and the zero value is releasedValue, regardless of arrival order. When
+/// neither (or both) is all-zero there is nothing better to go on — some
+/// buttons use two nonzero codes — so order of appearance decides.
+public enum PttLearnedValues {
+    public static func ordered(
+        first: String,
+        second: String
+    ) -> (pressed: String, released: String) {
+        if PttHex.isAllZero(first), !PttHex.isAllZero(second) {
+            return (pressed: second, released: first)
+        }
+        return (pressed: first, released: second)
+    }
 }
 
 /// The binding outlives radio restarts and app launches (spec section 9.2).

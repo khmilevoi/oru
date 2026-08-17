@@ -66,4 +66,46 @@ final class PttBindingTests: XCTestCase {
         XCTAssertNil(PttHex.data(from: "abc"))
         XCTAssertNil(PttHex.data(from: "zz"))
     }
+
+    func testAllZeroRecognisesOnlyZeroBytes() {
+        XCTAssertTrue(PttHex.isAllZero("00"))
+        XCTAssertTrue(PttHex.isAllZero("0000"))
+        XCTAssertFalse(PttHex.isAllZero("01"))
+        XCTAssertFalse(PttHex.isAllZero("0100"))
+        XCTAssertFalse(PttHex.isAllZero(""))
+    }
+
+    func testIdleFirstArrivalStillLearnsTheNonzeroValueAsThePress() {
+        // Telink-style buttons (PTT-Z01) push their current idle state, all-zero
+        // bytes, the moment the CCCD subscription lands — before any press.
+        // Arrival order alone would latch that "00" as pressedValue and invert
+        // the binding.
+        let learned = PttLearnedValues.ordered(first: "00", second: "01")
+        XCTAssertEqual(learned.pressed, "01")
+        XCTAssertEqual(learned.released, "00")
+
+        let wide = PttLearnedValues.ordered(first: "0000", second: "01ff")
+        XCTAssertEqual(wide.pressed, "01ff")
+        XCTAssertEqual(wide.released, "0000")
+    }
+
+    func testPressFirstArrivalKeepsThePressFirst() {
+        let learned = PttLearnedValues.ordered(first: "01", second: "00")
+        XCTAssertEqual(learned.pressed, "01")
+        XCTAssertEqual(learned.released, "00")
+    }
+
+    func testTwoNonzeroValuesKeepTheirOrderOfAppearance() {
+        // Some buttons signal press and release with two distinct nonzero codes;
+        // with no zero value to anchor on, first-seen is still the press.
+        let learned = PttLearnedValues.ordered(first: "02", second: "01")
+        XCTAssertEqual(learned.pressed, "02")
+        XCTAssertEqual(learned.released, "01")
+    }
+
+    func testTwoAllZeroValuesOfDifferentWidthsKeepTheirOrderOfAppearance() {
+        let learned = PttLearnedValues.ordered(first: "00", second: "0000")
+        XCTAssertEqual(learned.pressed, "00")
+        XCTAssertEqual(learned.released, "0000")
+    }
 }

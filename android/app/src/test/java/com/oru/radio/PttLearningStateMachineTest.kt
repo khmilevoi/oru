@@ -14,7 +14,7 @@ class PttLearningStateMachineTest {
         PttLearningStateMachine(deviceId = "AA:BB:CC:DD:EE:FF", deviceName = name)
 
     @Test
-    fun `the first notification only records the pressed value`() {
+    fun `the first notification only records a candidate value`() {
         assertNull(machine().onNotification(service, characteristic, "01"))
     }
 
@@ -38,6 +38,55 @@ class PttLearningStateMachineTest {
             ),
             learned,
         )
+    }
+
+    @Test
+    fun `an idle notification arriving first still learns the nonzero value as the press`() {
+        // Telink-style buttons (PTT-Z01) push their current idle state, all-zero
+        // bytes, the moment the CCCD subscription lands — before any press. Arrival
+        // order alone would latch that "00" as pressedValue and invert the binding.
+        val subject = machine()
+        subject.onNotification(service, characteristic, "00")
+
+        val learned = subject.onNotification(service, characteristic, "01")!!.binding as PttBinding.Ble
+
+        assertEquals("01", learned.pressedValue)
+        assertEquals("00", learned.releasedValue)
+    }
+
+    @Test
+    fun `a multi-byte all-zero first value is also treated as the release`() {
+        val subject = machine()
+        subject.onNotification(service, characteristic, "0000")
+
+        val learned = subject.onNotification(service, characteristic, "01ff")!!.binding as PttBinding.Ble
+
+        assertEquals("01ff", learned.pressedValue)
+        assertEquals("0000", learned.releasedValue)
+    }
+
+    @Test
+    fun `two nonzero values keep their order of appearance`() {
+        // Some buttons signal press and release with two distinct nonzero codes;
+        // with no zero value to anchor on, first-seen is still the press.
+        val subject = machine()
+        subject.onNotification(service, characteristic, "02")
+
+        val learned = subject.onNotification(service, characteristic, "01")!!.binding as PttBinding.Ble
+
+        assertEquals("02", learned.pressedValue)
+        assertEquals("01", learned.releasedValue)
+    }
+
+    @Test
+    fun `two all-zero values of different widths keep their order of appearance`() {
+        val subject = machine()
+        subject.onNotification(service, characteristic, "00")
+
+        val learned = subject.onNotification(service, characteristic, "0000")!!.binding as PttBinding.Ble
+
+        assertEquals("00", learned.pressedValue)
+        assertEquals("0000", learned.releasedValue)
     }
 
     @Test

@@ -41,7 +41,7 @@ public final class BleGattPttDriver: NSObject {
     private var candidates: [String: PttCandidate] = [:]
     private var discovered: [String: CBPeripheral] = [:]
     private var learningCompletion: ((Result<PttConfiguration, RadioError>) -> Void)?
-    private var learnedPressed: (characteristic: CBCharacteristic, value: String)?
+    private var learnedFirst: (characteristic: CBCharacteristic, value: String)?
     private var learningDeadline: DispatchWorkItem?
     private var autoSelectFallback: DispatchWorkItem?
     private var isPressed = false
@@ -119,7 +119,7 @@ public final class BleGattPttDriver: NSObject {
         ensureCentral()
         cancelTimers()
         learningCompletion = completion
-        learnedPressed = nil
+        learnedFirst = nil
         candidates.removeAll()
         discovered.removeAll()
         mode = .scanning
@@ -186,7 +186,7 @@ public final class BleGattPttDriver: NSObject {
         central?.stopScan()
         let completion = learningCompletion
         learningCompletion = nil
-        learnedPressed = nil
+        learnedFirst = nil
         if case .success = result {
             // The manager rebinds immediately; nothing to unwind here.
         } else if case .learning = mode, let peripheral {
@@ -210,14 +210,14 @@ public final class BleGattPttDriver: NSObject {
 
         switch mode {
         case .learning:
-            guard let pressed = learnedPressed else {
-                learnedPressed = (characteristic, hex)
-                log.info("captured pressed value \(hex, privacy: .public)")
+            guard let first = learnedFirst else {
+                learnedFirst = (characteristic, hex)
+                log.info("captured first value \(hex, privacy: .public)")
                 return
             }
             guard
-                pressed.characteristic.uuid == characteristic.uuid,
-                pressed.value != hex
+                first.characteristic.uuid == characteristic.uuid,
+                first.value != hex
             else {
                 return
             }
@@ -228,14 +228,18 @@ public final class BleGattPttDriver: NSObject {
                 finishLearning(.failure(.pairingFailed("incomplete GATT description")))
                 return
             }
+            // `PttLearnedValues` corrects the idle-first case: a button that
+            // announces its all-zero idle state on subscribe delivers `00`
+            // before the press, so the first value is not necessarily the press.
+            let learned = PttLearnedValues.ordered(first: first.value, second: hex)
             let configuration = PttConfiguration(
                 name: peripheral?.name ?? "PTT button",
                 binding: .ble(
                     deviceId: deviceId,
                     serviceUuid: serviceUuid,
                     characteristicUuid: characteristic.uuid.uuidString,
-                    pressedValue: pressed.value,
-                    releasedValue: hex
+                    pressedValue: learned.pressed,
+                    releasedValue: learned.released
                 )
             )
             mode = .bound(configuration.binding)
