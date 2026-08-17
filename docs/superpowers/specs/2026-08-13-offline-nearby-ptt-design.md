@@ -278,6 +278,7 @@ the core scenario.
 | Android | `RECORD_AUDIO` | microphone |
 | Android | `BLUETOOTH_SCAN`, `BLUETOOTH_CONNECT`, `BLUETOOTH_ADVERTISE` | Nearby + PTT button |
 | Android | `NEARBY_WIFI_DEVICES` (13+) plus `ACCESS_FINE_LOCATION` (all versions, unconditionally -- Nearby Connections' BLE medium requires it on every API level regardless of `NEARBY_WIFI_DEVICES`; see Bug found #3, `docs/superpowers/specs/2026-08-13-phase0-spike-report.md`) | Nearby discovery |
+| Android | `ACCESS_BACKGROUND_LOCATION` (Bug #5, `docs/superpowers/specs/2026-08-13-phase0-spike-report.md`: without it, Nearby's rediscovery of a lost peer silently and permanently stalls a few minutes after the app has no visible Activity -- exactly the locked/pocketed-phone use case) | Nearby rediscovery while backgrounded |
 | Android | `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MICROPHONE`, `FOREGROUND_SERVICE_CONNECTED_DEVICE` | foreground service |
 | iOS | `NSMicrophoneUsageDescription` | microphone |
 | iOS | `NSBluetoothAlwaysUsageDescription` | PTT button |
@@ -285,7 +286,10 @@ the core scenario.
 | iOS | UIBackgroundModes: `push-to-talk`, `bluetooth-central`; entitlement `com.apple.developer.push-to-talk` | background operation |
 
 Permissions onboarding: a short sequence of screens, each explaining one permission in the
-app language before triggering the system prompt.
+app language before triggering the system prompt. `ACCESS_BACKGROUND_LOCATION` still needs its
+own step here (Play Store Data Safety disclosure plus Android's two-step "Allow all the time"
+Settings redirect, since it cannot be granted from a normal permission dialog on API 30+) --
+not built yet, open work for P7.
 
 ## 12. UI specification
 

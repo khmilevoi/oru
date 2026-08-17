@@ -32,6 +32,16 @@
          the Wi-Fi-based mediums; capping ACCESS_FINE_LOCATION below 33 was the actual bug (Bug
          found #3, docs/superpowers/specs/2026-08-13-phase0-spike-report.md). -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Bug #5, docs/superpowers/specs/2026-08-13-phase0-spike-report.md: with only the
+         foreground-scoped grant above, Android's location appops enforcement stops counting the
+         app as "foreground" a few minutes after its last visible Activity goes away (this radio's
+         foreground service has no "location" foregroundServiceType, so it doesn't count either),
+         and Nearby Connections' ClientProxy then silently withholds onEndpointFound() forever,
+         confirmed via adb shell appops get with no error surfaced anywhere. ACCESS_BACKGROUND_LOCATION
+         removes that foreground gate entirely. Needs its own runtime "Allow all the time" consent
+         step and a Play Store Data Safety disclosure, both still open and owned by P7's onboarding
+         work, not done here. -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
     <!-- Nearby Connections' Wi-Fi-based mediums (advertising/discovery) need these; without
          them the engine fails immediately on start with advertising_failed/discovery_failed

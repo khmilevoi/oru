@@ -5,6 +5,12 @@ The debug build carries two hooks (`android/app/src/debug/`) that run the whole 
 
 Install first: `pnpm build:android && adb install -r android/app/build/outputs/apk/debug/app-debug.apk`
 
+`build-android.js` defaults to `RN_ARCHS=arm64-v8a` (the physical test devices used so far are all
+arm64). An x86_64 emulator (e.g. Android Studio's default AVDs) needs
+`RN_ARCHS=x86_64 pnpm build:android` instead, or the installed app crashes on launch with
+`SoLoaderDSONotFoundError: couldn't find DSO to load: libreactnative.so` — the APK simply has no
+native libraries for the emulator's ABI. See the 2026-08-17 entry in the spike report.
+
 ## 1. Grant the permissions (once per install)
 
 Nothing in the spike asks for permissions — the app's permission onboarding is P7's work, so
@@ -23,6 +29,10 @@ adb shell pm grant com.oru android.permission.NEARBY_WIFI_DEVICES
 # startAdvertising()/startDiscovery() fail with ConnectionsStatusCodes 8034
 # MISSING_PERMISSION_ACCESS_COARSE_LOCATION -- see Bug found #3 in the spike report.
 adb shell pm grant com.oru android.permission.ACCESS_FINE_LOCATION
+# Without this, Nearby's rediscovery of a lost peer silently and permanently stalls a few
+# minutes after the app has no visible Activity (locked/pocketed-phone use case) -- see Bug
+# found #5 in the spike report. Plain `pm grant` was sufficient to fully grant it in testing.
+adb shell pm grant com.oru android.permission.ACCESS_BACKGROUND_LOCATION
 ```
 
 Turn Wi-Fi and Bluetooth on and the internet off (aeroplane mode with Wi-Fi and Bluetooth

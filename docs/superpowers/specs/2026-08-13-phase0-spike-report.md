@@ -502,6 +502,215 @@ build with a real entitlement could still hit a transient PT failure (network is
 channel join, etc.) and would crash the same way today rather than degrading gracefully. Worth
 a real fix at some point, out of scope for Phase 0.
 
+## 5. Android emulator pass — 2026-08-17
+
+No physical devices were available for this pass (Windows host, Android Studio emulators only).
+Scope: re-run `docs/phase0-android-spike-hooks.md` §§1-3 on a stock Google emulator image (the
+first time these hooks ran on anything other than the physical ColorOS OPPO), plus whatever
+transport validation was possible without a second physical device. **This section does not
+change the Go/No-Go status** — that is still open, still gated on scenarios A-D against a real
+Android + iPhone pair per the spec.
+
+**Device:** `Medium_Phone` AVD, API 37.1 (`sdk_gphone16k_x86_64`), Google APIs PlayStore, 16KB
+page size, x86_64, booted via `emulator -avd Medium_Phone`.
+
+### Bug found #4 — debug build defaults to arm64-v8a only; crashes outright on an x86_64 emulator (build/tooling defect)
+
+`pnpm build:android` (`scripts/build-android.js`) passes `-PreactNativeArchitectures=arm64-v8a`
+unless `RN_ARCHS` is set — a sensible default for the arm64 physical devices used so far, but the
+resulting APK (`android/app/build/outputs/apk/debug/app-debug.apk`, confirmed via
+`unzip -l | grep lib/`) contains **only** `lib/arm64-v8a/*.so`. Installed on this x86_64 emulator,
+the app force-closed on first launch:
+
+```
+FATAL EXCEPTION: main
+com.facebook.soloader.SoLoaderDSONotFoundError: couldn't find DSO to load: libreactnative.so
+  at com.facebook.react.internal.featureflags.ReactNativeFeatureFlagsCxxInterop.<clinit>
+  at com.oru.MainApplication.onCreate(MainApplication.kt:25)
+```
+
+Root cause confirmed directly (not guessed): `gradle.properties` already lists all four ABIs
+(`reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64`), but `build-android.js`'s own
+`RN_ARCHS` default (`'arm64-v8a'`, used for the `-P` override that wins over `gradle.properties`)
+overrides it. A stale `android/app/build/outputs`/`intermediates/merged_native_libs` from an
+earlier arm64-only build also had to be removed by hand once — Gradle's up-to-date check on
+`:app:mergeDebugNativeLibs`/`:app:packageDebug` did not notice that :opus had just produced fresh
+x86_64 native libs in the same invocation and kept the stale arm64-only package.
+
+**Fix applied.** Rebuilt with `RN_ARCHS=x86_64 pnpm build:android` (confirmed via `unzip -l` that
+the resulting APK contains only `lib/x86_64/*.so`, including `libreactnative.so`); installed
+cleanly and launched without crashing. Documented in `docs/phase0-android-spike-hooks.md` (new
+paragraph under "Install first"). Not changed: `build-android.js`'s default itself, or
+`RN_ARCHS`'s default value — that's a product decision (multi-ABI debug APKs build slower) out of
+scope for a spike bug-fix, so this is recorded as a documented workaround, not silently patched.
+
+### §§1-3 smoke pass — clean, no regressions
+
+Permissions (§1) granted with plain `adb shell pm grant` with no OEM restriction this time (the
+ColorOS shell-grant restriction from the original report's §1 is device-specific, not something
+this stock Google image reproduces). `dumpsys package com.oru` confirmed all seven permissions
+`granted=true`.
+
+Start/stop (§2), twice: both cycles logged the same `starting`→`ready` sequence as the original
+physical-device pass, `RadioForegroundService` came up with a real notification
+(`dumpsys activity services com.oru` showed `isForeground=true`), and both stops tore it down
+cleanly (`dumpsys activity services com.oru` → `(nothing)`).
+
+Broadcast commands (§3): `state`/`ptt-down`/`ptt-up`/`stop` via
+`adb shell am broadcast -n com.oru/com.oru.radio.SpikeReceiver` all reached `SpikeReceiver` and
+logged responses — Bug #2 (`SpikeReceiver` non-exported) from the original report has not
+regressed.
+
+Screen-lock survival: `adb shell input keyevent 26` (power button) put the emulator into
+`mWakefulness=Asleep`; 10s later `RadioForegroundService` and the `com.oru` process (stable pid)
+were still alive per `dumpsys activity services`/`ps`, `nearbyCount` was still `1` (see below) the
+whole time, and after waking the screen back up a `state` broadcast still worked normally and
+`stop` tore the service down cleanly.
+
+### Unplanned finding — a real Android-to-Android Nearby Connections handshake happened
+
+No second device was deliberately involved in this pass, but `nearbyCount` went to `1` within 4
+seconds of `start`. Logcat traced this to a real peer, not self-discovery (the local endpoint's
+own advertisement is explicitly ignored: `"WIFI_LAN discovered service IlSMOUtzhKsAAA, but that's
+us. Ignoring."`). The actual discovered service resolved to a real LAN address, not an emulator
+NAT address:
+
+```
+NearbyMediums: WIFI_LAN discovered service name:IlZKN01zhKsAAA type:._7384AB769DDA._tcp at ip:/192.168.1.172 port:63887
+NearbyConnections: Found WifiLanServiceInfo IlZKN01zhKsAAA (with EndpointId VJ7M / EndpointInfo [ 0x43 0x50 0x48 0x32 0x37 0x34 0x37 ] / AP frequency 5180)
+```
+
+`EndpointInfo` bytes `43 50 48 32 37 34 37` decode as ASCII `CPH2747` — the physical OPPO CPH2747
+from the 2026-08-14/15 physical-device passes, apparently still powered on with the radio running
+and reachable on the same real Wi-Fi LAN this host is on. The emulator's `WIFI_LAN` medium bridges
+through to the host's real network (this is why it worked — not a general emulator capability, and
+**not** the medium the real outdoor cycling deployment will actually have available, since two
+riders on the road share no common Wi-Fi LAN — see the spec's group-cycling use case). This is the first
+real Android-to-Android Nearby Connections handshake observed in this project, even if accidental.
+
+A full transmit cycle was driven from the emulator side and confirmed via `state`, the same way
+the spike hooks doc recommends confirming scenario B/C objectively rather than by ear:
+
+```
+state={..., transmitting=false, ...}   (before)
+ptt-down
+state={..., transmitting=true,  ...}   (held)
+ptt-up
+state={..., transmitting=false, ...}   (after)
+```
+
+`nearbyCount` stayed `1` throughout. **Not confirmed:** whether the physical OPPO actually played
+audio — this session has no access to that device (screen, logs, or adb; it never appeared in
+`adb devices`, since Nearby Connections' own networking is unrelated to adb-over-Wi-Fi). This
+validates the local engine + transport + encode path against a real remote peer, not end-to-end
+audio delivery.
+
+### Bug found #5 — Nearby rediscovery silently and permanently stalls once the app has been backgrounded, because `ACCESS_BACKGROUND_LOCATION` is never requested (real product/code defect, directly threatens R1)
+
+Attempted a scenario-D-like check using only the emulator (`adb shell svc wifi disable`, wait,
+`adb shell svc wifi enable`), expecting `nearbyCount` to drop to `0` and recover to `1` per §5's
+description of scenario D. It dropped to `0` immediately as expected — but **never recovered**,
+polled for over 2.5 minutes, even though the underlying medium clearly still worked:
+
+```
+NearbyMediums: Successfully started Wifi LAN discovery for serviceID com.oru.radio.
+NearbyConnections: Found WifiLanServiceInfo IlZKN01zhKsAAA (with EndpointId VJ7M ...)   <- peer re-found
+NearbyConnections: ClientProxy(143174641) delaying onEndpointFound(VJ7M) because the client does not have location permission currently.
+...
+NearbyConnections: ClientProxy(143174641) ignoring onEndpointLost(VJ7M) because we haven't reported it
+```
+
+Root cause, confirmed via `adb shell appops get com.oru`, not guessed: `ACCESS_FINE_LOCATION`'s
+op-mode is `foreground` (the normal runtime-grant mode — `AndroidManifest.xml` never declares
+`ACCESS_BACKGROUND_LOCATION`, and `RadioForegroundService`'s declared
+`foregroundServiceType="microphone|connectedDevice"` does not include `location`, which is what
+Android's location appops enforcement actually keys "foreground" off once no Activity is visible).
+`appops get` showed a live `rejectTime` timestamp once the app had been backgrounded a few
+minutes:
+
+```
+FINE_LOCATION: allow; time=+6m52s253ms ago; rejectTime=+1m42s474ms ago
+```
+
+Once Nearby's own internal permission check hits that rejection, it withholds `onEndpointFound`
+for that endpoint indefinitely — confirmed the withholding is not transient by polling `state`
+every ~10s for 165+ seconds with no recovery, all while the WIFI_LAN medium kept successfully
+re-discovering the same peer's service record in the background (proving the medium/network path
+was fine; only the app-level permission gate was stuck). Confirmed the fix is a full radio
+restart, not time: `cmd stop` + `cmd start` (i.e. briefly bringing `SpikeActivity` to the
+foreground again) reset the appops foreground grant and `nearbyCount` recovered to `1` within 4
+seconds.
+
+**This was not fixed here** — requesting `ACCESS_BACKGROUND_LOCATION` is a real product decision
+(Play Store data-safety disclosure, a "Prominent Disclosure" consent flow, an extra permission
+prompt in onboarding), not a mechanical manifest tweak like Bugs #1-3, so it needs a call from
+whoever owns P7's onboarding/permissions work, not a silent fix mid-spike. **Why this matters for
+the Go/No-Go gate specifically:** the target use case is a locked, pocketed phone for a
+ride-length session (locked, pocketed phone; see the spec's group-cycling use case) — exactly the condition that starves this app
+of the foreground grant. Scenario D's "out of range and back... with no restart" requirement (§15)
+may be untestable as specified without this fix, and the effect is silent: `status` stays `ready`,
+no error is raised, `nearbyCount` just never comes back. Recommend adding this to the spec's open
+questions for whoever runs the real scenario D pass, and treating a stuck `nearbyCount` after a
+long locked-screen stretch as this bug rather than a fresh one if it recurs during real Phase 0
+testing.
+
+### Bug #5 follow-up — 2026-08-17: `ACCESS_BACKGROUND_LOCATION` added; partially verified, and a second, independent bug surfaced
+
+**User decision (2026-08-17):** add `ACCESS_BACKGROUND_LOCATION` now, accepting the Play Store
+Data Safety disclosure and "Allow all the time" consent-flow cost. Added to
+`android/app/src/main/AndroidManifest.xml` with a comment pointing at this bug. Rebuilt
+(`RN_ARCHS=x86_64 pnpm build:android`), reinstalled on `Medium_Phone`, granted via plain
+`adb shell pm grant com.oru android.permission.ACCESS_BACKGROUND_LOCATION` — `dumpsys package
+com.oru` confirmed `granted=true` immediately (no special grant path needed on this emulator/API
+level).
+
+**The specific mechanism Bug #5 described did not recur.** Started the radio (physical OPPO
+CPH2747, still reachable on the same LAN, brought `nearbyCount` to `1` again), pressed HOME to
+remove the last visible Activity, and polled `appops get`/`state` every 80s for 8 minutes
+backgrounded. `nearbyCount` stayed `1` the entire time, and `FINE_LOCATION`'s `rejectTime` in
+`appops get` never advanced from its old (pre-fix) value — no fresh rejection occurred, and no
+`"delaying onEndpointFound(...) because the client does not have location permission currently"`
+line appeared anywhere in logcat. That is the exact symptom the original bug produced, and it did
+not happen this time.
+
+**But the original repro (`svc wifi disable` / `svc wifi enable`) still did not recover, for a
+different, confirmed reason — logged as a new bug, not this one.** `nearbyCount` dropped to `0` on
+disable as before. After re-enabling Wi-Fi, it never recovered — polled for 3 minutes, then a full
+`cmd stop`/`cmd start` engine restart, then another ~30s, still `0` throughout. This time there was
+no location-permission log line at all. The actual cause, found in logcat right at the Wi-Fi
+re-enable timestamp:
+
+```
+11:07:35.461 W NearbyMediums: MEDIUM_ERROR [DEVICE][WIFI_LAN][START_ADVERTISING][MEDIUM_NOT_AVAILABLE][WITHOUT_CONNECTED_WIFI_NETWORK], service-id=com.oru.radio
+11:07:38.854 ... SUPPLICANT_STATE_CHANGE_EVENT ... state: COMPLETED   (Wi-Fi association finished 3.4s later)
+```
+
+Nearby Connections tried to restart `WIFI_LAN` advertising/discovery the instant it saw the Wi-Fi
+radio come back on, lost the race against the STA interface actually finishing association, failed
+with `MEDIUM_NOT_AVAILABLE`, and — as far as logcat shows for the following 3+ minutes of a fully
+reconnected, pingable network (`ping 192.168.1.172` from the emulator succeeded, confirming the
+physical OPPO peer was never the problem) — never retried. `grep`ing the whole session's log for
+`startDiscovery`/`startAdvertising`/`NsdManager` found no matching lines at all (the library logs
+these at a level/tag this build doesn't surface), so the retry-or-not conclusion rests on the
+absence of any further `WifiLanServiceInfo`/discovery-related `NearbyMediums` line after the single
+`MEDIUM_NOT_AVAILABLE` failure, not a direct "gave up" log line. **This means the Wi-Fi-toggle
+repro is not a clean test of Bug #5 specifically** — it now fails via an unrelated race condition
+before it can even exercise the location-gate path this bug was about, so this pass cannot fully
+confirm or deny Bug #5 is fixed under that exact repro. The 8-minute backgrounded-idle test above
+is the cleaner signal for Bug #5 itself, and it was clean.
+
+**Not investigated further here** (out of scope for a manifest-permission follow-up, and a
+one-shot fork budget): whether `NearbyManager.kt` has its own Wi-Fi-state-change listener that
+should be retrying `startAdvertising()`/`startDiscovery()` on `MEDIUM_NOT_AVAILABLE` and isn't, or
+whether this is entirely internal to the closed-source Nearby Connections library with no
+app-level fix available. Recommend logging this as **Bug #6** for whoever picks up scenario D
+work: a Wi-Fi radio bounce (real-world equivalent: airplane mode toggle, or the OS briefly tearing
+down Wi-Fi to save power) can permanently kill `WIFI_LAN` rediscovery until a full engine restart —
+and on this pass, not even a restart recovered it within ~30s, worth a longer post-restart
+observation window before concluding restart still works as a fallback. This is a second,
+independent threat to spec §15 scenario D on top of Bug #5, discovered by accident while verifying
+Bug #5's fix.
+
 ## Status (repeated)
 
 **No Go/No-Go decision has been made.** This report documents pre-gate smoke testing, bug fixes,
