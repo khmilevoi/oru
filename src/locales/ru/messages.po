@@ -14,7 +14,7 @@ msgstr ""
 "Plural-Forms: \n"
 
 #. placeholder {0}: radio().nearbyCount
-#: src/screens/RadioScreen.tsx:150
+#: src/screens/RadioScreen.tsx:148
 msgid "● {0} nearby"
 msgstr "● {0} рядом"
 
@@ -22,60 +22,100 @@ msgstr "● {0} рядом"
 #~ msgid "● {nearbyCount} nearby"
 #~ msgstr "● {nearbyCount} рядом"
 
-#: src/screens/RadioScreen.tsx:153
+#: src/screens/SettingsScreen.tsx:29
+msgid "Back"
+msgstr "Назад"
+
+#: src/screens/SettingsScreen.tsx:80
+msgid "Connect"
+msgstr "Подключить"
+
+#: src/screens/SettingsScreen.tsx:47
+msgid "Connected"
+msgstr "Подключена"
+
+#: src/screens/SettingsScreen.tsx:49
+msgid "Disconnected"
+msgstr "Отключена"
+
+#: src/screens/RadioScreen.tsx:151
 msgid "HOLD TO TALK"
 msgstr "УДЕРЖИВАЙТЕ ЧТОБЫ ГОВОРИТЬ"
 
-#: src/screens/RadioScreen.tsx:191
+#: src/screens/SettingsScreen.tsx:55
+msgid "Hold to transmit"
+msgstr "Удерживайте, чтобы передавать"
+
+#: src/screens/RadioScreen.tsx:189
 msgid "Hold to turn the radio off"
 msgstr "Удерживайте, чтобы выключить рацию"
 
-#: src/screens/RadioScreen.tsx:125
+#: src/screens/SettingsScreen.tsx:76
+msgid "Not connected"
+msgstr "Не подключена"
+
+#: src/screens/SettingsScreen.tsx:34
+msgid "PTT BUTTON"
+msgstr "КНОПКА PTT"
+
+#: src/screens/RadioScreen.tsx:123
 msgid "Push to talk"
 msgstr "Нажмите и говорите"
 
-#: src/screens/RadioScreen.tsx:30
+#: src/screens/RadioScreen.tsx:28
 msgid "RADIO ERROR"
 msgstr "ОШИБКА РАЦИИ"
 
-#: src/screens/RadioScreen.tsx:94
+#: src/screens/RadioScreen.tsx:92
 msgid "RADIO OFF"
 msgstr "РАЦИЯ ВЫКЛЮЧЕНА"
 
-#: src/screens/RadioScreen.tsx:175
+#: src/screens/RadioScreen.tsx:173
 msgid "RECEIVING..."
 msgstr "ПРИЁМ..."
 
-#: src/screens/RadioScreen.tsx:166
+#: src/screens/RadioScreen.tsx:164
 msgid "RELEASE TO FINISH"
 msgstr "ОТПУСТИТЕ ЧТОБЫ ЗАКОНЧИТЬ"
 
-#: src/screens/RadioScreen.tsx:36
+#: src/screens/SettingsScreen.tsx:65
+msgid "Replace"
+msgstr "Заменить"
+
+#: src/screens/RadioScreen.tsx:34
 msgid "RESTART RADIO"
 msgstr "ПЕРЕЗАПУСТИТЬ"
 
-#: src/screens/RadioScreen.tsx:140
+#: src/screens/RadioScreen.tsx:138
 msgid "SEARCHING FOR DEVICES..."
 msgstr "ИЩЕМ УСТРОЙСТВА..."
 
-#: src/screens/RadioScreen.tsx:104
-#: src/screens/RadioScreen.tsx:196
+#: src/screens/RadioScreen.tsx:102
+#: src/screens/RadioScreen.tsx:194
 msgid "Settings"
 msgstr "Настройки"
 
-#: src/screens/RadioScreen.tsx:97
+#: src/screens/SettingsScreen.tsx:28
+msgid "SETTINGS"
+msgstr "НАСТРОЙКИ"
+
+#: src/screens/RadioScreen.tsx:95
 msgid "TAP TO TURN ON"
 msgstr "НАЖМИТЕ ЧТОБЫ ВКЛЮЧИТЬ"
 
-#: src/screens/RadioScreen.tsx:163
+#: src/screens/SettingsScreen.tsx:54
+msgid "Test"
+msgstr "Проверить"
+
+#: src/screens/RadioScreen.tsx:161
 msgid "TRANSMITTING..."
 msgstr "ПЕРЕДАЧА..."
 
-#: src/screens/RadioScreen.tsx:44
+#: src/screens/RadioScreen.tsx:42
 msgid "TURN OFF"
 msgstr "ВЫКЛЮЧИТЬ"
 
-#: src/screens/RadioScreen.tsx:81
-#: src/screens/RadioScreen.tsx:88
+#: src/screens/RadioScreen.tsx:79
+#: src/screens/RadioScreen.tsx:86
 msgid "Turn the radio on"
 msgstr "Включить рацию"

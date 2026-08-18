@@ -14,7 +14,7 @@ msgstr ""
 "Plural-Forms: \n"
 
 #. placeholder {0}: radio().nearbyCount
-#: src/screens/RadioScreen.tsx:150
+#: src/screens/RadioScreen.tsx:148
 msgid "● {0} nearby"
 msgstr "● {0} nearby"
 
@@ -22,60 +22,100 @@ msgstr "● {0} nearby"
 #~ msgid "● {nearbyCount} nearby"
 #~ msgstr "● {nearbyCount} nearby"
 
-#: src/screens/RadioScreen.tsx:153
+#: src/screens/SettingsScreen.tsx:29
+msgid "Back"
+msgstr "Back"
+
+#: src/screens/SettingsScreen.tsx:80
+msgid "Connect"
+msgstr "Connect"
+
+#: src/screens/SettingsScreen.tsx:47
+msgid "Connected"
+msgstr "Connected"
+
+#: src/screens/SettingsScreen.tsx:49
+msgid "Disconnected"
+msgstr "Disconnected"
+
+#: src/screens/RadioScreen.tsx:151
 msgid "HOLD TO TALK"
 msgstr "HOLD TO TALK"
 
-#: src/screens/RadioScreen.tsx:191
+#: src/screens/SettingsScreen.tsx:55
+msgid "Hold to transmit"
+msgstr "Hold to transmit"
+
+#: src/screens/RadioScreen.tsx:189
 msgid "Hold to turn the radio off"
 msgstr "Hold to turn the radio off"
 
-#: src/screens/RadioScreen.tsx:125
+#: src/screens/SettingsScreen.tsx:76
+msgid "Not connected"
+msgstr "Not connected"
+
+#: src/screens/SettingsScreen.tsx:34
+msgid "PTT BUTTON"
+msgstr "PTT BUTTON"
+
+#: src/screens/RadioScreen.tsx:123
 msgid "Push to talk"
 msgstr "Push to talk"
 
-#: src/screens/RadioScreen.tsx:30
+#: src/screens/RadioScreen.tsx:28
 msgid "RADIO ERROR"
 msgstr "RADIO ERROR"
 
-#: src/screens/RadioScreen.tsx:94
+#: src/screens/RadioScreen.tsx:92
 msgid "RADIO OFF"
 msgstr "RADIO OFF"
 
-#: src/screens/RadioScreen.tsx:175
+#: src/screens/RadioScreen.tsx:173
 msgid "RECEIVING..."
 msgstr "RECEIVING..."
 
-#: src/screens/RadioScreen.tsx:166
+#: src/screens/RadioScreen.tsx:164
 msgid "RELEASE TO FINISH"
 msgstr "RELEASE TO FINISH"
 
-#: src/screens/RadioScreen.tsx:36
+#: src/screens/SettingsScreen.tsx:65
+msgid "Replace"
+msgstr "Replace"
+
+#: src/screens/RadioScreen.tsx:34
 msgid "RESTART RADIO"
 msgstr "RESTART RADIO"
 
-#: src/screens/RadioScreen.tsx:140
+#: src/screens/RadioScreen.tsx:138
 msgid "SEARCHING FOR DEVICES..."
 msgstr "SEARCHING FOR DEVICES..."
 
-#: src/screens/RadioScreen.tsx:104
-#: src/screens/RadioScreen.tsx:196
+#: src/screens/RadioScreen.tsx:102
+#: src/screens/RadioScreen.tsx:194
 msgid "Settings"
 msgstr "Settings"
 
-#: src/screens/RadioScreen.tsx:97
+#: src/screens/SettingsScreen.tsx:28
+msgid "SETTINGS"
+msgstr "SETTINGS"
+
+#: src/screens/RadioScreen.tsx:95
 msgid "TAP TO TURN ON"
 msgstr "TAP TO TURN ON"
 
-#: src/screens/RadioScreen.tsx:163
+#: src/screens/SettingsScreen.tsx:54
+msgid "Test"
+msgstr "Test"
+
+#: src/screens/RadioScreen.tsx:161
 msgid "TRANSMITTING..."
 msgstr "TRANSMITTING..."
 
-#: src/screens/RadioScreen.tsx:44
+#: src/screens/RadioScreen.tsx:42
 msgid "TURN OFF"
 msgstr "TURN OFF"
 
-#: src/screens/RadioScreen.tsx:81
-#: src/screens/RadioScreen.tsx:88
+#: src/screens/RadioScreen.tsx:79
+#: src/screens/RadioScreen.tsx:86
 msgid "Turn the radio on"
 msgstr "Turn the radio on"
