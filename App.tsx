@@ -2,13 +2,14 @@
  * @format
  */
 
-import React from 'react';
+import React, {useEffect} from 'react';
 import {StatusBar, View} from 'react-native';
 import {I18nProvider} from '@lingui/react';
 import {i18n} from '@lingui/core';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 
 import {AppRoot} from './src/app/AppRoot';
+import {resolveInitialRoute} from './src/permissions/sequencing.model';
 import {chassis} from './src/ui/theme';
 
 /**
@@ -21,6 +22,10 @@ import {chassis} from './src/ui/theme';
  * gate); until it answers, `AppRoot` renders nothing over the chassis colour.
  */
 function App() {
+  useEffect(() => {
+    void resolveInitialRoute();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <I18nProvider i18n={i18n}>

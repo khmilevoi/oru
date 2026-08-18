@@ -3,6 +3,7 @@ import {BackHandler} from 'react-native';
 import {reatomComponent} from '@reatom/react';
 import {wrap} from '@reatom/core';
 
+import {completeOnboarding} from '../permissions/sequencing.model';
 import {OnboardingFlow} from '../screens/OnboardingFlow';
 import {PairingFlow} from '../screens/PairingFlow';
 import {RadioScreen} from '../screens/RadioScreen';
@@ -28,7 +29,13 @@ export const AppRoot = reatomComponent(() => {
   if (current === null) return null;
 
   if (current === 'onboarding') {
-    return <OnboardingFlow onDone={wrap(() => navigate('radio'))} />;
+    return (
+      <OnboardingFlow
+        onDone={wrap(() => {
+          void completeOnboarding();
+        })}
+      />
+    );
   }
 
   if (current === 'settings') {

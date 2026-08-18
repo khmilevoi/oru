@@ -5,6 +5,7 @@ import {
   platformGateway,
   realPlatformGateway,
 } from '../src/permissions/platform.gateway';
+import type {PlatformPermissionsGateway} from '../src/permissions/platform.gateway';
 
 beforeEach(() => context.reset());
 
@@ -30,5 +31,102 @@ describe('the platform gateway', () => {
     expect(() => realPlatformGateway.onboardingCompleted()).not.toThrow();
     expect(() => realPlatformGateway.markOnboardingCompleted()).not.toThrow();
     expect(realPlatformGateway.backgroundStepSupported()).toBe(false); // Platform.OS is 'ios' under the RN jest preset
+  });
+});
+
+import {
+  backgroundStatus,
+  completeBackgroundStep,
+  completeOnboarding,
+  requestBackgroundPermissions,
+  resolveInitialRoute,
+} from '../src/permissions/sequencing.model';
+import {route} from '../src/app/navigation.model';
+
+function fakeGateway(overrides: Partial<PlatformPermissionsGateway> = {}) {
+  const calls = {markCompleted: 0, notifications: 0, settings: 0};
+  const gateway: PlatformPermissionsGateway = {
+    hasOnboardingPermissions: async () => true,
+    onboardingCompleted: () => true,
+    markOnboardingCompleted: () => {
+      calls.markCompleted += 1;
+    },
+    backgroundStepSupported: () => false,
+    hasBackgroundLocation: async () => true,
+    requestNotifications: async () => {
+      calls.notifications += 1;
+    },
+    requestBackgroundLocation: async () => true,
+    openSettings: async () => {
+      calls.settings += 1;
+    },
+    ...overrides,
+  };
+  platformGateway.set(gateway);
+  return calls;
+}
+
+describe('first-launch sequencing — spec section 11', () => {
+  it('opens on the radio when everything is already granted', async () => {
+    fakeGateway();
+    await expect(resolveInitialRoute()).resolves.toBe('radio');
+    expect(route()).toBe('radio');
+  });
+
+  it('opens on onboarding when a permission is missing', async () => {
+    fakeGateway({hasOnboardingPermissions: async () => false});
+    await expect(resolveInitialRoute()).resolves.toBe('onboarding');
+    expect(route()).toBe('onboarding');
+  });
+
+  it('opens on onboarding when this install has never finished it', async () => {
+    fakeGateway({onboardingCompleted: () => false});
+    await expect(resolveInitialRoute()).resolves.toBe('onboarding');
+  });
+
+  it('goes from onboarding to the background step where the platform has one', async () => {
+    const calls = fakeGateway({
+      backgroundStepSupported: () => true,
+      hasBackgroundLocation: async () => false,
+    });
+    await expect(completeOnboarding()).resolves.toBe('background');
+    expect(route()).toBe('background');
+    expect(calls.markCompleted).toBe(1);
+  });
+
+  it('skips the background step when it is already granted', async () => {
+    fakeGateway({
+      backgroundStepSupported: () => true,
+      hasBackgroundLocation: async () => true,
+    });
+    await expect(completeOnboarding()).resolves.toBe('radio');
+    expect(route()).toBe('radio');
+  });
+
+  it('skips the background step on a platform without one', async () => {
+    fakeGateway({backgroundStepSupported: () => false});
+    await expect(completeOnboarding()).resolves.toBe('radio');
+  });
+
+  it('reports the two-step redirect when the dialog cannot grant it', async () => {
+    const calls = fakeGateway({requestBackgroundLocation: async () => false});
+    await expect(requestBackgroundPermissions()).resolves.toBe('needsSettings');
+    expect(backgroundStatus()).toBe('needsSettings');
+    // Section 11: POST_NOTIFICATIONS rides with this step, because the
+    // foreground-service notification is what keeps the radio alive locked.
+    expect(calls.notifications).toBe(1);
+  });
+
+  it('reports a grant and leaves the step', async () => {
+    fakeGateway({requestBackgroundLocation: async () => true});
+    await expect(requestBackgroundPermissions()).resolves.toBe('granted');
+    expect(backgroundStatus()).toBe('granted');
+    expect(route()).toBe('radio');
+  });
+
+  it('lets the user skip the background step', () => {
+    fakeGateway();
+    completeBackgroundStep();
+    expect(route()).toBe('radio');
   });
 });
