@@ -22,25 +22,24 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
   ({onSettingsPress}) => {
     const {t} = useLingui();
     const state = screenState();
-    const nearbyCount = radio().nearbyCount;
 
     if (state === 'off') {
+      const startRadio = wrap(() => {
+        void radio.start();
+      });
+
       return (
         <View testID={testIds.radioScreen} style={chassis.screen}>
           <Pressable
             testID={testIds.powerOnArea}
             accessibilityRole="button"
             accessibilityLabel={t`Turn the radio on`}
-            onPress={wrap(() => {
-              void radio.start();
-            })}
+            onPress={startRadio}
             style={styles.fill}>
             <View style={styles.centre}>
               <PowerKey
                 variant="hero"
-                onActivate={wrap(() => {
-                  void radio.start();
-                })}
+                onActivate={startRadio}
                 accessibilityLabel={t`Turn the radio on`}
                 testID={testIds.powerKey}
               />
@@ -103,7 +102,7 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
                 <Text
                   testID={testIds.radioStateLabel}
                   style={[type.hero, styles.headline]}>
-                  <Trans>● {nearbyCount} nearby</Trans>
+                  <Trans>● {radio().nearbyCount} nearby</Trans>
                 </Text>
                 <Text style={[type.label, styles.hint]}>
                   <Trans>HOLD TO TALK</Trans>
