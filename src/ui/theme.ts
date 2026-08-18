@@ -91,8 +91,14 @@ export const motion = {
    * accidental shut-off on a screen that is one giant touch area.
    */
   powerHoldMs: 1200,
-  /** One breath of the scanning cue. */
-  pulseMs: 1400,
+  /**
+   * One breath of the scanning cue. Kept short enough that two full breaths
+   * (the Stage 2 acceptance suite's reduced-motion probe window) still land
+   * inside the `searching` state on the `happy` mock scenario, whose
+   * `nearbyCount` script entry fires at 2000ms and would otherwise carry the
+   * screen into `ready` -- unmounting the pulse before the assertion runs.
+   */
+  pulseMs: 700,
   fadeMs: 220,
   /** Opacity the corner controls recede to while transmitting or receiving. */
   recededOpacity: 0.15,
