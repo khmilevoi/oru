@@ -8,12 +8,10 @@ export function GearButton({
   onPress,
   accessibilityLabel,
   testID,
-  style,
 }: {
   onPress: () => void;
   accessibilityLabel: string;
   testID?: string;
-  style?: object;
 }) {
   return (
     <Pressable
@@ -22,7 +20,7 @@ export function GearButton({
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       hitSlop={12}
-      style={[styles.hit, style]}>
+      style={styles.hit}>
       {[0, 30, 60, 90, 120, 150].map(angle => (
         <View
           key={angle}

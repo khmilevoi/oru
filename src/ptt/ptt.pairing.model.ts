@@ -1,6 +1,6 @@
 import {action, atom, computed, wrap} from '@reatom/core';
 
-import {radio} from '../radio/radio.model';
+import {NativeRadioCallError, radio} from '../radio/radio.model';
 
 /**
  * The four-step learning flow of spec section 9.3, as section 12.1's `03
@@ -48,6 +48,28 @@ export const pairingStep = computed<PairingStep>(() => {
 export const pairingCandidates = computed(
   () => radio().pttPairing?.candidates ?? [],
   'pairingCandidates',
+);
+
+/**
+ * True when the `failed` step's error is the one kind of failure the seven
+ * mock scenarios exercise today: a scan that ran and came back with nothing,
+ * surfaced as a rejected `configurePtt()` call (`NativeRadioCallError` in
+ * `radio.native.ts`'s vocabulary — see `radio.native.mock.ts`'s
+ * `pairing-empty` script). `PairingFlow` shows this case as "no buttons
+ * found".
+ *
+ * `NativeRadioUnavailableError` (the Turbo Module itself is not registered)
+ * and `PttBindingParseError` (the call succeeded but returned a binding the
+ * app cannot parse) are different problems that a real backend can also
+ * return from `configurePtt()` -- neither is a report that the scan found
+ * nothing, so `PairingFlow` shows those generically instead, with the
+ * error's own message, the same way `RadioErrorState` in `RadioScreen.tsx`
+ * shows `lastRadioError`'s message: a diagnostic from native code, verbatim,
+ * because translating it would be a lie.
+ */
+export const pairingFailureIsScanEmpty = computed(
+  () => pairingError() instanceof NativeRadioCallError,
+  'pairingFailureIsScanEmpty',
 );
 
 /**
@@ -99,4 +121,9 @@ export const pickPttCandidate = action(async (deviceId: string) => {
 /** Called when the flow closes, so a later session starts clean. */
 export const resetPairing = action(() => {
   pairingError.set(null);
+  // Bumps the session past whatever `startPairing()`/`pickPttCandidate()`
+  // continuation is still in flight for the flow that just closed, so a late
+  // resolution from that abandoned session fails the `generation === session`
+  // guard those actions check and cannot write into a closed flow.
+  generation += 1;
 }, 'resetPairing');

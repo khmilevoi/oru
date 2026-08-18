@@ -11,6 +11,8 @@ import {colors, radii, spacing, testIds, type} from '../ui/theme';
 import {radio} from '../radio/radio.model';
 import {
   pairingCandidates,
+  pairingError,
+  pairingFailureIsScanEmpty,
   pairingStep,
   pickPttCandidate,
   resetPairing,
@@ -28,6 +30,8 @@ export const PairingFlow = reatomComponent<{onClose: () => void}>(
     const step = pairingStep();
     const candidates = pairingCandidates();
     const buttonName = radio().pttButton.name;
+    const failure = pairingError();
+    const scanEmpty = pairingFailureIsScanEmpty();
 
     useEffect(() => {
       void startPairing();
@@ -36,7 +40,6 @@ export const PairingFlow = reatomComponent<{onClose: () => void}>(
       };
       // Opened once per mount: the flow is a screen, and re-running it on every
       // render would restart the scan under the user's finger.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const close = wrap(() => {
@@ -117,14 +120,31 @@ export const PairingFlow = reatomComponent<{onClose: () => void}>(
 
         {step === 'failed' ? (
           <View style={styles.centre}>
-            <Text style={[type.title, styles.headline]}>
-              <Trans>No buttons found</Trans>
-            </Text>
-            <Text style={[type.body, styles.hint]}>
-              <Trans>
-                Make sure the button is switched on and in pairing mode.
-              </Trans>
-            </Text>
+            {scanEmpty ? (
+              <>
+                <Text style={[type.title, styles.headline]}>
+                  <Trans>No buttons found</Trans>
+                </Text>
+                <Text style={[type.body, styles.hint]}>
+                  <Trans>
+                    Make sure the button is switched on and in pairing mode.
+                  </Trans>
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={[type.title, styles.headline]}>
+                  <Trans>Pairing failed</Trans>
+                </Text>
+                {/* The engine's own diagnostic, shown verbatim -- unlocalised,
+                    same as `RadioErrorState` in `RadioScreen.tsx`: it is a
+                    message from native code, and translating it would be a
+                    lie. */}
+                {failure ? (
+                  <Text style={[type.body, styles.hint]}>{failure.message}</Text>
+                ) : null}
+              </>
+            )}
             <ActionButton
               label={t`Retry`}
               tone="primary"

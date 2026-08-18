@@ -1,8 +1,16 @@
 import {atom, bind, computed, wrap} from '@reatom/core';
 
-import {RadioEngineError, RadioNative} from './radio.native';
+import {NativeRadioCallError, RadioEngineError, RadioNative} from './radio.native';
 import {initialRadioState} from './radio.types';
 import type {RadioNativeEvent, RadioState, ScreenState} from './radio.types';
+
+/**
+ * Re-exported so `src/ptt/ptt.pairing.model.ts` can tell a failed pairing
+ * call (`configurePtt()` rejected — the empty-scan case among others) apart
+ * from the other failures `configurePtt()` can return, without a model file
+ * reaching past this one into `radio.native.ts` directly.
+ */
+export {NativeRadioCallError};
 
 /**
  * Spec section 6: Reatom holds a *mirror* of engine state and is never the

@@ -7,7 +7,8 @@ import type {ReactTestInstance} from 'react-test-renderer';
 
 import {PairingFlow} from '../src/screens/PairingFlow';
 import {radio, radioEventListener} from '../src/radio/radio.model';
-import {RadioNative} from '../src/radio/radio.native';
+import {NativeRadioUnavailableError, RadioNative} from '../src/radio/radio.native';
+import {pairingError} from '../src/ptt/ptt.pairing.model';
 import {testIds} from '../src/ui/theme';
 import {renderScreen} from '../jest/renderScreen';
 
@@ -71,6 +72,29 @@ describe('the pairing flow — spec sections 9.3 and 12.1', () => {
 
     await screen.advance(2600);
     expect(screen.hasText('No buttons found')).toBe(true);
+
+    screen.unmount();
+  });
+
+  it('shows a generic failure with the diagnostic verbatim for a non-scan failure', async () => {
+    const screen = await renderScreen(<PairingFlow onClose={jest.fn()} />, {
+      scenario: 'pairing-success',
+    });
+
+    expect(screen.hasText('Searching for Bluetooth buttons...')).toBe(true);
+
+    // A failure `configurePtt()` can return that is not the empty-scan
+    // timeout -- the Turbo Module itself missing, say -- must not be
+    // described as "no buttons found".
+    const failure = new NativeRadioUnavailableError({moduleName: 'NativeRadio'});
+    await screen.act(() => {
+      pairingError.set(failure);
+    });
+
+    expect(screen.hasText('No buttons found')).toBe(false);
+    expect(screen.hasText('Pairing failed')).toBe(true);
+    expect(screen.hasText(failure.message)).toBe(true);
+    expect(screen.findAll(testIds.pairingRetry)).toHaveLength(1);
 
     screen.unmount();
   });

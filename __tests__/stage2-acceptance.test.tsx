@@ -54,13 +54,24 @@ describe.each(LOCALES)('spec section 15 Stage 2 — locale %s', locale => {
       {scenario: 'happy', locale},
     );
 
-    const seen = new Map<string, string>();
+    // Style and text are captured into separate maps and asserted separately
+    // below: the five states already carry different headline copy, so a
+    // single combined signature is distinct on text alone and never actually
+    // exercises the "visually" half of this test's name. The style signature
+    // is the screen's own wash (`chassis.screen` plus the transmitting/
+    // receiving tint) together with the headline's own style array, which
+    // also carries each state's colour and type-scale choice (`deadAir`,
+    // `type.title` vs `type.hero`, `txText`, `rxText`) -- the container style
+    // alone is identical for `searching` and `ready`.
+    const styles = new Map<string, string>();
+    const texts = new Map<string, string>();
     const capture = (state: string) => {
-      seen.set(
+      styles.set(
         state,
         JSON.stringify(screen.find(testIds.radioScreen).props.style) +
-          screen.texts().join('|'),
+          JSON.stringify(screen.find(testIds.radioStateLabel).props.style),
       );
+      texts.set(state, screen.texts().join('|'));
     };
 
     expect(screen.hasText(copy.off)).toBe(true);
@@ -83,13 +94,20 @@ describe.each(LOCALES)('spec section 15 Stage 2 — locale %s', locale => {
     expect(screen.hasText(copy.receiving)).toBe(true);
     capture('receiving');
 
-    expect(seen.size).toBe(5);
-    expect(new Set(seen.values()).size).toBe(5);
+    expect(styles.size).toBe(5);
+    expect(texts.size).toBe(5);
+    expect(new Set(styles.values()).size).toBe(5);
+    expect(new Set(texts.values()).size).toBe(5);
 
     screen.unmount();
   });
 
   it('turns the radio off from any scenario and back into its normal flow', async () => {
+    // 900ms is well before `engine-error`'s own failure fires (3000ms, see
+    // `radio.mock.scripts.ts`), so every scenario here is still in its normal
+    // corner-controls layout with a hold-to-confirm power key -- the error
+    // state's own `error-power-off` power-off is covered separately, in
+    // `__tests__/radio-error-state.test.tsx`.
     for (const scenario of MOCK_SCENARIOS) {
       const screen = await renderScreen(
         <RadioScreen onSettingsPress={jest.fn()} />,
@@ -99,13 +117,8 @@ describe.each(LOCALES)('spec section 15 Stage 2 — locale %s', locale => {
       await screen.press(testIds.powerOnArea);
       await screen.advance(900);
 
-      if (screen.findAll(testIds.powerKey).length > 0) {
-        await screen.pressIn(testIds.powerKey);
-        await screen.advance(motion.powerHoldMs + 100);
-      } else {
-        // The error state carries its own power-off key.
-        await screen.press('error-power-off');
-      }
+      await screen.pressIn(testIds.powerKey);
+      await screen.advance(motion.powerHoldMs + 100);
 
       expect(screen.hasText(copy.off)).toBe(true);
       expect(screen.findAll(testIds.pttArea)).toHaveLength(0);

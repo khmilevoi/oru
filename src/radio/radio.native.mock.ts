@@ -247,11 +247,6 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
     },
 
     async selectPttCandidate(deviceId: string) {
-      // A previous session's leftover learnMs timer — or this session's own,
-      // if called twice — must never survive into what follows here. See the
-      // comment on `pairingCancels`'s declaration.
-      cancelPairingTimers();
-
       const script = MOCK_SCRIPTS[scenario].pairing;
       const chosen = script.candidates.find(
         candidate => candidate.deviceId === deviceId,
@@ -260,8 +255,16 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
       // or a script with no `configuration`): the `configurePtt()` promise is
       // left unresolved rather than resolved or rejected. The seven scripts
       // never produce this — every candidate they offer resolves to a
-      // configuration.
+      // configuration. The cancel below must stay under this guard: a
+      // no-op call must not cancel the pending session's own scanMs/failAtMs
+      // timers, or it would silently orphan that session's `configurePtt()`
+      // promise instead of leaving it to resolve or fail on its own.
       if (!chosen || !script.configuration) return;
+
+      // A previous session's leftover learnMs timer — or this session's own,
+      // if called twice — must never survive into what follows here. See the
+      // comment on `pairingCancels`'s declaration.
+      cancelPairingTimers();
 
       state = {
         ...state,

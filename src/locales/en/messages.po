@@ -14,11 +14,11 @@ msgstr ""
 "Plural-Forms: \n"
 
 #. placeholder {0}: candidate.rssi
-#: src/screens/PairingFlow.tsx:82
+#: src/screens/PairingFlow.tsx:85
 msgid "{0} dBm"
 msgstr "{0} dBm"
 
-#: src/screens/PairingFlow.tsx:107
+#: src/screens/PairingFlow.tsx:110
 msgid "{buttonName} is ready to use"
 msgstr "{buttonName} is ready to use"
 
@@ -43,11 +43,11 @@ msgstr "Back"
 msgid "Bluetooth"
 msgstr "Bluetooth"
 
-#: src/screens/PairingFlow.tsx:104
+#: src/screens/PairingFlow.tsx:107
 msgid "Button saved"
 msgstr "Button saved"
 
-#: src/screens/PairingFlow.tsx:51
+#: src/screens/PairingFlow.tsx:54
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -55,7 +55,7 @@ msgstr "Cancel"
 msgid "Connect"
 msgstr "Connect"
 
-#: src/screens/PairingFlow.tsx:50
+#: src/screens/PairingFlow.tsx:53
 msgid "CONNECT A BUTTON"
 msgstr "CONNECT A BUTTON"
 
@@ -67,11 +67,11 @@ msgstr "Connected"
 msgid "Disconnected"
 msgstr "Disconnected"
 
-#: src/screens/PairingFlow.tsx:110
+#: src/screens/PairingFlow.tsx:113
 msgid "Done"
 msgstr "Done"
 
-#: src/screens/PairingFlow.tsx:96
+#: src/screens/PairingFlow.tsx:99
 msgid "Hold it down until it is recognised"
 msgstr "Hold it down until it is recognised"
 
@@ -87,7 +87,7 @@ msgstr "Hold to transmit"
 msgid "Hold to turn the radio off"
 msgstr "Hold to turn the radio off"
 
-#: src/screens/PairingFlow.tsx:124
+#: src/screens/PairingFlow.tsx:129
 msgid "Make sure the button is switched on and in pairing mode."
 msgstr "Make sure the button is switched on and in pairing mode."
 
@@ -99,7 +99,7 @@ msgstr "Microphone"
 msgid "Nearby devices"
 msgstr "Nearby devices"
 
-#: src/screens/PairingFlow.tsx:121
+#: src/screens/PairingFlow.tsx:126
 msgid "No buttons found"
 msgstr "No buttons found"
 
@@ -123,6 +123,10 @@ msgstr "Oru finds other radios around you without using the internet."
 msgid "Oru uses the microphone to transmit your voice to nearby devices."
 msgstr "Oru uses the microphone to transmit your voice to nearby devices."
 
+#: src/screens/PairingFlow.tsx:137
+msgid "Pairing failed"
+msgstr "Pairing failed"
+
 #: src/screens/OnboardingFlow.tsx:91
 msgid "Permission denied. Oru cannot work without it."
 msgstr "Permission denied. Oru cannot work without it."
@@ -131,7 +135,7 @@ msgstr "Permission denied. Oru cannot work without it."
 msgid "Permission is blocked. Grant it in the system settings."
 msgstr "Permission is blocked. Grant it in the system settings."
 
-#: src/screens/PairingFlow.tsx:93
+#: src/screens/PairingFlow.tsx:96
 msgid "Press the PTT button"
 msgstr "Press the PTT button"
 
@@ -171,11 +175,11 @@ msgstr "Replace"
 msgid "RESTART RADIO"
 msgstr "RESTART RADIO"
 
-#: src/screens/PairingFlow.tsx:129
+#: src/screens/PairingFlow.tsx:149
 msgid "Retry"
 msgstr "Retry"
 
-#: src/screens/PairingFlow.tsx:58
+#: src/screens/PairingFlow.tsx:61
 msgid "Searching for Bluetooth buttons..."
 msgstr "Searching for Bluetooth buttons..."
 
@@ -183,7 +187,7 @@ msgstr "Searching for Bluetooth buttons..."
 msgid "SEARCHING FOR DEVICES..."
 msgstr "SEARCHING FOR DEVICES..."
 
-#: src/screens/PairingFlow.tsx:66
+#: src/screens/PairingFlow.tsx:69
 msgid "Select your button"
 msgstr "Select your button"
 

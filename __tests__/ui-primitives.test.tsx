@@ -1,5 +1,5 @@
 import React from 'react';
-import {Text} from 'react-native';
+import {StyleSheet, Text} from 'react-native';
 import {context} from '@reatom/core';
 
 import {ActionButton} from '../src/ui/ActionButton';
@@ -76,10 +76,46 @@ describe('PowerKey', () => {
     expect(onActivate).not.toHaveBeenCalled();
     screen.unmount();
   });
+
+  it('freezes the hold-to-power-off progress bar at full width under reduced motion', async () => {
+    const onActivate = jest.fn();
+    const screen = await renderScreen(
+      <PowerKey
+        variant="corner"
+        holdToConfirm
+        onActivate={onActivate}
+        testID="power"
+        accessibilityLabel="Turn radio off"
+      />,
+      {reducedMotion: true},
+    );
+
+    // No `screen.advance(...)` anywhere in this test: the whole point is that
+    // the bar is already full the instant the hold starts, not that it
+    // reaches full width -- reduced motion means it never animates there.
+    await screen.pressIn('power');
+
+    const pressable = screen.root
+      .findAllByProps({testID: 'power'})
+      .find(node => typeof node.props.onPressIn === 'function');
+    if (!pressable) throw new Error('PowerKey Pressable not found');
+    const boxWidth = (StyleSheet.flatten(pressable.props.style) as {width: number})
+      .width;
+
+    const progress = screen.find('power-key-progress');
+    const progressWidth = (
+      StyleSheet.flatten(progress.props.style) as {width: number}
+    ).width;
+
+    expect(typeof progressWidth).toBe('number');
+    expect(progressWidth).toBe(boxWidth);
+
+    screen.unmount();
+  });
 });
 
 describe('PulseDot', () => {
-  it('animates when motion is allowed and holds still when it is not', async () => {
+  it('renders under both motion settings, and picks up the reduced-motion flag the harness set', async () => {
     const animated = await renderScreen(<PulseDot active color={colors.rx} />, {
       reducedMotion: false,
     });

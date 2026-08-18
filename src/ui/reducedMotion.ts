@@ -30,6 +30,16 @@ import {atom, bind, withConnectHook} from '@reatom/core';
  * the "explicit" caller they are guarding against.
  */
 const target = atom(false, 'reducedMotion');
+/**
+ * `@reatom/core@1001.3.0`-specific: `.set` is not in `AtomMut`'s public type,
+ * but exists at runtime as an own property of every atom instance (not a
+ * shared prototype method), and `target.extend(...)` below returns the very
+ * same object rather than a copy -- both of which this cast relies on to let
+ * `rawSet`/the wrapped `.set` reach the atom this module actually exports. A
+ * version upgrade that changes either fact needs this re-verified; if it
+ * silently breaks, the failure is loud and local -- the reduced-motion tests
+ * in `__tests__/ui-primitives.test.tsx` go red -- never a corrupted app.
+ */
 const mutableTarget = target as unknown as {set: (value: boolean) => boolean};
 
 const rawSet = mutableTarget.set.bind(target);
