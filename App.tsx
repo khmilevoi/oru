@@ -1,45 +1,43 @@
 /**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
  * @format
  */
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+import React from 'react';
+import {StatusBar, View} from 'react-native';
+import {I18nProvider} from '@lingui/react';
+import {i18n} from '@lingui/core';
+import {SafeAreaProvider} from 'react-native-safe-area-context';
 
+import {AppRoot} from './src/app/AppRoot';
+import {chassis} from './src/ui/theme';
+
+/**
+ * The tree above every screen: the safe-area provider the chassis measures
+ * against, the Lingui provider `Trans`/`useLingui` read, and the dark chassis
+ * of section 12.1. `index.js` has already run `bootstrapApp()` by the time this
+ * renders, so `i18n` carries an activated catalog on the first frame.
+ *
+ * The initial route is resolved in `App.tsx`'s sibling task (the first-launch
+ * gate); until it answers, `AppRoot` renders nothing over the chassis colour.
+ */
 function App() {
-  const isDarkMode = useColorScheme() === 'dark';
-
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
+      <I18nProvider i18n={i18n}>
+        {/*
+          react-native@0.87 dropped `StatusBar`'s `backgroundColor` prop
+          entirely (Android's edge-to-edge enforcement leaves nothing for it
+          to set); `chassis.screen` below already paints the whole screen
+          `colors.background`, so the status bar area shows the same colour
+          through the translucent bar regardless.
+        */}
+        <StatusBar barStyle="light-content" />
+        <View style={chassis.screen}>
+          <AppRoot />
+        </View>
+      </I18nProvider>
     </SafeAreaProvider>
   );
 }
-
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
-
-  return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
 
 export default App;
