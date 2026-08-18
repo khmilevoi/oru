@@ -2,6 +2,14 @@
   "name": "oru",
   "version": "0.0.1",
   "private": true,
+  "codegenConfig": {
+    "name": "OruSpecs",
+    "type": "modules",
+    "jsSrcsDir": "specs",
+    "android": {
+      "javaPackageName": "com.oru.bridge"
+    }
+  },
   "scripts": {
     "android": "react-native run-android",
     "ios": "react-native run-ios",
