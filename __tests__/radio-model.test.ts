@@ -62,9 +62,9 @@ beforeEach(() => {
 });
 
 describe('the radio mirror (spec section 6.2)', () => {
-  it('starts empty and searching', () => {
+  it('starts empty and off', () => {
     expect(radio()).toEqual(initialRadioState);
-    expect(screenState()).toBe('searching');
+    expect(screenState()).toBe('off');
     expect(lastRadioError()).toBeNull();
   });
 
@@ -315,5 +315,48 @@ describe('screenState (spec section 6.2)', () => {
     radio.set(state);
 
     expect(screenState()).toBe(expected);
+  });
+});
+
+describe('spec section 6.1/6.2 — the off state', () => {
+  it('starts the mirror in off, because nothing has been started yet', () => {
+    expect(initialRadioState.status).toBe('off');
+    expect(radio().status).toBe('off');
+    expect(screenState()).toBe('off');
+  });
+
+  it('renders off ahead of every other screen state', () => {
+    const offWhileBusy: RadioState = {
+      ...initialRadioState,
+      status: 'off',
+      nearbyCount: 3,
+      transmitting: true,
+      receiving: true,
+    };
+
+    radio.applyEvent({type: 'stateChanged', state: offWhileBusy});
+
+    expect(screenState()).toBe('off');
+  });
+
+  it('leaves off as soon as the engine reports it is starting', () => {
+    radio.applyEvent({
+      type: 'stateChanged',
+      state: {...initialRadioState, status: 'starting'},
+    });
+
+    expect(screenState()).toBe('searching');
+  });
+
+  it('returns to off when the engine reports a stopped radio', () => {
+    radio.applyEvent({
+      type: 'stateChanged',
+      state: {...initialRadioState, status: 'ready', nearbyCount: 2},
+    });
+    expect(screenState()).toBe('ready');
+
+    radio.applyEvent({type: 'stateChanged', state: initialRadioState});
+
+    expect(screenState()).toBe('off');
   });
 });

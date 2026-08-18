@@ -4,7 +4,15 @@
  * and differ only where Codegen cannot express a shape.
  */
 
-export type RadioStatus = 'starting' | 'ready' | 'error';
+/**
+ * Spec section 6.1. `'off'` is the state the radio is in **before `start()`
+ * and after `stop()`**: nothing is advertising, discovering, capturing or
+ * playing, and the mirror carries no peers. It exists because the main screen
+ * owns a first-class power toggle (sections 5 and 12) and, by section 6.4's own
+ * rule, a fact a screen needs but the contract does not carry means the
+ * contract is extended rather than reached around.
+ */
+export type RadioStatus = 'off' | 'starting' | 'ready' | 'error';
 
 export type PttButtonState = {
   configured: boolean;
@@ -44,16 +52,22 @@ export type RadioNativeEvent =
   | {type: 'stateChanged'; state: RadioState}
   | {type: 'error'; code: string; message: string};
 
-/** Spec section 6.2: the four states the main screen renders. */
-export type ScreenState = 'searching' | 'ready' | 'transmitting' | 'receiving';
+/** Spec section 6.2: the five states the main screen renders. */
+export type ScreenState =
+  | 'off'
+  | 'searching'
+  | 'ready'
+  | 'transmitting'
+  | 'receiving';
 
 /**
  * What the mirror holds before the first `getState()` answers. The engine is
- * the source of truth, so the mirror starts in `starting` and knows nothing.
- * `pttPairing` is deliberately omitted: no pairing session is running.
+ * the source of truth, and before `start()` the engine is off — so the mirror
+ * starts in `off` and knows nothing. `pttPairing` is deliberately omitted: no
+ * pairing session is running.
  */
 export const initialRadioState: RadioState = {
-  status: 'starting',
+  status: 'off',
   nearbyCount: 0,
   transmitting: false,
   receiving: false,

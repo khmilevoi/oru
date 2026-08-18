@@ -29,7 +29,7 @@ export type NativePttPairingState = {
 };
 
 export type NativeRadioState = {
-  status: 'starting' | 'ready' | 'error';
+  status: 'off' | 'starting' | 'ready' | 'error';
   nearbyCount: number;
   transmitting: boolean;
   receiving: boolean;
@@ -68,6 +68,21 @@ export type NativePttConfiguration = {
 };
 
 export interface Spec extends TurboModule {
+  /**
+   * Implementation requirement, not enforceable by this type: `start`,
+   * `stop`, `pressPtt`, `releasePtt` and `forgetPtt` (below) must each emit
+   * `onStateChanged` with the state the call produced *before* the returned
+   * promise resolves. `src/radio/radio.model.ts`'s mirror of these five never
+   * writes itself from the call's own return value — only from that event —
+   * because section 6 makes the engine, not the TypeScript layer, the source
+   * of truth. A method that resolves without emitting leaves the mirror
+   * (and the screen reading it) frozen on stale state, silently: the promise
+   * still resolves, nothing throws, and Jest cannot catch this, because the
+   * mock implementation (`src/radio/radio.native.mock.ts`) always calls
+   * `publishState()` before resolving. Every test that presses PTT or powers
+   * the radio off passes because the mock is a good citizen, not because
+   * anything checks that a real implementation is.
+   */
   start(): Promise<void>;
   stop(): Promise<void>;
 
@@ -84,6 +99,7 @@ export interface Spec extends TurboModule {
   configurePtt(): Promise<NativePttConfiguration>;
   /** The user's choice from `pttPairing.candidates` during the `scanning` phase. */
   selectPttCandidate(deviceId: string): Promise<void>;
+  /** Must emit `onStateChanged` before resolving — see the note on `start()` above. */
   forgetPtt(): Promise<void>;
 
   /**

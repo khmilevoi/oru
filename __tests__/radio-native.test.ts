@@ -6,6 +6,7 @@ import {
   NativeRadioUnavailableError,
   RadioNative,
   createRadioNative,
+  resolveRadioNativeModule,
 } from '../src/radio/radio.native';
 import {PttBindingParseError} from '../src/ptt/ptt.binding';
 import type {
@@ -99,10 +100,12 @@ describe('RadioNative when the Turbo Module is missing', () => {
     expect(radio.subscribe(() => {})).toBeInstanceOf(NativeRadioUnavailableError);
   });
 
-  it('is what the real singleton does under Jest, where no module is registered', async () => {
-    await expect(RadioNative.start()).resolves.toBeInstanceOf(
-      NativeRadioUnavailableError,
-    );
+  it('resolveRadioNativeModule returns an unavailable error under Jest, where no Turbo Module is registered', () => {
+    expect(resolveRadioNativeModule()).toBeInstanceOf(NativeRadioUnavailableError);
+  });
+
+  it('is what the real singleton does under Jest, where the dev default (spec section 6.5) binds it to the mock rather than the absent Turbo Module', async () => {
+    await expect(RadioNative.start()).resolves.toBeNull();
   });
 });
 

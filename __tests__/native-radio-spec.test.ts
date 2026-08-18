@@ -100,6 +100,7 @@ describe('specs/NativeRadio.ts is a valid Turbo Module spec', () => {
 
     expect(status?.typeAnnotation.type).toBe('UnionTypeAnnotation');
     expect(status?.typeAnnotation.types?.map(member => member.value)).toEqual([
+      'off',
       'starting',
       'ready',
       'error',

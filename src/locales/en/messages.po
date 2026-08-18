@@ -6,3 +6,238 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: @lingui/cli\n"
 "Language: en\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+#. placeholder {0}: candidate.rssi
+#: src/screens/PairingFlow.tsx:85
+msgid "{0} dBm"
+msgstr "{0} dBm"
+
+#: src/screens/PairingFlow.tsx:110
+msgid "{buttonName} is ready to use"
+msgstr "{buttonName} is ready to use"
+
+#. placeholder {0}: radio().nearbyCount
+#: src/screens/RadioScreen.tsx:148
+msgid "● {0} nearby"
+msgstr "● {0} nearby"
+
+#: src/screens/RadioScreen.tsx:106
+#~ msgid "● {nearbyCount} nearby"
+#~ msgstr "● {nearbyCount} nearby"
+
+#: src/screens/OnboardingFlow.tsx:115
+msgid "Allow"
+msgstr "Allow"
+
+#: src/screens/SettingsScreen.tsx:29
+msgid "Back"
+msgstr "Back"
+
+#: src/screens/OnboardingFlow.tsx:60
+msgid "Bluetooth"
+msgstr "Bluetooth"
+
+#: src/screens/PairingFlow.tsx:107
+msgid "Button saved"
+msgstr "Button saved"
+
+#: src/screens/PairingFlow.tsx:54
+msgid "Cancel"
+msgstr "Cancel"
+
+#: src/screens/SettingsScreen.tsx:80
+msgid "Connect"
+msgstr "Connect"
+
+#: src/screens/PairingFlow.tsx:53
+msgid "CONNECT A BUTTON"
+msgstr "CONNECT A BUTTON"
+
+#: src/screens/SettingsScreen.tsx:47
+msgid "Connected"
+msgstr "Connected"
+
+#: src/screens/SettingsScreen.tsx:49
+msgid "Disconnected"
+msgstr "Disconnected"
+
+#: src/screens/PairingFlow.tsx:113
+msgid "Done"
+msgstr "Done"
+
+#: src/screens/PairingFlow.tsx:99
+msgid "Hold it down until it is recognised"
+msgstr "Hold it down until it is recognised"
+
+#: src/screens/RadioScreen.tsx:151
+msgid "HOLD TO TALK"
+msgstr "HOLD TO TALK"
+
+#: src/screens/SettingsScreen.tsx:55
+msgid "Hold to transmit"
+msgstr "Hold to transmit"
+
+#: src/screens/RadioScreen.tsx:189
+msgid "Hold to turn the radio off"
+msgstr "Hold to turn the radio off"
+
+#: src/screens/PairingFlow.tsx:129
+msgid "Make sure the button is switched on and in pairing mode."
+msgstr "Make sure the button is switched on and in pairing mode."
+
+#: src/screens/OnboardingFlow.tsx:52
+msgid "Microphone"
+msgstr "Microphone"
+
+#: src/screens/OnboardingFlow.tsx:69
+msgid "Nearby devices"
+msgstr "Nearby devices"
+
+#: src/screens/PairingFlow.tsx:126
+msgid "No buttons found"
+msgstr "No buttons found"
+
+#: src/screens/SettingsScreen.tsx:76
+msgid "Not connected"
+msgstr "Not connected"
+
+#: src/screens/OnboardingFlow.tsx:106
+msgid "Open settings"
+msgstr "Open settings"
+
+#: src/screens/OnboardingFlow.tsx:62
+msgid "Oru connects to your push-to-talk button over Bluetooth, including while the screen is locked."
+msgstr "Oru connects to your push-to-talk button over Bluetooth, including while the screen is locked."
+
+#: src/screens/OnboardingFlow.tsx:71
+msgid "Oru finds other radios around you without using the internet."
+msgstr "Oru finds other radios around you without using the internet."
+
+#: src/screens/OnboardingFlow.tsx:54
+msgid "Oru uses the microphone to transmit your voice to nearby devices."
+msgstr "Oru uses the microphone to transmit your voice to nearby devices."
+
+#: src/screens/PairingFlow.tsx:137
+msgid "Pairing failed"
+msgstr "Pairing failed"
+
+#: src/screens/OnboardingFlow.tsx:91
+msgid "Permission denied. Oru cannot work without it."
+msgstr "Permission denied. Oru cannot work without it."
+
+#: src/screens/OnboardingFlow.tsx:97
+msgid "Permission is blocked. Grant it in the system settings."
+msgstr "Permission is blocked. Grant it in the system settings."
+
+#: src/screens/PairingFlow.tsx:96
+msgid "Press the PTT button"
+msgstr "Press the PTT button"
+
+#: src/screens/SettingsScreen.tsx:34
+msgid "PTT BUTTON"
+msgstr "PTT BUTTON"
+
+#: src/screens/RadioScreen.tsx:123
+msgid "Push to talk"
+msgstr "Push to talk"
+
+#: src/screens/RadioScreen.tsx:28
+msgid "RADIO ERROR"
+msgstr "RADIO ERROR"
+
+#: src/screens/RadioScreen.tsx:92
+msgid "RADIO OFF"
+msgstr "RADIO OFF"
+
+#: src/screens/OnboardingFlow.tsx:30
+msgid "Ready"
+msgstr "Ready"
+
+#: src/screens/RadioScreen.tsx:173
+msgid "RECEIVING..."
+msgstr "RECEIVING..."
+
+#: src/screens/RadioScreen.tsx:164
+msgid "RELEASE TO FINISH"
+msgstr "RELEASE TO FINISH"
+
+#: src/screens/SettingsScreen.tsx:65
+msgid "Replace"
+msgstr "Replace"
+
+#: src/screens/RadioScreen.tsx:34
+msgid "RESTART RADIO"
+msgstr "RESTART RADIO"
+
+#: src/screens/PairingFlow.tsx:149
+msgid "Retry"
+msgstr "Retry"
+
+#: src/screens/PairingFlow.tsx:61
+msgid "Searching for Bluetooth buttons..."
+msgstr "Searching for Bluetooth buttons..."
+
+#: src/screens/RadioScreen.tsx:138
+msgid "SEARCHING FOR DEVICES..."
+msgstr "SEARCHING FOR DEVICES..."
+
+#: src/screens/PairingFlow.tsx:69
+msgid "Select your button"
+msgstr "Select your button"
+
+#: src/screens/RadioScreen.tsx:102
+#: src/screens/RadioScreen.tsx:194
+msgid "Settings"
+msgstr "Settings"
+
+#: src/screens/SettingsScreen.tsx:28
+msgid "SETTINGS"
+msgstr "SETTINGS"
+
+#: src/screens/OnboardingFlow.tsx:130
+msgid "Skip"
+msgstr "Skip"
+
+#: src/screens/OnboardingFlow.tsx:36
+msgid "Start"
+msgstr "Start"
+
+#. placeholder {0}: APP_PERMISSIONS.length
+#: src/screens/OnboardingFlow.tsx:82
+msgid "Step {step} of {0}"
+msgstr "Step {step} of {0}"
+
+#: src/screens/RadioScreen.tsx:95
+msgid "TAP TO TURN ON"
+msgstr "TAP TO TURN ON"
+
+#: src/screens/SettingsScreen.tsx:54
+msgid "Test"
+msgstr "Test"
+
+#: src/screens/RadioScreen.tsx:161
+msgid "TRANSMITTING..."
+msgstr "TRANSMITTING..."
+
+#: src/screens/OnboardingFlow.tsx:115
+msgid "Try again"
+msgstr "Try again"
+
+#: src/screens/RadioScreen.tsx:42
+msgid "TURN OFF"
+msgstr "TURN OFF"
+
+#: src/screens/RadioScreen.tsx:79
+#: src/screens/RadioScreen.tsx:86
+msgid "Turn the radio on"
+msgstr "Turn the radio on"
+
+#: src/screens/OnboardingFlow.tsx:33
+msgid "Turn the radio on and hold anywhere to talk."
+msgstr "Turn the radio on and hold anywhere to talk."

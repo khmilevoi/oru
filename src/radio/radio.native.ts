@@ -155,5 +155,32 @@ export const resolveRadioNativeModule: ResolveNativeRadio = () => {
   return native;
 };
 
+/**
+ * Spec section 6.5. Both operands are inlined at build time -- `__DEV__` by the
+ * React Native Babel preset, `process.env.RADIO_BACKEND` by
+ * `babel-plugin-transform-inline-environment-variables` -- so `backend` is a
+ * compile-time constant. A release build is therefore always `'native'`: the
+ * flag cannot reach it and nothing can switch it at runtime.
+ *
+ * The dev default is `'mock'` while the Turbo Module does not exist. P5 flips
+ * it to `'native'` and keeps `RADIO_BACKEND=mock` working for design work,
+ * demos and screenshots.
+ */
+const backend: 'mock' | 'native' = __DEV__
+  ? process.env.RADIO_BACKEND === 'native'
+    ? 'native'
+    : 'mock'
+  : 'native';
+
 /** Spec section 6.2 calls this object `RadioNative`. */
-export const RadioNative = createRadioNative(resolveRadioNativeModule);
+export const RadioNative = createRadioNative(
+  backend === 'mock'
+    ? // Deliberately a require inside the folded branch, not a top-level
+      // import: Metro runs constant folding before dependency collection, so
+      // this edge disappears from a release bundle entirely. A static import
+      // would keep the mock module in the graph even though nothing calls it,
+      // and section 6.5 requires it to be absent, not merely unreachable.
+      (require('./radio.native.mock') as typeof import('./radio.native.mock'))
+        .resolveMockRadio
+    : resolveRadioNativeModule,
+);
