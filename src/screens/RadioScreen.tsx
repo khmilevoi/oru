@@ -11,7 +11,6 @@ import {LevelBars} from '../ui/LevelBars';
 import {PeerRow} from '../ui/PeerRow';
 import {PingRings} from '../ui/PingRings';
 import {PowerKey} from '../ui/PowerKey';
-import {PulseDot} from '../ui/PulseDot';
 import {StateRing} from '../ui/StateRing';
 import {chassis, colors, motion, spacing, testIds, type, washes} from '../ui/theme';
 import {lastRadioError, radio, screenState} from '../radio/radio.model';
@@ -171,20 +170,6 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
                   style={[type.scan, styles.hint]}>
                   <Trans>SEARCHING FOR DEVICES...</Trans>
                 </Text>
-                {/*
-                  Kept mounted, but with zero footprint (`position: absolute`
-                  removes it from `styles.stage`'s flex/`gap` flow entirely,
-                  and `overflow: hidden` on a 0x0 box clips its own 12x12
-                  paint) rather than deleted outright: `pulse-dot` is still a
-                  live assertion target in this file's own pre-Task-5 tests
-                  and in `stage2-acceptance.test.tsx`'s reduced-motion test,
-                  and neither is this task's to edit. The canvas's searching
-                  cue is `PingRings` now; this is legacy test wiring, not a
-                  second visible scanning indicator.
-                */}
-                <View style={styles.hiddenPulse}>
-                  <PulseDot active color={colors.textMuted} size={12} />
-                </View>
               </>
             ) : null}
 
@@ -266,7 +251,6 @@ const styles = StyleSheet.create({
   headline: {color: colors.text, textAlign: 'center'},
   hint: {color: colors.textFaint, textAlign: 'center'},
   deadAir: {color: colors.deadAir},
-  hiddenPulse: {position: 'absolute', width: 0, height: 0, overflow: 'hidden'},
   txWash: {backgroundImage: washes.tx},
   rxWash: {backgroundImage: washes.rx},
   onTx: {color: '#ffffff', textAlign: 'center'},

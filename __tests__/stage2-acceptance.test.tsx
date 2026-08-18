@@ -209,12 +209,14 @@ describe.each(LOCALES)('spec section 15 Stage 2 — locale %s', locale => {
     );
 
     await screen.press(testIds.powerOnArea);
-    const dot = screen.find('pulse-dot');
+    const dot = screen.find('radio-pings-ring');
     const before = JSON.stringify(dot.props.style);
 
-    await screen.advance(motion.pulseMs * 2);
+    await screen.advance(motion.pingMs * 2);
 
-    expect(JSON.stringify(screen.find('pulse-dot').props.style)).toEqual(before);
+    expect(JSON.stringify(screen.find('radio-pings-ring').props.style)).toEqual(
+      before,
+    );
     screen.unmount();
   });
 

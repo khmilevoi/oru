@@ -30,7 +30,7 @@ describe('RadioScreen — spec sections 12 and 12.1', () => {
 
     await screen.press(testIds.powerOnArea);
     expect(screen.hasText('SEARCHING FOR DEVICES...')).toBe(true);
-    expect(screen.findAll('pulse-dot')).toHaveLength(1);
+    expect(screen.findAll('radio-pings')).toHaveLength(1);
 
     await screen.advance(2100);
     expect(screen.hasText('nearby')).toBe(true);
