@@ -91,7 +91,7 @@ public final class ModePolicy {
 
     // MARK: - State
 
-    /// Where the PTT half of §7 stands. Task 5 adds the linger states.
+    /// Where the PTT half of §7 stands.
     private enum PttState {
         case idle
         /// A raise was requested; `deadlineMs` is when §7's 4 s grant timeout fires.
@@ -99,6 +99,11 @@ public final class ModePolicy {
         /// Capture is running. `linkRaised` is false when this transmission fell back to
         /// the phone mic, which is why it has nothing to linger on afterwards.
         case talking(linkRaised: Bool)
+        /// Released with the link up: held until `untilMs` so the rest of the
+        /// conversation is instant.
+        case lingering(untilMs: Int64)
+        /// The linger expired while the radio was busy; the link is held until idle.
+        case dropPending
     }
 
     private var audioMode: AudioMode = .auto
@@ -226,7 +231,7 @@ public final class ModePolicy {
             return false
         case .talking(let linkRaised):
             return linkRaised
-        case .awaitingLink:
+        case .awaitingLink, .lingering, .dropPending:
             return true
         }
     }
@@ -236,10 +241,13 @@ public final class ModePolicy {
     }
 
     /// §7: "press → tone → talk", in every mode. The tone is immediate wherever the mic
-    /// is already live — in VOICE, and on any route with no profile conflict — and waits
-    /// for the raise otherwise.
+    /// is already live — in VOICE, on any route with no profile conflict, and inside the
+    /// linger window where the link is still up — and waits for the raise otherwise.
     private func press(_ nowMs: Int64) -> [Action] {
         switch pttState {
+        case .lingering, .dropPending:
+            pttState = .talking(linkRaised: true)
+            return [.playGrantTone, .startCapture(.routeDefault)]
         case .awaitingLink, .talking:
             return []
         case .idle:
@@ -256,13 +264,15 @@ public final class ModePolicy {
 
     private func release(_ nowMs: Int64) -> [Action] {
         switch pttState {
-        case .talking:
-            pttState = .idle
+        case .talking(let linkRaised):
+            pttState = linkRaised
+                ? .lingering(untilMs: nowMs + Constants.voiceLinkLingerMs)
+                : .idle
             return []
         case .awaitingLink:
             // Released before the mic ever went live: no tone, nothing to capture.
             return abandonRaise(startCapture: false)
-        case .idle:
+        case .idle, .lingering, .dropPending:
             return []
         }
     }
@@ -286,14 +296,34 @@ public final class ModePolicy {
     }
 
     /// Fires the PTT deadlines that have come due. Runs after the input, so an input that
-    /// resolves a deadline (a link arriving at 4.1 s, a release) wins over it.
+    /// resolves a deadline (a link arriving at 4.1 s, a release, a press inside the
+    /// linger) wins over it.
     private func settleLink(_ nowMs: Int64) -> [Action] {
         switch pttState {
         case .awaitingLink(let deadlineMs) where nowMs >= deadlineMs:
             return abandonRaise()
+        case .lingering(let untilMs) where nowMs >= untilMs:
+            pttState = .dropPending
+            return settleDrop()
+        case .dropPending:
+            return settleDrop()
         default:
             return []
         }
+    }
+
+    /// Lets the raised link go. §7 exempts the raise/drop from the 10 s rate limit by
+    /// name — so this neither consults nor stamps `lastSwitchMs` — but not from the
+    /// "switches never run during receive or transmit" rule in the same bullet, so an
+    /// expired linger holds the link rather than glitching an incoming transmission.
+    /// No `dropVoiceLink` when the policy wants VOICE by now: the link stays up as the
+    /// profile, not as a leftover.
+    private func settleDrop() -> [Action] {
+        guard !radioActive else { return [] }
+        pttState = .idle
+        let base = baseProfile
+        appliedProfile = base
+        return base == .voice ? [] : [.dropVoiceLink]
     }
 
     /// §7's two gates on a VOICE↔MEDIA switch: it never runs during receive or transmit
@@ -338,8 +368,14 @@ public final class ModePolicy {
                 deadlines.append(since + Constants.otherAudioToVoiceMs)
             }
         }
-        if case .awaitingLink(let deadlineMs) = pttState {
+        switch pttState {
+        case .awaitingLink(let deadlineMs):
             deadlines.append(deadlineMs)
+        case .lingering(let untilMs):
+            deadlines.append(untilMs)
+        case .idle, .talking, .dropPending:
+            // `dropPending` waits on the radio going idle, which is an input.
+            break
         }
         // A switch the rate limit is holding back will need a tick when the window
         // closes. One the *radio* is holding back does not: the radio going idle is an

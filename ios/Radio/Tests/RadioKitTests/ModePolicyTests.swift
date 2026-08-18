@@ -382,4 +382,138 @@ final class ModePolicyTests: XCTestCase {
             Step(3_100, .pttPressed, .voice, [], .at(7_000)),
         ])
     }
+
+    // MARK: - The linger and the drop
+
+    func testTheRaisedLinkLingers() {
+        assertRow("the raised link lingers fifteen seconds after release", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
+            Step(3_500, .voiceLinkEstablished, .voice,
+                 [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
+            Step(5_000, .pttReleased, .voice, [], .at(20_000)),
+            Step(19_999, .tick, .voice, [], .at(20_000)),
+        ])
+    }
+
+    func testAPressInsideTheLingerIsInstant() {
+        assertRow("a press inside the linger window is instant", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
+            Step(3_500, .voiceLinkEstablished, .voice,
+                 [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
+            Step(5_000, .pttReleased, .voice, [], .at(20_000)),
+            Step(10_000, .pttPressed, .voice,
+                 [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
+        ])
+    }
+
+    func testTheLingerRestartsOnEveryRelease() {
+        assertRow("the linger restarts on every release", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
+            Step(3_500, .voiceLinkEstablished, .voice,
+                 [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
+            Step(5_000, .pttReleased, .voice, [], .at(20_000)),
+            Step(10_000, .pttPressed, .voice,
+                 [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
+            Step(12_000, .pttReleased, .voice, [], .at(27_000)),
+        ])
+    }
+
+    func testTheLinkDropsWhenTheLingerExpires() {
+        assertRow("the link drops when the linger expires and MEDIA returns", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
+            Step(3_500, .voiceLinkEstablished, .voice,
+                 [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
+            Step(5_000, .pttReleased, .voice, [], .at(20_000)),
+            Step(20_000, .tick, .media, [.dropVoiceLink], .noTimer),
+        ])
+    }
+
+    func testAFallbackTransmissionDoesNotLinger() {
+        assertRow("a phone mic fallback transmission does not linger", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
+            Step(7_000, .tick, .media,
+                 [.dropVoiceLink, .playGrantTone, .startCapture(.phoneFallback)], .noTimer),
+            Step(10_000, .pttReleased, .media, [], .noTimer),
+            Step(40_000, .tick, .media, [], .noTimer),
+        ])
+    }
+
+    func testTheDropWaitsForIdle() {
+        // §7 exempts the raise/drop from the 10 s rate limit by name, not from the
+        // "switches never run during receive or transmit" rule in the same bullet.
+        assertRow("the linger drop waits for the radio to go idle", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
+            Step(3_500, .voiceLinkEstablished, .voice,
+                 [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
+            Step(5_000, .pttReleased, .voice, [], .at(20_000)),
+            Step(10_000, .radioActive(true), .voice, [], .at(20_000)),
+            Step(20_000, .tick, .voice, [], .noTimer),
+            Step(25_000, .radioActive(false), .media, [.dropVoiceLink], .noTimer),
+        ])
+    }
+
+    func testTheRaiseIsExemptFromTheRateLimit() {
+        // The raise happens 500 ms after a policy switch and is not deferred; the drop
+        // does not stamp the limit either, which the last step proves — a policy switch
+        // 100 ms after the drop is applied at once.
+        assertRow("the raise is exempt from the rate limit and the drop does not consume it", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(2_500, .pttPressed, .voice, [.raiseVoiceLink], .at(6_500)),
+            Step(2_600, .voiceLinkEstablished, .voice,
+                 [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
+            Step(2_700, .pttReleased, .voice, [], .at(17_700)),
+            Step(17_700, .tick, .media, [.dropVoiceLink], .noTimer),
+            Step(17_800, .audioMode(.voice), .voice, [], .noTimer),
+        ])
+    }
+
+    func testTheLinkIsKeptWhenThePolicyWantsVoice() {
+        assertRow("the link is kept when the policy wants VOICE by the time the linger expires", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
+            Step(3_100, .voiceLinkEstablished, .voice,
+                 [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
+            Step(3_200, .otherAudio(false), .voice, [], .at(33_200)),
+            Step(4_000, .pttReleased, .voice, [], .at(19_000)),
+            Step(18_000, .pttPressed, .voice,
+                 [.playGrantTone, .startCapture(.routeDefault)], .at(33_200)),
+            Step(19_000, .pttReleased, .voice, [], .at(33_200)),
+            Step(33_200, .tick, .voice, [], .at(34_000)),
+            Step(34_000, .tick, .voice, [], .noTimer),
+        ])
+    }
+
+    func testPttRaisesInsideAPinnedMediaMode() {
+        assertRow("PTT raises the link inside a pinned media mode", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .audioMode(.media), .media, [], .noTimer),
+            Step(1_000, .pttPressed, .voice, [.raiseVoiceLink], .at(5_000)),
+            Step(1_500, .voiceLinkEstablished, .voice,
+                 [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
+            Step(2_000, .pttReleased, .voice, [], .at(17_000)),
+            Step(17_000, .tick, .media, [.dropVoiceLink], .noTimer),
+        ])
+    }
 }

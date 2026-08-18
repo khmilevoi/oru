@@ -115,7 +115,7 @@ class ModePolicy {
 
     // region State
 
-    /** Where the PTT half of section 7 stands. Task 5 adds the linger states. */
+    /** Where the PTT half of section 7 stands. */
     private sealed interface PttState {
         data object Idle : PttState
 
@@ -127,6 +127,15 @@ class ModePolicy {
          * the phone mic, which is why it has nothing to linger on afterwards.
          */
         data class Talking(val linkRaised: Boolean) : PttState
+
+        /**
+         * Released with the link up: held until [untilMs] so the rest of the conversation
+         * is instant.
+         */
+        data class Lingering(val untilMs: Long) : PttState
+
+        /** The linger expired while the radio was busy; the link is held until idle. */
+        data object DropPending : PttState
     }
 
     private var audioMode: AudioMode = AudioMode.AUTO
@@ -249,7 +258,7 @@ class ModePolicy {
     private fun holdsVoiceLink(): Boolean = when (val state = pttState) {
         is PttState.Idle -> false
         is PttState.Talking -> state.linkRaised
-        is PttState.AwaitingLink -> true
+        is PttState.AwaitingLink, is PttState.Lingering, is PttState.DropPending -> true
     }
 
     private fun requestedProfile(): Profile =
@@ -257,10 +266,15 @@ class ModePolicy {
 
     /**
      * Section 7: "press then tone then talk", in every mode. The tone is immediate
-     * wherever the mic is already live — in VOICE, and on any route with no profile
-     * conflict — and waits for the raise otherwise.
+     * wherever the mic is already live — in VOICE, on any route with no profile conflict,
+     * and inside the linger window where the link is still up — and waits for the raise
+     * otherwise.
      */
     private fun press(nowMs: Long): List<Action> = when (pttState) {
+        is PttState.Lingering, is PttState.DropPending -> {
+            pttState = PttState.Talking(linkRaised = true)
+            listOf(Action.PlayGrantTone, Action.StartCapture(MicSource.ROUTE_DEFAULT))
+        }
         is PttState.AwaitingLink, is PttState.Talking -> emptyList()
         is PttState.Idle ->
             if (appliedProfile == Profile.VOICE || !routeRequiresVoiceLink) {
@@ -274,14 +288,18 @@ class ModePolicy {
             }
     }
 
-    private fun release(nowMs: Long): List<Action> = when (pttState) {
+    private fun release(nowMs: Long): List<Action> = when (val state = pttState) {
         is PttState.Talking -> {
-            pttState = PttState.Idle
+            pttState = if (state.linkRaised) {
+                PttState.Lingering(untilMs = nowMs + Constants.VOICE_LINK_LINGER_MS)
+            } else {
+                PttState.Idle
+            }
             emptyList()
         }
         // Released before the mic ever went live: no tone, nothing to capture.
         is PttState.AwaitingLink -> abandonRaise(startCapture = false)
-        is PttState.Idle -> emptyList()
+        is PttState.Idle, is PttState.Lingering, is PttState.DropPending -> emptyList()
     }
 
     /**
@@ -307,12 +325,37 @@ class ModePolicy {
 
     /**
      * Fires the PTT deadlines that have come due. Runs after the input, so an input that
-     * resolves a deadline (a link arriving at 4.1 s, a release) wins over it.
+     * resolves a deadline (a link arriving at 4.1 s, a release, a press inside the linger)
+     * wins over it.
      */
     private fun settleLink(nowMs: Long): List<Action> = when (val state = pttState) {
         is PttState.AwaitingLink ->
             if (nowMs >= state.deadlineMs) abandonRaise() else emptyList()
+        is PttState.Lingering ->
+            if (nowMs >= state.untilMs) {
+                pttState = PttState.DropPending
+                settleDrop()
+            } else {
+                emptyList()
+            }
+        is PttState.DropPending -> settleDrop()
         is PttState.Idle, is PttState.Talking -> emptyList()
+    }
+
+    /**
+     * Lets the raised link go. Section 7 exempts the raise/drop from the 10 s rate limit
+     * by name — so this neither consults nor stamps [lastSwitchMs] — but not from the
+     * "switches never run during receive or transmit" rule in the same bullet, so an
+     * expired linger holds the link rather than glitching an incoming transmission. No
+     * [Action.DropVoiceLink] when the policy wants VOICE by now: the link stays up as the
+     * profile, not as a leftover.
+     */
+    private fun settleDrop(): List<Action> {
+        if (radioActive) return emptyList()
+        pttState = PttState.Idle
+        val base = baseProfile()
+        appliedProfile = base
+        return if (base == Profile.VOICE) emptyList() else listOf(Action.DropVoiceLink)
     }
 
     /**
@@ -365,8 +408,12 @@ class ModePolicy {
                 deadlines.add(since + Constants.OTHER_AUDIO_TO_VOICE_MS)
             }
         }
-        val state = pttState
-        if (state is PttState.AwaitingLink) deadlines.add(state.deadlineMs)
+        when (val state = pttState) {
+            is PttState.AwaitingLink -> deadlines.add(state.deadlineMs)
+            is PttState.Lingering -> deadlines.add(state.untilMs)
+            // DropPending waits on the radio going idle, which is an input.
+            is PttState.Idle, is PttState.Talking, is PttState.DropPending -> Unit
+        }
         // A switch the rate limit is holding back will need a tick when the window
         // closes. One the *radio* is holding back does not: the radio going idle is an
         // input, and it runs the gate itself.

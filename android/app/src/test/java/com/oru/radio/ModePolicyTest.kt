@@ -397,4 +397,150 @@ class ModePolicyTest {
     }
 
     // endregion
+
+    // region The linger and the drop
+
+    @Test
+    fun `the raised link lingers fifteen seconds after release`() {
+        assertRow("the raised link lingers fifteen seconds after release", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.PttPressed, Profile.VOICE, listOf(Action.RaiseVoiceLink), Wakeup.At(7_000L)),
+            Step(3_500L, Input.VoiceLinkEstablished, Profile.VOICE,
+                listOf(Action.PlayGrantTone, Action.StartCapture(MicSource.ROUTE_DEFAULT)), Wakeup.NoTimer),
+            Step(5_000L, Input.PttReleased, Profile.VOICE, emptyList(), Wakeup.At(20_000L)),
+            Step(19_999L, Input.Tick, Profile.VOICE, emptyList(), Wakeup.At(20_000L)),
+        ))
+    }
+
+    @Test
+    fun `a press inside the linger window is instant`() {
+        assertRow("a press inside the linger window is instant", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.PttPressed, Profile.VOICE, listOf(Action.RaiseVoiceLink), Wakeup.At(7_000L)),
+            Step(3_500L, Input.VoiceLinkEstablished, Profile.VOICE,
+                listOf(Action.PlayGrantTone, Action.StartCapture(MicSource.ROUTE_DEFAULT)), Wakeup.NoTimer),
+            Step(5_000L, Input.PttReleased, Profile.VOICE, emptyList(), Wakeup.At(20_000L)),
+            Step(10_000L, Input.PttPressed, Profile.VOICE,
+                listOf(Action.PlayGrantTone, Action.StartCapture(MicSource.ROUTE_DEFAULT)), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `the linger restarts on every release`() {
+        assertRow("the linger restarts on every release", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.PttPressed, Profile.VOICE, listOf(Action.RaiseVoiceLink), Wakeup.At(7_000L)),
+            Step(3_500L, Input.VoiceLinkEstablished, Profile.VOICE,
+                listOf(Action.PlayGrantTone, Action.StartCapture(MicSource.ROUTE_DEFAULT)), Wakeup.NoTimer),
+            Step(5_000L, Input.PttReleased, Profile.VOICE, emptyList(), Wakeup.At(20_000L)),
+            Step(10_000L, Input.PttPressed, Profile.VOICE,
+                listOf(Action.PlayGrantTone, Action.StartCapture(MicSource.ROUTE_DEFAULT)), Wakeup.NoTimer),
+            Step(12_000L, Input.PttReleased, Profile.VOICE, emptyList(), Wakeup.At(27_000L)),
+        ))
+    }
+
+    @Test
+    fun `the link drops when the linger expires and MEDIA returns`() {
+        assertRow("the link drops when the linger expires and MEDIA returns", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.PttPressed, Profile.VOICE, listOf(Action.RaiseVoiceLink), Wakeup.At(7_000L)),
+            Step(3_500L, Input.VoiceLinkEstablished, Profile.VOICE,
+                listOf(Action.PlayGrantTone, Action.StartCapture(MicSource.ROUTE_DEFAULT)), Wakeup.NoTimer),
+            Step(5_000L, Input.PttReleased, Profile.VOICE, emptyList(), Wakeup.At(20_000L)),
+            Step(20_000L, Input.Tick, Profile.MEDIA, listOf(Action.DropVoiceLink), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `a phone mic fallback transmission does not linger`() {
+        assertRow("a phone mic fallback transmission does not linger", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.PttPressed, Profile.VOICE, listOf(Action.RaiseVoiceLink), Wakeup.At(7_000L)),
+            Step(7_000L, Input.Tick, Profile.MEDIA,
+                listOf(Action.DropVoiceLink, Action.PlayGrantTone, Action.StartCapture(MicSource.PHONE_FALLBACK)),
+                Wakeup.NoTimer),
+            Step(10_000L, Input.PttReleased, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(40_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `the linger drop waits for the radio to go idle`() {
+        // Section 7 exempts the raise/drop from the 10 s rate limit by name, not from the
+        // "switches never run during receive or transmit" rule in the same bullet.
+        assertRow("the linger drop waits for the radio to go idle", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.PttPressed, Profile.VOICE, listOf(Action.RaiseVoiceLink), Wakeup.At(7_000L)),
+            Step(3_500L, Input.VoiceLinkEstablished, Profile.VOICE,
+                listOf(Action.PlayGrantTone, Action.StartCapture(MicSource.ROUTE_DEFAULT)), Wakeup.NoTimer),
+            Step(5_000L, Input.PttReleased, Profile.VOICE, emptyList(), Wakeup.At(20_000L)),
+            Step(10_000L, Input.RadioActive(true), Profile.VOICE, emptyList(), Wakeup.At(20_000L)),
+            Step(20_000L, Input.Tick, Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(25_000L, Input.RadioActive(false), Profile.MEDIA, listOf(Action.DropVoiceLink), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `the raise is exempt from the rate limit and the drop does not consume it`() {
+        // The raise happens 500 ms after a policy switch and is not deferred; the drop
+        // does not stamp the limit either, which the last step proves — a policy switch
+        // 100 ms after the drop is applied at once.
+        assertRow("the raise is exempt from the rate limit and the drop does not consume it", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(2_500L, Input.PttPressed, Profile.VOICE, listOf(Action.RaiseVoiceLink), Wakeup.At(6_500L)),
+            Step(2_600L, Input.VoiceLinkEstablished, Profile.VOICE,
+                listOf(Action.PlayGrantTone, Action.StartCapture(MicSource.ROUTE_DEFAULT)), Wakeup.NoTimer),
+            Step(2_700L, Input.PttReleased, Profile.VOICE, emptyList(), Wakeup.At(17_700L)),
+            Step(17_700L, Input.Tick, Profile.MEDIA, listOf(Action.DropVoiceLink), Wakeup.NoTimer),
+            Step(17_800L, Input.SetAudioMode(AudioMode.VOICE), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `the link is kept when the policy wants VOICE by the time the linger expires`() {
+        assertRow("the link is kept when the policy wants VOICE by the time the linger expires", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.PttPressed, Profile.VOICE, listOf(Action.RaiseVoiceLink), Wakeup.At(7_000L)),
+            Step(3_100L, Input.VoiceLinkEstablished, Profile.VOICE,
+                listOf(Action.PlayGrantTone, Action.StartCapture(MicSource.ROUTE_DEFAULT)), Wakeup.NoTimer),
+            Step(3_200L, Input.OtherAudio(false), Profile.VOICE, emptyList(), Wakeup.At(33_200L)),
+            Step(4_000L, Input.PttReleased, Profile.VOICE, emptyList(), Wakeup.At(19_000L)),
+            Step(18_000L, Input.PttPressed, Profile.VOICE,
+                listOf(Action.PlayGrantTone, Action.StartCapture(MicSource.ROUTE_DEFAULT)), Wakeup.At(33_200L)),
+            Step(19_000L, Input.PttReleased, Profile.VOICE, emptyList(), Wakeup.At(33_200L)),
+            Step(33_200L, Input.Tick, Profile.VOICE, emptyList(), Wakeup.At(34_000L)),
+            Step(34_000L, Input.Tick, Profile.VOICE, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `PTT raises the link inside a pinned media mode`() {
+        assertRow("PTT raises the link inside a pinned media mode", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.SetAudioMode(AudioMode.MEDIA), Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(1_000L, Input.PttPressed, Profile.VOICE, listOf(Action.RaiseVoiceLink), Wakeup.At(5_000L)),
+            Step(1_500L, Input.VoiceLinkEstablished, Profile.VOICE,
+                listOf(Action.PlayGrantTone, Action.StartCapture(MicSource.ROUTE_DEFAULT)), Wakeup.NoTimer),
+            Step(2_000L, Input.PttReleased, Profile.VOICE, emptyList(), Wakeup.At(17_000L)),
+            Step(17_000L, Input.Tick, Profile.MEDIA, listOf(Action.DropVoiceLink), Wakeup.NoTimer),
+        ))
+    }
+
+    // endregion
 }
