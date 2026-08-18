@@ -31,9 +31,17 @@ msgstr "● {0} nearby"
 #~ msgid "● {nearbyCount} nearby"
 #~ msgstr "● {nearbyCount} nearby"
 
+#: src/screens/OnboardingFlow.tsx:115
+msgid "Allow"
+msgstr "Allow"
+
 #: src/screens/SettingsScreen.tsx:29
 msgid "Back"
 msgstr "Back"
+
+#: src/screens/OnboardingFlow.tsx:60
+msgid "Bluetooth"
+msgstr "Bluetooth"
 
 #: src/screens/PairingFlow.tsx:104
 msgid "Button saved"
@@ -83,6 +91,14 @@ msgstr "Hold to turn the radio off"
 msgid "Make sure the button is switched on and in pairing mode."
 msgstr "Make sure the button is switched on and in pairing mode."
 
+#: src/screens/OnboardingFlow.tsx:52
+msgid "Microphone"
+msgstr "Microphone"
+
+#: src/screens/OnboardingFlow.tsx:69
+msgid "Nearby devices"
+msgstr "Nearby devices"
+
 #: src/screens/PairingFlow.tsx:121
 msgid "No buttons found"
 msgstr "No buttons found"
@@ -90,6 +106,30 @@ msgstr "No buttons found"
 #: src/screens/SettingsScreen.tsx:76
 msgid "Not connected"
 msgstr "Not connected"
+
+#: src/screens/OnboardingFlow.tsx:106
+msgid "Open settings"
+msgstr "Open settings"
+
+#: src/screens/OnboardingFlow.tsx:62
+msgid "Oru connects to your push-to-talk button over Bluetooth, including while the screen is locked."
+msgstr "Oru connects to your push-to-talk button over Bluetooth, including while the screen is locked."
+
+#: src/screens/OnboardingFlow.tsx:71
+msgid "Oru finds other radios around you without using the internet."
+msgstr "Oru finds other radios around you without using the internet."
+
+#: src/screens/OnboardingFlow.tsx:54
+msgid "Oru uses the microphone to transmit your voice to nearby devices."
+msgstr "Oru uses the microphone to transmit your voice to nearby devices."
+
+#: src/screens/OnboardingFlow.tsx:91
+msgid "Permission denied. Oru cannot work without it."
+msgstr "Permission denied. Oru cannot work without it."
+
+#: src/screens/OnboardingFlow.tsx:97
+msgid "Permission is blocked. Grant it in the system settings."
+msgstr "Permission is blocked. Grant it in the system settings."
 
 #: src/screens/PairingFlow.tsx:93
 msgid "Press the PTT button"
@@ -110,6 +150,10 @@ msgstr "RADIO ERROR"
 #: src/screens/RadioScreen.tsx:92
 msgid "RADIO OFF"
 msgstr "RADIO OFF"
+
+#: src/screens/OnboardingFlow.tsx:30
+msgid "Ready"
+msgstr "Ready"
 
 #: src/screens/RadioScreen.tsx:173
 msgid "RECEIVING..."
@@ -152,6 +196,19 @@ msgstr "Settings"
 msgid "SETTINGS"
 msgstr "SETTINGS"
 
+#: src/screens/OnboardingFlow.tsx:130
+msgid "Skip"
+msgstr "Skip"
+
+#: src/screens/OnboardingFlow.tsx:36
+msgid "Start"
+msgstr "Start"
+
+#. placeholder {0}: APP_PERMISSIONS.length
+#: src/screens/OnboardingFlow.tsx:82
+msgid "Step {step} of {0}"
+msgstr "Step {step} of {0}"
+
 #: src/screens/RadioScreen.tsx:95
 msgid "TAP TO TURN ON"
 msgstr "TAP TO TURN ON"
@@ -164,6 +221,10 @@ msgstr "Test"
 msgid "TRANSMITTING..."
 msgstr "TRANSMITTING..."
 
+#: src/screens/OnboardingFlow.tsx:115
+msgid "Try again"
+msgstr "Try again"
+
 #: src/screens/RadioScreen.tsx:42
 msgid "TURN OFF"
 msgstr "TURN OFF"
@@ -172,3 +233,7 @@ msgstr "TURN OFF"
 #: src/screens/RadioScreen.tsx:86
 msgid "Turn the radio on"
 msgstr "Turn the radio on"
+
+#: src/screens/OnboardingFlow.tsx:33
+msgid "Turn the radio on and hold anywhere to talk."
+msgstr "Turn the radio on and hold anywhere to talk."

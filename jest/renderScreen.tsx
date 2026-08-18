@@ -10,6 +10,7 @@ import {mockRadio} from '../src/radio/radio.native.mock';
 import {mockPermissions} from '../src/permissions/permissions.mock';
 import {radioEventListener} from '../src/radio/radio.model';
 import {reducedMotion} from '../src/ui/reducedMotion';
+import {DEFAULT_MOCK_SCENARIO, setMockScenario} from '../src/mock/mock.scenario';
 import type {MockScenarioName} from '../src/mock/mock.scenario';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const {loadPoCatalog} = require('./loadPoCatalog');
@@ -17,11 +18,13 @@ const {loadPoCatalog} = require('./loadPoCatalog');
 /**
  * The one place a P6 screen test is set up.
  *
- * It arms the mock engine on a scenario, activates a locale from the real `.po`
- * catalog, and subscribes the model to the engine's event stream -- without
- * that last step nothing but `start()` and `sync()` ever reaches the mirror,
- * because `radio.model.ts` is fed by `stateChanged` events. P7 does the same
- * subscribe once at app entry; here it is per render, and removed on unmount.
+ * It arms the whole mock stack on a scenario -- both the mock radio engine and
+ * the mock permission gateway, per spec section 6.5 -- activates a locale from
+ * the real `.po` catalog, and subscribes the model to the engine's event
+ * stream -- without that last step nothing but `start()` and `sync()` ever
+ * reaches the mirror, because `radio.model.ts` is fed by `stateChanged`
+ * events. P7 does the same subscribe once at app entry; here it is per
+ * render, and removed on unmount.
  */
 export type RenderOptions = {
   locale?: 'en' | 'ru';
@@ -62,6 +65,12 @@ export async function renderScreen(
   const locale = options.locale ?? 'en';
   i18n.loadAndActivate({locale, messages: loadPoCatalog(locale)});
 
+  // `setMockScenario` notifies both the mock radio and the mock permission
+  // gateway, so it goes first; the explicit resets below are then idempotent
+  // and make the intent at this call site obvious. A test must not inherit
+  // whatever scenario the previous test left the process-wide tracker on, so
+  // an unset `options.scenario` still resets it, to the default.
+  setMockScenario(options.scenario ?? DEFAULT_MOCK_SCENARIO);
   mockPermissions.reset();
   mockRadio.reset(options.scenario ? {scenario: options.scenario} : {});
   reducedMotion.set(options.reducedMotion ?? false);

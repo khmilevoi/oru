@@ -31,9 +31,17 @@ msgstr "● {0} рядом"
 #~ msgid "● {nearbyCount} nearby"
 #~ msgstr "● {nearbyCount} рядом"
 
+#: src/screens/OnboardingFlow.tsx:115
+msgid "Allow"
+msgstr "Разрешить"
+
 #: src/screens/SettingsScreen.tsx:29
 msgid "Back"
 msgstr "Назад"
+
+#: src/screens/OnboardingFlow.tsx:60
+msgid "Bluetooth"
+msgstr "Bluetooth"
 
 #: src/screens/PairingFlow.tsx:104
 msgid "Button saved"
@@ -83,6 +91,14 @@ msgstr "Удерживайте, чтобы выключить рацию"
 msgid "Make sure the button is switched on and in pairing mode."
 msgstr "Убедитесь, что кнопка включена и находится в режиме сопряжения."
 
+#: src/screens/OnboardingFlow.tsx:52
+msgid "Microphone"
+msgstr "Микрофон"
+
+#: src/screens/OnboardingFlow.tsx:69
+msgid "Nearby devices"
+msgstr "Устройства рядом"
+
 #: src/screens/PairingFlow.tsx:121
 msgid "No buttons found"
 msgstr "Кнопки не найдены"
@@ -90,6 +106,30 @@ msgstr "Кнопки не найдены"
 #: src/screens/SettingsScreen.tsx:76
 msgid "Not connected"
 msgstr "Не подключена"
+
+#: src/screens/OnboardingFlow.tsx:106
+msgid "Open settings"
+msgstr "Открыть настройки"
+
+#: src/screens/OnboardingFlow.tsx:62
+msgid "Oru connects to your push-to-talk button over Bluetooth, including while the screen is locked."
+msgstr "Oru подключается к вашей кнопке PTT по Bluetooth, в том числе при заблокированном экране."
+
+#: src/screens/OnboardingFlow.tsx:71
+msgid "Oru finds other radios around you without using the internet."
+msgstr "Oru находит другие рации вокруг вас без интернета."
+
+#: src/screens/OnboardingFlow.tsx:54
+msgid "Oru uses the microphone to transmit your voice to nearby devices."
+msgstr "Oru использует микрофон, чтобы передавать ваш голос на устройства рядом."
+
+#: src/screens/OnboardingFlow.tsx:91
+msgid "Permission denied. Oru cannot work without it."
+msgstr "Разрешение отклонено. Без него Oru не сможет работать."
+
+#: src/screens/OnboardingFlow.tsx:97
+msgid "Permission is blocked. Grant it in the system settings."
+msgstr "Разрешение заблокировано. Выдайте его в системных настройках."
 
 #: src/screens/PairingFlow.tsx:93
 msgid "Press the PTT button"
@@ -110,6 +150,10 @@ msgstr "ОШИБКА РАЦИИ"
 #: src/screens/RadioScreen.tsx:92
 msgid "RADIO OFF"
 msgstr "РАЦИЯ ВЫКЛЮЧЕНА"
+
+#: src/screens/OnboardingFlow.tsx:30
+msgid "Ready"
+msgstr "Готово"
 
 #: src/screens/RadioScreen.tsx:173
 msgid "RECEIVING..."
@@ -152,6 +196,19 @@ msgstr "Настройки"
 msgid "SETTINGS"
 msgstr "НАСТРОЙКИ"
 
+#: src/screens/OnboardingFlow.tsx:130
+msgid "Skip"
+msgstr "Пропустить"
+
+#: src/screens/OnboardingFlow.tsx:36
+msgid "Start"
+msgstr "Начать"
+
+#. placeholder {0}: APP_PERMISSIONS.length
+#: src/screens/OnboardingFlow.tsx:82
+msgid "Step {step} of {0}"
+msgstr "Шаг {step} из {0}"
+
 #: src/screens/RadioScreen.tsx:95
 msgid "TAP TO TURN ON"
 msgstr "НАЖМИТЕ ЧТОБЫ ВКЛЮЧИТЬ"
@@ -164,6 +221,10 @@ msgstr "Проверить"
 msgid "TRANSMITTING..."
 msgstr "ПЕРЕДАЧА..."
 
+#: src/screens/OnboardingFlow.tsx:115
+msgid "Try again"
+msgstr "Попробовать снова"
+
 #: src/screens/RadioScreen.tsx:42
 msgid "TURN OFF"
 msgstr "ВЫКЛЮЧИТЬ"
@@ -172,3 +233,7 @@ msgstr "ВЫКЛЮЧИТЬ"
 #: src/screens/RadioScreen.tsx:86
 msgid "Turn the radio on"
 msgstr "Включить рацию"
+
+#: src/screens/OnboardingFlow.tsx:33
+msgid "Turn the radio on and hold anywhere to talk."
+msgstr "Включите рацию и удерживайте экран, чтобы говорить."
