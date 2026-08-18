@@ -6,6 +6,7 @@ import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
+import com.oru.bridge.RadioBridgePackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -14,8 +15,9 @@ class MainApplication : Application(), ReactApplication {
       context = applicationContext,
       packageList =
         PackageList(this).packages.apply {
-          // Packages that cannot be autolinked yet can be added manually here, for example:
-          // add(MyReactNativePackage())
+          // Spec section 6.1: the RadioNative Turbo Module cannot be autolinked
+          // -- it is the app's own module, not a library -- so it is added here.
+          add(RadioBridgePackage())
         },
     )
   }

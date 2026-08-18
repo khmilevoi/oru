@@ -1,5 +1,20 @@
 const preset = require('@react-native/jest-preset');
 
+/**
+ * Spec section 6.5. `process.env.RADIO_BACKEND` is inlined at transform time by
+ * `babel-plugin-transform-inline-environment-variables`, and the dev default is
+ * `native` now that the Turbo Module exists (section 15 Stage 3) -- which no
+ * Jest run can resolve, because `TurboModuleRegistry.get` answers null outside a
+ * device. The suite is design work in section 16's sense: screen behaviour
+ * driven by the mock engine's scenarios, deterministic and hardware-free. So it
+ * runs the same way design work does.
+ *
+ * Set unconditionally rather than with `??=`: babel-jest's cache key does not
+ * include this variable, so a suite whose backend could vary between runs would
+ * be a suite that reuses a transform compiled under the other value.
+ */
+process.env.RADIO_BACKEND = 'mock';
+
 /** @type {import('jest').Config} */
 module.exports = {
   preset: '@react-native/jest-preset',
