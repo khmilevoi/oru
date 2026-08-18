@@ -169,6 +169,7 @@ public final class ModePolicy {
     /// Every input runs the same pipeline: age the timers that do not produce actions,
     /// apply the input, then let the profile catch up with what the policy wants.
     private func step(_ nowMs: Int64, _ input: () -> [Action]) -> Decision {
+        updateDwell(nowMs)
         let actions = input()
         applyBaseIfAllowed(nowMs)
         return Decision(
@@ -201,7 +202,33 @@ public final class ModePolicy {
         appliedProfile = base
     }
 
+    /// §7's asymmetric hysteresis. The dwell latches what the automatic policy *wants*;
+    /// the gates below decide when the applied profile catches up ("switch at the next
+    /// radio-idle moment"). It keeps running on routes with no voice link, so a headset
+    /// connecting into already-playing music does not restart the 2 s.
+    private func updateDwell(_ nowMs: Int64) {
+        guard let since = otherAudioSinceMs else { return }
+        if otherAudioActive {
+            if nowMs - since >= Constants.otherAudioToMediaMs {
+                desiredAutoProfile = .media
+            }
+        } else if nowMs - since >= Constants.otherAudioToVoiceMs {
+            desiredAutoProfile = .voice
+        }
+    }
+
+    /// The earliest moment at which a `tick` could change something. `updateDwell` has
+    /// already run, so a dwell deadline is only reported while it is still in the future.
     private func nextWakeupMs(_ nowMs: Int64) -> Int64? {
-        nil
+        var deadlines: [Int64] = []
+        if let since = otherAudioSinceMs {
+            if otherAudioActive, desiredAutoProfile != .media {
+                deadlines.append(since + Constants.otherAudioToMediaMs)
+            }
+            if !otherAudioActive, desiredAutoProfile != .voice {
+                deadlines.append(since + Constants.otherAudioToVoiceMs)
+            }
+        }
+        return deadlines.min()
     }
 }

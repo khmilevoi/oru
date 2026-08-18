@@ -160,4 +160,87 @@ final class ModePolicyTests: XCTestCase {
             Step(10_000, .audioMode(.auto), .voice, [], .noTimer),
         ])
     }
+
+    // MARK: - Other-audio hysteresis
+
+    func testTwoSecondsOfOtherAudioSwitchToMedia() {
+        assertRow("two seconds of other audio switch VOICE to MEDIA", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(1_000, .otherAudio(true), .voice, [], .at(3_000)),
+            Step(3_000, .tick, .media, [], .noTimer),
+        ])
+    }
+
+    func testShortOtherAudioDoesNotSwitch() {
+        assertRow("other audio shorter than two seconds does not switch", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(1_999, .tick, .voice, [], .at(2_000)),
+            Step(1_999, .otherAudio(false), .voice, [], .noTimer),
+            Step(60_000, .tick, .voice, [], .noTimer),
+        ])
+    }
+
+    func testAGapRestartsTheDwell() {
+        assertRow("a gap in other audio restarts the two second dwell", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(1_500, .otherAudio(false), .voice, [], .noTimer),
+            Step(1_600, .otherAudio(true), .voice, [], .at(3_600)),
+            Step(3_500, .tick, .voice, [], .at(3_600)),
+            Step(3_600, .tick, .media, [], .noTimer),
+        ])
+    }
+
+    func testThirtySecondsOfSilenceSwitchBack() {
+        assertRow("thirty seconds of silence switch MEDIA back to VOICE", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(2_000, .otherAudio(false), .media, [], .at(32_000)),
+            Step(31_999, .tick, .media, [], .at(32_000)),
+            Step(32_000, .tick, .voice, [], .noTimer),
+        ])
+    }
+
+    func testShortSilenceKeepsMedia() {
+        assertRow("silence shorter than thirty seconds keeps MEDIA", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(2_000, .otherAudio(false), .media, [], .at(32_000)),
+            Step(31_999, .tick, .media, [], .at(32_000)),
+        ])
+    }
+
+    func testOtherAudioRestartingKeepsMedia() {
+        assertRow("other audio restarting inside the silence window keeps MEDIA", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(2_000, .otherAudio(false), .media, [], .at(32_000)),
+            Step(20_000, .otherAudio(true), .media, [], .noTimer),
+            Step(60_000, .tick, .media, [], .noTimer),
+        ])
+    }
+
+    func testInertRouteKeepsVoice() {
+        // §7: "Non-BT-Classic routes have no profile conflict: the policy is inert
+        // there." Holding VOICE costs nothing without a conflict and keeps PTT instant.
+        assertRow("a route with no voice link keeps VOICE while other audio plays", [
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .voice, [], .noTimer),
+            Step(3_000, .tick, .voice, [], .noTimer),
+        ])
+    }
+
+    func testHeadsetConnectingIntoMusicSwitchesAtOnce() {
+        // The dwell kept running while the route was inert, so the 2 s is already
+        // served when the headset arrives.
+        assertRow("a headset connecting while other audio already plays switches to MEDIA at once", [
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .voice, [], .noTimer),
+            Step(5_000, .routeRequiresVoiceLink(true), .media, [], .noTimer),
+        ])
+    }
 }

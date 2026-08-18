@@ -189,6 +189,7 @@ class ModePolicy {
      * apply the input, then let the profile catch up with what the policy wants.
      */
     private fun step(nowMs: Long, input: () -> List<Action>): Decision {
+        updateDwell(nowMs)
         val actions = input()
         applyBaseIfAllowed(nowMs)
         return Decision(
@@ -216,7 +217,40 @@ class ModePolicy {
         appliedProfile = base
     }
 
-    private fun nextWakeupMs(nowMs: Long): Long? = null
+    /**
+     * Section 7's asymmetric hysteresis. The dwell latches what the automatic policy
+     * *wants*; the gates below decide when the applied profile catches up ("switch at the
+     * next radio-idle moment"). It keeps running on routes with no voice link, so a
+     * headset connecting into already-playing music does not restart the 2 s.
+     */
+    private fun updateDwell(nowMs: Long) {
+        val since = otherAudioSinceMs ?: return
+        if (otherAudioActive) {
+            if (nowMs - since >= Constants.OTHER_AUDIO_TO_MEDIA_MS) {
+                desiredAutoProfile = Profile.MEDIA
+            }
+        } else if (nowMs - since >= Constants.OTHER_AUDIO_TO_VOICE_MS) {
+            desiredAutoProfile = Profile.VOICE
+        }
+    }
+
+    /**
+     * The earliest moment at which a [tick] could change something. [updateDwell] has
+     * already run, so a dwell deadline is only reported while it is still in the future.
+     */
+    private fun nextWakeupMs(nowMs: Long): Long? {
+        val deadlines = mutableListOf<Long>()
+        val since = otherAudioSinceMs
+        if (since != null) {
+            if (otherAudioActive && desiredAutoProfile != Profile.MEDIA) {
+                deadlines.add(since + Constants.OTHER_AUDIO_TO_MEDIA_MS)
+            }
+            if (!otherAudioActive && desiredAutoProfile != Profile.VOICE) {
+                deadlines.add(since + Constants.OTHER_AUDIO_TO_VOICE_MS)
+            }
+        }
+        return deadlines.minOrNull()
+    }
 
     // endregion
 }

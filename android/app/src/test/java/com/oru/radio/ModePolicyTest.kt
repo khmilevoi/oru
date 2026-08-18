@@ -144,4 +144,97 @@ class ModePolicyTest {
     }
 
     // endregion
+
+    // region Other-audio hysteresis
+
+    @Test
+    fun `two seconds of other audio switch VOICE to MEDIA`() {
+        assertRow("two seconds of other audio switch VOICE to MEDIA", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(1_000L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(3_000L)),
+            Step(3_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `other audio shorter than two seconds does not switch`() {
+        assertRow("other audio shorter than two seconds does not switch", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(1_999L, Input.Tick, Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(1_999L, Input.OtherAudio(false), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(60_000L, Input.Tick, Profile.VOICE, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `a gap in other audio restarts the two second dwell`() {
+        assertRow("a gap in other audio restarts the two second dwell", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(1_500L, Input.OtherAudio(false), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(1_600L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(3_600L)),
+            Step(3_500L, Input.Tick, Profile.VOICE, emptyList(), Wakeup.At(3_600L)),
+            Step(3_600L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `thirty seconds of silence switch MEDIA back to VOICE`() {
+        assertRow("thirty seconds of silence switch MEDIA back to VOICE", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(2_000L, Input.OtherAudio(false), Profile.MEDIA, emptyList(), Wakeup.At(32_000L)),
+            Step(31_999L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.At(32_000L)),
+            Step(32_000L, Input.Tick, Profile.VOICE, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `silence shorter than thirty seconds keeps MEDIA`() {
+        assertRow("silence shorter than thirty seconds keeps MEDIA", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(2_000L, Input.OtherAudio(false), Profile.MEDIA, emptyList(), Wakeup.At(32_000L)),
+            Step(31_999L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.At(32_000L)),
+        ))
+    }
+
+    @Test
+    fun `other audio restarting inside the silence window keeps MEDIA`() {
+        assertRow("other audio restarting inside the silence window keeps MEDIA", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(2_000L, Input.OtherAudio(false), Profile.MEDIA, emptyList(), Wakeup.At(32_000L)),
+            Step(20_000L, Input.OtherAudio(true), Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(60_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `a route with no voice link keeps VOICE while other audio plays`() {
+        // Section 7: "Non-BT-Classic routes have no profile conflict: the policy is inert
+        // there." Holding VOICE costs nothing without a conflict and keeps PTT instant.
+        assertRow("a route with no voice link keeps VOICE while other audio plays", listOf(
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.Tick, Profile.VOICE, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `a headset connecting while other audio already plays switches to MEDIA at once`() {
+        // The dwell kept running while the route was inert, so the 2 s is already served
+        // when the headset arrives.
+        assertRow("a headset connecting while other audio already plays switches to MEDIA at once", listOf(
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(5_000L, Input.RouteRequiresVoiceLink(true), Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    // endregion
 }
