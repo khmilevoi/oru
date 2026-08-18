@@ -543,4 +543,63 @@ class ModePolicyTest {
     }
 
     // endregion
+
+    // region Section 9 behaviour contract, as compositions
+
+    @Test
+    fun `section 9 headset connects then music starts then PTT then music stops`() {
+        // Section 9 rows: "BT headset connects, no music"; "user starts music"; "incoming
+        // voice during music"; "PTT press during music"; "music stops".
+        assertRow("section 9 headset connects then music starts then PTT then music stops", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(5_000L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(7_000L)),
+            Step(7_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(10_000L, Input.RadioActive(true), Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(13_000L, Input.RadioActive(false), Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(20_000L, Input.PttPressed, Profile.VOICE, listOf(Action.RaiseVoiceLink), Wakeup.At(24_000L)),
+            Step(21_500L, Input.VoiceLinkEstablished, Profile.VOICE,
+                listOf(Action.PlayGrantTone, Action.StartCapture(MicSource.ROUTE_DEFAULT)), Wakeup.NoTimer),
+            Step(21_500L, Input.RadioActive(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(25_000L, Input.PttReleased, Profile.VOICE, emptyList(), Wakeup.At(40_000L)),
+            Step(25_000L, Input.RadioActive(false), Profile.VOICE, emptyList(), Wakeup.At(40_000L)),
+            Step(40_000L, Input.Tick, Profile.MEDIA, listOf(Action.DropVoiceLink), Wakeup.NoTimer),
+            Step(45_000L, Input.OtherAudio(false), Profile.MEDIA, emptyList(), Wakeup.At(75_000L)),
+            Step(75_000L, Input.Tick, Profile.VOICE, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `section 9 the headset dies during the linger`() {
+        // Section 9 row: "Headset battery dies / walks out of range → immediate
+        // loudspeaker + phone mic; no error state". The link is not dropped on the way
+        // out: with no headset there is no profile conflict, so VOICE is where the policy
+        // belongs.
+        assertRow("section 9 the headset dies during the linger", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.PttPressed, Profile.VOICE, listOf(Action.RaiseVoiceLink), Wakeup.At(7_000L)),
+            Step(3_500L, Input.VoiceLinkEstablished, Profile.VOICE,
+                listOf(Action.PlayGrantTone, Action.StartCapture(MicSource.ROUTE_DEFAULT)), Wakeup.NoTimer),
+            Step(5_000L, Input.PttReleased, Profile.VOICE, emptyList(), Wakeup.At(20_000L)),
+            Step(8_000L, Input.RouteRequiresVoiceLink(false), Profile.VOICE, emptyList(), Wakeup.At(20_000L)),
+            Step(20_000L, Input.Tick, Profile.VOICE, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `section 9 incoming voice during other audio never switches the profile`() {
+        // Section 9 row: "Incoming voice during music → voice plays into the A2DP stream;
+        // no profile switch".
+        assertRow("section 9 incoming voice during other audio never switches the profile", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.RadioActive(true), Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(9_000L, Input.RadioActive(false), Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(9_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    // endregion
 }

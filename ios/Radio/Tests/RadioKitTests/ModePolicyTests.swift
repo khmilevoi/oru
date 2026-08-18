@@ -516,4 +516,57 @@ final class ModePolicyTests: XCTestCase {
             Step(17_000, .tick, .media, [.dropVoiceLink], .noTimer),
         ])
     }
+
+    // MARK: - §9 behaviour contract, as compositions
+
+    func testSection9MusicThenPttThenMusicStops() {
+        // §9 rows: "BT headset connects, no music"; "user starts music"; "incoming voice
+        // during music"; "PTT press during music"; "music stops".
+        assertRow("section 9 headset connects then music starts then PTT then music stops", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(5_000, .otherAudio(true), .voice, [], .at(7_000)),
+            Step(7_000, .tick, .media, [], .noTimer),
+            Step(10_000, .radioActive(true), .media, [], .noTimer),
+            Step(13_000, .radioActive(false), .media, [], .noTimer),
+            Step(20_000, .pttPressed, .voice, [.raiseVoiceLink], .at(24_000)),
+            Step(21_500, .voiceLinkEstablished, .voice,
+                 [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
+            Step(21_500, .radioActive(true), .voice, [], .noTimer),
+            Step(25_000, .pttReleased, .voice, [], .at(40_000)),
+            Step(25_000, .radioActive(false), .voice, [], .at(40_000)),
+            Step(40_000, .tick, .media, [.dropVoiceLink], .noTimer),
+            Step(45_000, .otherAudio(false), .media, [], .at(75_000)),
+            Step(75_000, .tick, .voice, [], .noTimer),
+        ])
+    }
+
+    func testSection9HeadsetDiesDuringTheLinger() {
+        // §9 row: "Headset battery dies / walks out of range → immediate loudspeaker +
+        // phone mic; no error state". The link is not dropped on the way out: with no
+        // headset there is no profile conflict, so VOICE is where the policy belongs.
+        assertRow("section 9 the headset dies during the linger", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
+            Step(3_500, .voiceLinkEstablished, .voice,
+                 [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
+            Step(5_000, .pttReleased, .voice, [], .at(20_000)),
+            Step(8_000, .routeRequiresVoiceLink(false), .voice, [], .at(20_000)),
+            Step(20_000, .tick, .voice, [], .noTimer),
+        ])
+    }
+
+    func testSection9IncomingVoiceDuringMusicNeverSwitches() {
+        // §9 row: "Incoming voice during music → voice plays into the A2DP stream; no
+        // profile switch".
+        assertRow("section 9 incoming voice during other audio never switches the profile", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(3_000, .radioActive(true), .media, [], .noTimer),
+            Step(9_000, .radioActive(false), .media, [], .noTimer),
+            Step(9_000, .tick, .media, [], .noTimer),
+        ])
+    }
 }
