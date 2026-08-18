@@ -78,6 +78,18 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace "com.oru"
+
+    // Spec section 12.1 typography. The bundled Oswald / IBM Plex Mono faces
+    // live once at the repository root (assets/fonts) and are compiled into the
+    // APK from there rather than duplicated under android/. React Native's font
+    // manager looks for `fonts/<PostScript name>.ttf` inside the APK assets, so
+    // the directory registered here is the *parent* of `fonts/`.
+    sourceSets {
+        main {
+            assets.srcDirs += [file("$rootDir/../assets")]
+        }
+    }
+
     defaultConfig {
         applicationId "com.oru"
         minSdkVersion rootProject.ext.minSdkVersion
