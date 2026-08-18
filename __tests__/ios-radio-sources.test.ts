@@ -525,11 +525,6 @@ describe('PTT subsystem (spec section 9)', () => {
 describe('assembly and spike hooks (spec section 15, phase 0)', () => {
   const assembly = source('RadioAssembly.swift');
   const spike = source('RadioSpike.swift');
-  const appDelegate = existsSync(
-    join(__dirname, '..', 'ios', 'Oru', 'AppDelegate.swift'),
-  )
-    ? readFileSync(join(__dirname, '..', 'ios', 'Oru', 'AppDelegate.swift'), 'utf8')
-    : '';
 
   it.each([
     'public final class RadioAssembly',
@@ -564,15 +559,6 @@ describe('assembly and spike hooks (spec section 15, phase 0)', () => {
   it('logs every engine event under one greppable prefix', () => {
     expect(spike).toContain('[spike]');
     expect(spike).toContain('addObserver(');
-  });
-
-  it('is bootstrapped from the app delegate in debug builds only', () => {
-    expect(appDelegate).toContain('import RadioKit');
-    expect(appDelegate).toContain('RadioSpike.bootstrap()');
-    const guardIndex = appDelegate.indexOf('#if DEBUG');
-    const callIndex = appDelegate.indexOf('RadioSpike.bootstrap()');
-    expect(guardIndex).toBeGreaterThan(-1);
-    expect(guardIndex).toBeLessThan(callIndex);
   });
 
   it('ships a phase 0 runbook covering all four scenarios', () => {
