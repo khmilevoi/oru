@@ -237,4 +237,65 @@ class ModePolicyTest {
     }
 
     // endregion
+
+    // region Radio-idle queuing and the rate limit
+
+    @Test
+    fun `a switch waits while the radio is busy and applies when it goes idle`() {
+        // No timer is reported while the radio is busy: the switch is waiting on an input
+        // (the radio going idle), not on a clock.
+        assertRow("a switch waits while the radio is busy and applies when it goes idle", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.RadioActive(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(5_000L, Input.RadioActive(false), Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `a second switch inside ten seconds waits for the rate limit`() {
+        assertRow("a second switch inside ten seconds waits for the rate limit", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.SetAudioMode(AudioMode.VOICE), Profile.MEDIA, emptyList(), Wakeup.At(12_000L)),
+            Step(11_999L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.At(12_000L)),
+            Step(12_000L, Input.Tick, Profile.VOICE, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `a switch more than ten seconds after the previous one is not delayed`() {
+        assertRow("a switch more than ten seconds after the previous one is not delayed", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(12_000L, Input.SetAudioMode(AudioMode.VOICE), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `a pinned mode change also waits for the radio to go idle`() {
+        assertRow("a pinned mode change also waits for the radio to go idle", listOf(
+            Step(0L, Input.RadioActive(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.SetAudioMode(AudioMode.MEDIA), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(1_000L, Input.RadioActive(false), Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `a queued switch waits for both the rate limit and the radio`() {
+        assertRow("a queued switch waits for both the rate limit and the radio", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.SetAudioMode(AudioMode.VOICE), Profile.MEDIA, emptyList(), Wakeup.At(12_000L)),
+            Step(4_000L, Input.RadioActive(true), Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(20_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(21_000L, Input.RadioActive(false), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    // endregion
 }

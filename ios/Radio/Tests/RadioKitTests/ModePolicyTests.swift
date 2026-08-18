@@ -243,4 +243,58 @@ final class ModePolicyTests: XCTestCase {
             Step(5_000, .routeRequiresVoiceLink(true), .media, [], .noTimer),
         ])
     }
+
+    // MARK: - Radio-idle queuing and the rate limit
+
+    func testASwitchWaitsWhileTheRadioIsBusy() {
+        // No timer is reported while the radio is busy: the switch is waiting on an
+        // input (the radio going idle), not on a clock.
+        assertRow("a switch waits while the radio is busy and applies when it goes idle", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .radioActive(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .voice, [], .noTimer),
+            Step(5_000, .radioActive(false), .media, [], .noTimer),
+        ])
+    }
+
+    func testASecondSwitchWaitsForTheRateLimit() {
+        assertRow("a second switch inside ten seconds waits for the rate limit", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(3_000, .audioMode(.voice), .media, [], .at(12_000)),
+            Step(11_999, .tick, .media, [], .at(12_000)),
+            Step(12_000, .tick, .voice, [], .noTimer),
+        ])
+    }
+
+    func testASwitchAfterTheWindowIsNotDelayed() {
+        assertRow("a switch more than ten seconds after the previous one is not delayed", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(12_000, .audioMode(.voice), .voice, [], .noTimer),
+        ])
+    }
+
+    func testAPinnedModeChangeWaitsForIdle() {
+        assertRow("a pinned mode change also waits for the radio to go idle", [
+            Step(0, .radioActive(true), .voice, [], .noTimer),
+            Step(0, .audioMode(.media), .voice, [], .noTimer),
+            Step(1_000, .radioActive(false), .media, [], .noTimer),
+        ])
+    }
+
+    func testAQueuedSwitchWaitsForBoth() {
+        assertRow("a queued switch waits for both the rate limit and the radio", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(3_000, .audioMode(.voice), .media, [], .at(12_000)),
+            Step(4_000, .radioActive(true), .media, [], .noTimer),
+            Step(20_000, .tick, .media, [], .noTimer),
+            Step(21_000, .radioActive(false), .voice, [], .noTimer),
+        ])
+    }
 }

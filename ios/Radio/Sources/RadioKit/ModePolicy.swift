@@ -102,6 +102,10 @@ public final class ModePolicy {
     /// What the platform has been told to apply.
     private var appliedProfile: Profile = .voice
 
+    /// When the last policy-driven switch was applied, for the 10 s rate limit. The
+    /// PTT raise/drop of §7 neither consults nor stamps it.
+    private var lastSwitchMs: Int64?
+
     public init() {}
 
     // MARK: - Inputs
@@ -196,10 +200,16 @@ public final class ModePolicy {
         appliedProfile
     }
 
+    /// §7's two gates on a VOICE↔MEDIA switch: it never runs during receive or transmit
+    /// (it queues for idle), and at most one runs per `switchRateLimitMs`. A pin change
+    /// is a switch like any other — applying one mid-transmission would break the same
+    /// audio a policy switch would.
     private func applyBaseIfAllowed(_ nowMs: Int64) {
         let base = baseProfile
-        guard base != appliedProfile else { return }
+        guard base != appliedProfile, !radioActive else { return }
+        if let last = lastSwitchMs, nowMs - last < Constants.switchRateLimitMs { return }
         appliedProfile = base
+        lastSwitchMs = nowMs
     }
 
     /// §7's asymmetric hysteresis. The dwell latches what the automatic policy *wants*;
@@ -228,6 +238,13 @@ public final class ModePolicy {
             if !otherAudioActive, desiredAutoProfile != .voice {
                 deadlines.append(since + Constants.otherAudioToVoiceMs)
             }
+        }
+        // A switch the rate limit is holding back will need a tick when the window
+        // closes. One the *radio* is holding back does not: the radio going idle is an
+        // input, and it runs the gate itself.
+        if baseProfile != appliedProfile, !radioActive,
+           let last = lastSwitchMs, nowMs - last < Constants.switchRateLimitMs {
+            deadlines.append(last + Constants.switchRateLimitMs)
         }
         return deadlines.min()
     }

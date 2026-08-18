@@ -129,6 +129,12 @@ class ModePolicy {
     /** What the platform has been told to apply. */
     private var appliedProfile: Profile = Profile.VOICE
 
+    /**
+     * When the last policy-driven switch was applied, for the 10 s rate limit. The PTT
+     * raise/drop of section 7 neither consults nor stamps it.
+     */
+    private var lastSwitchMs: Long? = null
+
     // endregion
 
     // region Inputs
@@ -211,10 +217,19 @@ class ModePolicy {
 
     private fun requestedProfile(): Profile = appliedProfile
 
+    /**
+     * Section 7's two gates on a VOICE/MEDIA switch: it never runs during receive or
+     * transmit (it queues for idle), and at most one runs per [Constants.SWITCH_RATE_LIMIT_MS].
+     * A pin change is a switch like any other — applying one mid-transmission would break
+     * the same audio a policy switch would.
+     */
     private fun applyBaseIfAllowed(nowMs: Long) {
         val base = baseProfile()
-        if (base == appliedProfile) return
+        if (base == appliedProfile || radioActive) return
+        val last = lastSwitchMs
+        if (last != null && nowMs - last < Constants.SWITCH_RATE_LIMIT_MS) return
         appliedProfile = base
+        lastSwitchMs = nowMs
     }
 
     /**
@@ -248,6 +263,15 @@ class ModePolicy {
             if (!otherAudioActive && desiredAutoProfile != Profile.VOICE) {
                 deadlines.add(since + Constants.OTHER_AUDIO_TO_VOICE_MS)
             }
+        }
+        // A switch the rate limit is holding back will need a tick when the window
+        // closes. One the *radio* is holding back does not: the radio going idle is an
+        // input, and it runs the gate itself.
+        val last = lastSwitchMs
+        if (baseProfile() != appliedProfile && !radioActive &&
+            last != null && nowMs - last < Constants.SWITCH_RATE_LIMIT_MS
+        ) {
+            deadlines.add(last + Constants.SWITCH_RATE_LIMIT_MS)
         }
         return deadlines.minOrNull()
     }
