@@ -75,6 +75,16 @@ describe('the RADIO_BACKEND flag — spec section 6.5', () => {
       pttButton: {configured: true, connected: false, name: 'ORU-PTT-01'},
     });
   });
+
+  it('keeps the Babel plugin the whole fold depends on', () => {
+    // Without this plugin `process.env.RADIO_BACKEND` is never inlined, the
+    // ternary stops folding, and the mock module silently survives into release
+    // bundles -- the one outcome section 6.5 exists to prevent. Nothing else in
+    // the suite would notice.
+    const babel = read('babel.config.js');
+    expect(babel).toMatch(/transform-inline-environment-variables/);
+    expect(babel).toMatch(/RADIO_BACKEND/);
+  });
 });
 
 describe('the mock scenario Dev Menu', () => {

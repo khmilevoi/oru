@@ -103,6 +103,9 @@ describe('the Android Turbo Module (spec section 6.1)', () => {
   it('declares itself a turbo module to the module info provider', () => {
     expect(pkg()).toMatch(/BaseReactPackage\(\)/);
     expect(pkg()).toMatch(/ReactModuleInfo\(/);
+    // A false here is a silent runtime failure: TurboModuleManager simply never
+    // finds the module.
+    expect(pkg()).toMatch(/isTurboModule = \*\/\s*true/);
   });
 
   it('keeps React Native out of the engine package (spec section 6)', () => {
