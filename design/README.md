@@ -3,6 +3,18 @@
 Verbatim export of the Claude Design project **ORU**
 (<https://claude.ai/design/p/d07936f3-e452-4039-bda7-bb80b599e104>), pulled 2026-08-18.
 
+**2026-08-18 — extended for the seamless-headphone-audio spec**
+(`docs/superpowers/specs/2026-08-18-seamless-headphone-audio-design.md` §3 D2/D4, §8):
+`01 Radio` gained the audio route readout — a bottom-centre engraved indicator
+(route icon + device + mode; voice mode reads "radio", media reads "music, phone mic"),
+shown per state across frames 02–05 and 07 plus a new frame 08 enumerating every
+route/mode/locale variant; `02 Settings` gained an Audio section with the one
+`audioMode` setting (auto | voice | media, default auto, rendered Auto / Radio / Music)
+as a segmented control in both frames. Both changes carry en/ru copy; `theme.css` is
+untouched. These additions are local for now: the DesignSync push back to the Claude
+Design project could not be performed from the session that made them, so until that
+push happens the canvas project does not yet carry frames 08/Audio.
+
 Spec §12.1 (`docs/superpowers/specs/2026-08-13-offline-nearby-ptt-design.md`) points at this
 canvas as the source of the visual design, but until now it was never exported — the P6 UI
 plan states this outright and records reconciling the app's tokens against the canvas as an
@@ -15,8 +27,8 @@ carries the values the plan invented from §12.1's one-sentence written directio
 | File | What it is |
 |---|---|
 | `theme.css` | Shared tokens (colours, fonts) and the component styles every screen reuses |
-| `01 Radio.dc.html` | Main screen — seven frames: off, searching, ready, transmitting, receiving, plus off/ready in the alternate locale |
-| `02 Settings.dc.html` | Settings — button connected / not configured |
+| `01 Radio.dc.html` | Main screen — eight frames: off, searching, ready, transmitting, receiving, off/ready in the alternate locale, and the audio-route-readout states sheet |
+| `02 Settings.dc.html` | Settings — button connected / not configured; both frames carry the Audio section (`audioMode`) |
 | `03 Pairing.dc.html` | Pairing — scan, select, learn, saved |
 | `04 Onboarding.dc.html` | Onboarding — microphone, Bluetooth, nearby devices, done |
 | `support.js` | Generated Claude Design canvas runtime; renders the `<x-dc>` templates. Not app code — do not edit |
