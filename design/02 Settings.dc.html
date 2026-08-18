@@ -20,6 +20,20 @@
           .btnrow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 22px; }
           .offname { font-size: 19px; font-weight: 400; color: var(--dim); }
           .connectbtn { margin-top: 22px; }
+
+          /* ---- audio mode segmented control ---- */
+          .seg { display: flex; border: 1px solid var(--line2); border-radius: 14px; overflow: hidden; }
+          .seg span {
+            flex: 1;
+            padding: 14px 0;
+            text-align: center;
+            font-size: 13.5px;
+            letter-spacing: 0.04em;
+            color: var(--dim);
+          }
+          .seg span + span { border-left: 1px solid var(--line2); }
+          .seg .on { background: var(--ink); color: #0c0e10; font-weight: 500; }
+          .canvasnote { position: absolute; left: 48px; top: 968px; font: 500 11px/1.8 var(--mono); letter-spacing: 0.14em; color: #5a636b; text-transform: uppercase; white-space: nowrap; }
         </style>
       </helmet>
 
@@ -42,6 +56,11 @@
               <div class="btn ghost">{{ t.replace }}</div>
             </div>
           </div>
+          <div class="slabel">{{ t.audioSection }}</div>
+          <div class="card">
+            <div class="seg"><span class="on">{{ t.audioAuto }}</span><span>{{ t.audioVoice }}</span><span>{{ t.audioMedia }}</span></div>
+            <div class="note">{{ t.audioNote }}</div>
+          </div>
           <div class="vers">OFFLINE NEARBY PTT · V0.1</div>
         </div>
       </div>
@@ -57,8 +76,17 @@
             <div class="note">{{ t.note }}</div>
             <div class="btn solid connectbtn">{{ t.connect }}</div>
           </div>
+          <div class="slabel">{{ t.audioSection }}</div>
+          <div class="card">
+            <div class="seg"><span class="on">{{ t.audioAuto }}</span><span>{{ t.audioVoice }}</span><span>{{ t.audioMedia }}</span></div>
+            <div class="note">{{ t.audioNote }}</div>
+          </div>
           <div class="vers">OFFLINE NEARBY PTT · V0.1</div>
         </div>
+      </div>
+
+      <div class="canvasnote">
+        <div>AUDIO · ONE SETTING — AUDIOMODE: AUTO | VOICE | MEDIA · DEFAULT AUTO (SELECTED IN BOTH FRAMES) · LABELS: AUTO = AUTO / АВТО, VOICE = RADIO / РАЦИЯ, MEDIA = MUSIC / МУЗЫКА · NO DEVICE PICKER — ROUTING IS AUTOMATIC, THIS PIN IS THE ESCAPE HATCH</div>
       </div>
     </x-dc>
     <script type="text/x-dc" data-dc-script data-props='{
@@ -76,7 +104,12 @@
               replace: "Replace",
               off: "Not connected",
               note: "An external button lets you talk without taking the phone out of your pocket.",
-              connect: "Connect"
+              connect: "Connect",
+              audioSection: "Audio",
+              audioAuto: "Auto",
+              audioVoice: "Radio",
+              audioMedia: "Music",
+              audioNote: "What a Bluetooth headset is for. Auto decides by itself: instant push-to-talk while nothing else is playing, full music quality when something is. Radio and Music pin one behavior."
             },
             ru: {
               title: "Настройки",
@@ -87,7 +120,12 @@
               replace: "Заменить",
               off: "Не подключена",
               note: "Внешняя кнопка позволяет говорить, не доставая телефон из кармана.",
-              connect: "Подключить"
+              connect: "Подключить",
+              audioSection: "Звук",
+              audioAuto: "Авто",
+              audioVoice: "Рация",
+              audioMedia: "Музыка",
+              audioNote: "Для чего используется Bluetooth-гарнитура. «Авто» решает само: мгновенная рация, пока ничего не играет, и полное качество музыки, когда она включена. «Рация» и «Музыка» закрепляют один режим."
             }
           };
         }

@@ -63,6 +63,69 @@
           .offstage { gap: 46px; }
           .offcopy { display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
           .offword { color: var(--dim); }
+
+          /* ---- audio route readout (indicator only — never a picker) ---- */
+          .routeline {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            font-size: 11px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--faint);
+            white-space: nowrap;
+          }
+          .routeline svg { flex: none; }
+          .route {
+            position: absolute;
+            left: 90px;
+            right: 90px;
+            bottom: 44px;
+            justify-content: center;
+          }
+
+          /* ---- 08 · route readout states sheet ---- */
+          .routesheet {
+            width: 390px;
+            background: var(--bg);
+            border: 1px solid #2a3138;
+            border-radius: 24px;
+            padding: 24px 28px 20px;
+            color: var(--ink);
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+          }
+          .rshead {
+            padding-bottom: 8px;
+            font-size: 10px;
+            letter-spacing: 0.18em;
+            line-height: 1.8;
+            color: #5a636b;
+            text-transform: uppercase;
+          }
+          .rsrow {
+            display: flex;
+            flex-direction: column-reverse; /* engraved state label above, readout below */
+            align-items: flex-start;
+            gap: 8px;
+            padding: 13px 0 15px;
+            border-top: 1px solid var(--line);
+          }
+          .rsstate {
+            font-size: 10px;
+            letter-spacing: 0.14em;
+            color: #5a636b;
+            text-transform: uppercase;
+            white-space: nowrap;
+          }
+          .rsnote {
+            padding-top: 14px;
+            border-top: 1px solid var(--line);
+            font-size: 10px;
+            letter-spacing: 0.14em;
+            line-height: 1.8;
+            color: #5a636b;
+            text-transform: uppercase;
+          }
         </style>
       </helmet>
 
@@ -83,7 +146,7 @@
       </div>
 
       <div class="frame" style="left:498px;top:56px" data-screen-label="Radio — Searching">
-        <div class="flabel" data-drags-parent="1">radio · 02 searching</div>
+        <div class="flabel" data-drags-parent="1">radio · 02 searching · speaker route</div>
         <div class="phone">
           <div class="sbar"><span>14:32</span><span class="batt"></span></div>
           <div class="peer"></div>
@@ -98,11 +161,12 @@
           </div>
           <div class="gear">⚙&#xFE0E;</div>
           <div class="pwr"><div class="pwrmark"><i class="pwrring"></i><i class="pwrstem"></i></div></div>
+          <div class="routeline route"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.2h2.6L8.4 2v10L4.6 8.8H2z" fill="currentColor" stroke="none"/><path d="M10.6 4.6a3.4 3.4 0 0 1 0 4.8"/></svg><span>{{ t.routeSpeaker }}</span></div>
         </div>
       </div>
 
       <div class="frame" style="left:948px;top:56px" data-screen-label="Radio — Ready">
-        <div class="flabel" data-drags-parent="1">radio · 03 ready</div>
+        <div class="flabel" data-drags-parent="1">radio · 03 ready · bluetooth · voice mode</div>
         <div class="phone">
           <div class="sbar"><span>14:32</span><span class="batt"></span></div>
           <div class="peer"><span class="pdot"></span><span>{{ t.nearby }}</span></div>
@@ -113,11 +177,12 @@
           </div>
           <div class="gear">⚙&#xFE0E;</div>
           <div class="pwr"><div class="pwrmark"><i class="pwrring"></i><i class="pwrstem"></i></div></div>
+          <div class="routeline route"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ t.routeBtVoice }}</span></div>
         </div>
       </div>
 
       <div class="frame" style="left:1398px;top:56px" data-screen-label="Radio — Transmitting">
-        <div class="flabel" data-drags-parent="1">radio · 04 transmitting</div>
+        <div class="flabel" data-drags-parent="1">radio · 04 transmitting · wired route</div>
         <div class="phone tx">
           <div class="sbar"><span>14:32</span><span class="batt"></span></div>
           <div class="peer"><span class="pdot"></span><span>{{ t.nearby }}</span></div>
@@ -130,11 +195,12 @@
           </div>
           <div class="gear">⚙&#xFE0E;</div>
           <div class="pwr dim"><div class="pwrmark"><i class="pwrring"></i><i class="pwrstem"></i></div></div>
+          <div class="routeline route"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 10.5V7a4.4 4.4 0 0 1 8.8 0v3.5"/><rect x="1.6" y="8.6" width="2.4" height="3.6" rx="1" fill="currentColor" stroke="none"/><rect x="10" y="8.6" width="2.4" height="3.6" rx="1" fill="currentColor" stroke="none"/></svg><span>{{ t.routeWired }}</span></div>
         </div>
       </div>
 
       <div class="frame" style="left:1848px;top:56px" data-screen-label="Radio — Receiving">
-        <div class="flabel" data-drags-parent="1">radio · 05 receiving</div>
+        <div class="flabel" data-drags-parent="1">radio · 05 receiving · bluetooth · media mode</div>
         <div class="phone rx">
           <div class="sbar"><span>14:32</span><span class="batt"></span></div>
           <div class="peer"><span class="pdot"></span><span>{{ t.nearby }}</span></div>
@@ -146,6 +212,7 @@
           </div>
           <div class="gear">⚙&#xFE0E;</div>
           <div class="pwr dim"><div class="pwrmark"><i class="pwrring"></i><i class="pwrstem"></i></div></div>
+          <div class="routeline route"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ t.routeBtMedia }}</span></div>
         </div>
       </div>
 
@@ -166,7 +233,7 @@
       </div>
 
       <div class="frame" style="left:2748px;top:56px" data-screen-label="Radio — Ready (other locale)">
-        <div class="flabel" data-drags-parent="1">radio · 07 ready · {{ alt.name }} locale</div>
+        <div class="flabel" data-drags-parent="1">radio · 07 ready · {{ alt.name }} locale · bluetooth · voice mode</div>
         <div class="phone">
           <div class="sbar"><span>14:32</span><span class="batt"></span></div>
           <div class="peer"><span class="pdot"></span><span>{{ alt.nearby }}</span></div>
@@ -177,12 +244,54 @@
           </div>
           <div class="gear">⚙&#xFE0E;</div>
           <div class="pwr"><div class="pwrmark"><i class="pwrring"></i><i class="pwrstem"></i></div></div>
+          <div class="routeline route"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ alt.routeBtVoice }}</span></div>
+        </div>
+      </div>
+
+      <div class="frame" style="left:3198px;top:56px" data-screen-label="Radio — Audio route readout, all states">
+        <div class="flabel" data-drags-parent="1">radio · 08 audio route readout · all states</div>
+        <div class="routesheet">
+          <div class="rshead">AUDIO ROUTE READOUT · BOTTOM CENTRE, BETWEEN GEAR AND POWER · INDICATOR ONLY — NEVER A PICKER, NO TAP TARGET</div>
+          <div class="rsrow">
+            <div class="routeline"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.2h2.6L8.4 2v10L4.6 8.8H2z" fill="currentColor" stroke="none"/><path d="M10.6 4.6a3.4 3.4 0 0 1 0 4.8"/></svg><span>{{ t.routeSpeaker }}</span></div>
+            <div class="rsstate">speaker · voice</div>
+          </div>
+          <div class="rsrow">
+            <div class="routeline"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 10.5V7a4.4 4.4 0 0 1 8.8 0v3.5"/><rect x="1.6" y="8.6" width="2.4" height="3.6" rx="1" fill="currentColor" stroke="none"/><rect x="10" y="8.6" width="2.4" height="3.6" rx="1" fill="currentColor" stroke="none"/></svg><span>{{ t.routeWired }}</span></div>
+            <div class="rsstate">wired · voice</div>
+          </div>
+          <div class="rsrow">
+            <div class="routeline"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ t.routeBtVoice }}</span></div>
+            <div class="rsstate">bluetooth · voice</div>
+          </div>
+          <div class="rsrow">
+            <div class="routeline"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ t.routeBtMedia }}</span></div>
+            <div class="rsstate">bluetooth · media</div>
+          </div>
+          <div class="rsrow">
+            <div class="routeline"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.2h2.6L8.4 2v10L4.6 8.8H2z" fill="currentColor" stroke="none"/><path d="M10.6 4.6a3.4 3.4 0 0 1 0 4.8"/></svg><span>{{ alt.routeSpeaker }}</span></div>
+            <div class="rsstate">speaker · voice · {{ alt.name }}</div>
+          </div>
+          <div class="rsrow">
+            <div class="routeline"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 10.5V7a4.4 4.4 0 0 1 8.8 0v3.5"/><rect x="1.6" y="8.6" width="2.4" height="3.6" rx="1" fill="currentColor" stroke="none"/><rect x="10" y="8.6" width="2.4" height="3.6" rx="1" fill="currentColor" stroke="none"/></svg><span>{{ alt.routeWired }}</span></div>
+            <div class="rsstate">wired · voice · {{ alt.name }}</div>
+          </div>
+          <div class="rsrow">
+            <div class="routeline"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ alt.routeBtVoice }}</span></div>
+            <div class="rsstate">bluetooth · voice · {{ alt.name }}</div>
+          </div>
+          <div class="rsrow">
+            <div class="routeline"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ alt.routeBtMedia }}</span></div>
+            <div class="rsstate">bluetooth · media · {{ alt.name }}</div>
+          </div>
+          <div class="rsnote">USB ROUTES RENDER LIKE WIRED · BLUETOOTH SHOWS THE HEADSET NAME AS REPORTED, OTHER KINDS A GENERIC LABEL · VOICE MODE READS “RADIO”, MEDIA READS “MUSIC, PHONE MIC”</div>
         </div>
       </div>
 
       <div class="canvasnote">
         <div>ALL COPY LOCALIZED EN / RU · ENGLISH DEFAULT · LANGUAGE FOLLOWS SYSTEM LOCALE · NO IN-APP PICKER · USE THE “LANG” TWEAK TO SWITCH LOCALE</div>
         <div>POWER KEY · FIRST-CLASS MAIN-SCREEN CONTROL, NEVER A SETTINGS ITEM · IN OFF THE WHOLE SCREEN IS THE ON-SWITCH · WHEN ON IT MIRRORS THE SETTINGS GEAR IN THE OPPOSITE CORNER, PRESS AND HOLD TO TURN OFF · RECEDES WHILE TRANSMITTING / RECEIVING</div>
+        <div>AUDIO ROUTE READOUT · BOTTOM CENTRE BETWEEN GEAR AND POWER · ROUTE ICON + DEVICE + MODE · INDICATOR ONLY — NEVER A PICKER, NO TAP TARGET · HIDDEN WHILE OFF · STAYS PUT WHILE TRANSMITTING / RECEIVING — IT NAMES THE LIVE MIC · ALL STATES IN FRAME 08</div>
       </div>
     </x-dc>
     <script type="text/x-dc" data-dc-script data-props='{
@@ -202,7 +311,11 @@
               holdCls: "display holden",
               tx: "TRANSMITTING...",
               txHint: "RELEASE TO FINISH",
-              rx: "RECEIVING..."
+              rx: "RECEIVING...",
+              routeSpeaker: "Speaker · radio",
+              routeWired: "Headphones · radio",
+              routeBtVoice: "AirPods · radio",
+              routeBtMedia: "AirPods · music, phone mic"
             },
             ru: {
               name: "ru",
@@ -215,7 +328,11 @@
               holdCls: "display holdword",
               tx: "ПЕРЕДАЧА...",
               txHint: "ОТПУСТИТЕ ЧТОБЫ ЗАКОНЧИТЬ",
-              rx: "ПРИЁМ..."
+              rx: "ПРИЁМ...",
+              routeSpeaker: "Динамик · рация",
+              routeWired: "Наушники · рация",
+              routeBtVoice: "AirPods · рация",
+              routeBtMedia: "AirPods · музыка, микрофон телефона"
             }
           };
         }
