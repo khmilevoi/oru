@@ -149,9 +149,9 @@ screens → P6 · app-entry wiring → P7.
 **Model override:** —
 
 ### P6 `ui` — wave 3, track A
-- [ ] planned   → docs/superpowers/plans/2026-08-13-p6-ui.md
-- [ ] executed  → branch plan/p6-ui · worktree .claude/worktrees/p6-ui
-- [ ] merged    → sync 3
+- [x] planned   → docs/superpowers/plans/2026-08-13-p6-ui.md
+- [x] executed  → branch plan/p6-ui · worktree .claude/worktrees/p6-ui
+- [x] merged    → sync 3
 
 **Owns, first — the mock engine (§6.5):** `src/radio/radio.native.mock.ts`, a complete,
 deterministic TypeScript implementation of the §6.1 contract — every method of
