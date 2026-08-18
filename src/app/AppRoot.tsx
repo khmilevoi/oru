@@ -1,7 +1,7 @@
 import React, {useEffect} from 'react';
 import {BackHandler} from 'react-native';
 import {reatomComponent} from '@reatom/react';
-import {wrap} from '@reatom/core';
+import {bind, wrap} from '@reatom/core';
 
 import {completeOnboarding} from '../permissions/sequencing.model';
 import {BackgroundStep} from '../screens/BackgroundStep';
@@ -12,15 +12,21 @@ import {SettingsScreen} from '../screens/SettingsScreen';
 import {goBack, navigate, route} from './navigation.model';
 
 /**
- * One merged screen per route, with the callbacks each of them declares.
- * Nothing here knows what a screen renders; the whole of this plan's navigation
- * contract is these six lines of wiring.
+ * One merged screen per route, with the callbacks each of them declares, plus
+ * Android's hardware back button. Nothing here knows what a screen renders:
+ * this file is the whole of the plan's navigation contract -- a route atom read
+ * once, a branch per destination, and the `onDone`/`onBack`/`onClose` callbacks
+ * the merged screens declare, bound to `navigate` and `goBack`.
  */
 export const AppRoot = reatomComponent(() => {
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
       'hardwareBackPress',
-      wrap(() => goBack()),
+      // `bind`, not `wrap`: this crosses a native, non-Reatom boundary and is
+      // invoked later, by Android rather than by React -- the same case
+      // `src/app/appEntry.ts` binds its `AppState` listener for. The `wrap`s
+      // below are React `onPress` props and are correct as they are.
+      bind(() => goBack()),
     );
     return () => subscription.remove();
   }, []);

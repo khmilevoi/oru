@@ -11,6 +11,9 @@ describe('the iOS app delegate — spec sections 6.2 and 12', () => {
     // The spike started the engine at launch, which contradicts section 12's
     // `off` state and section 5's power key being the only way out of it.
     expect(appDelegate).not.toMatch(/RadioSpike/);
+    // A bare `import RadioKit` re-adds the spike module without naming any of
+    // its types, which the pattern above would not see.
+    expect(appDelegate).not.toMatch(/^import RadioKit$/m);
   });
 
   it('no longer covers the React Native root with the spike panel', () => {

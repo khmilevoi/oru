@@ -18,8 +18,11 @@ import {chassis} from './src/ui/theme';
  * of section 12.1. `index.js` has already run `bootstrapApp()` by the time this
  * renders, so `i18n` carries an activated catalog on the first frame.
  *
- * The initial route is resolved in `App.tsx`'s sibling task (the first-launch
- * gate); until it answers, `AppRoot` renders nothing over the chassis colour.
+ * The first-launch gate is the effect below: `resolveInitialRoute()` asks the
+ * platform what has already been granted and sets `route()` to `radio` or
+ * `onboarding` accordingly. Until it answers, `route()` is `null` and `AppRoot`
+ * renders nothing over the chassis colour, so the main screen never flashes by
+ * on the way to onboarding.
  */
 function App() {
   useEffect(() => {

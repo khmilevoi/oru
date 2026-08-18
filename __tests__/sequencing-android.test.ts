@@ -194,18 +194,33 @@ describe('the real gateway on API 33', () => {
   });
 });
 
+/**
+ * React Native types `requestMultiple`'s result as a *total* record over every
+ * permission name it knows, while the real call answers only for the names it
+ * was given. `permissions.native.ts` narrows the same way at the call site
+ * (`results as Record<string, string>`), so the cast here is the mirror of the
+ * production one, not a new liberty.
+ */
+type MultipleResults = Awaited<
+  ReturnType<typeof PermissionsAndroid.requestMultiple>
+>;
+
+const allGranted = (names: readonly string[]): MultipleResults =>
+  Object.fromEntries(
+    names.map(name => [name, PermissionsAndroid.RESULTS.GRANTED]),
+  ) as MultipleResults;
+
 describe('the Android permissions backend, running as Android', () => {
   it('asks for the three runtime Bluetooth names in one dialog on API 31', async () => {
     const requestMultiple = jest
       .spyOn(PermissionsAndroid, 'requestMultiple')
-      .mockResolvedValue({
-        [PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN]:
-          PermissionsAndroid.RESULTS.GRANTED,
-        [PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT]:
-          PermissionsAndroid.RESULTS.GRANTED,
-        [PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE]:
-          PermissionsAndroid.RESULTS.GRANTED,
-      });
+      .mockResolvedValue(
+        allGranted([
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
+        ]),
+      );
 
     await expect(androidPermissionsBackend.request('bluetooth')).resolves.toBe(
       'granted',

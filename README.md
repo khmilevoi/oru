@@ -93,10 +93,13 @@ adb shell pm grant com.oru android.permission.RECORD_AUDIO
 
 ## The mock backend
 
-`RADIO_BACKEND=mock` builds the app against the §6.5 mock engine and the mock permission
-gateway — this is how design work, demos and screenshots run, and it's what the Jest suite runs
-against unconditionally. Under `__DEV__`, the Dev Menu carries one entry per mock scenario
-(`src/dev/mockScenarioDevMenu.ts`), letting you switch scenarios inside a running dev build.
+`RADIO_BACKEND=mock` builds the app against the §6.5 mock engine and swaps the §6.4
+`Permissions` port for its mock — this is how design work, demos and screenshots run, and it's
+what the Jest suite runs against unconditionally. It does **not** mock first-launch sequencing:
+`platformGateway` (`src/permissions/platform.gateway.ts`) still calls the real
+`PermissionsAndroid.check` and `Settings` in a mock build. Under `__DEV__`, the Dev Menu carries
+one entry per mock scenario (`src/dev/mockScenarioDevMenu.ts`), letting you switch scenarios
+inside a running dev build.
 
 **The default backend, in both dev and release, is the real native one.** `RADIO_BACKEND=mock`
 is the opt-in:
