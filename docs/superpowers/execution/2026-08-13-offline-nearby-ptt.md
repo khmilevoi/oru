@@ -230,9 +230,9 @@ the UI talks to the model, and the mock is the engine underneath it.)
 **Model override:** —
 
 ### P5 `bridge` — wave 4, track A
-- [ ] planned   → docs/superpowers/plans/2026-08-13-p5-bridge.md
-- [ ] executed  → branch plan/p5-bridge · worktree .claude/worktrees/p5-bridge
-- [ ] merged    → sync 4
+- [x] planned   → docs/superpowers/plans/2026-08-13-p5-bridge.md
+- [x] executed  → branch plan/p5-bridge · worktree .claude/worktrees/p5-bridge
+- [x] merged    → sync 4
 
 **Owns:** the `RadioNative` Turbo Module made real on both platforms: codegen config in
 package.json; Kotlin module + package registration (MainApplication) calling into the
