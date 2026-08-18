@@ -64,10 +64,19 @@ export const realPlatformGateway: PlatformPermissionsGateway = {
     const names = APP_PERMISSIONS.flatMap(permission =>
       androidPermissionNames(permission, androidApiLevel()),
     );
-    const held = await Promise.all(
-      names.map(name => PermissionsAndroid.check(name)),
-    );
-    return held.every(Boolean);
+    try {
+      const held = await Promise.all(
+        names.map(name => PermissionsAndroid.check(name)),
+      );
+      return held.every(Boolean);
+    } catch {
+      // "Cannot tell" is answered as "not granted": the cost is one explanation
+      // sequence the user may not have needed, against silently skipping a
+      // permission they never gave. Throwing is not an option -- section 13,
+      // and `resolveInitialRoute` is the only thing that ever leaves `route()`
+      // at `null`, so a rejection here is a permanently blank app.
+      return false;
+    }
   },
 
   onboardingCompleted: readOnboardingFlag,
@@ -91,9 +100,15 @@ export const realPlatformGateway: PlatformPermissionsGateway = {
 
   async hasBackgroundLocation() {
     if (Platform.OS !== 'android') return true;
-    return PermissionsAndroid.check(
-      PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
-    );
+    try {
+      return await PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
+      );
+    } catch {
+      // As above: an unanswerable check shows the background step rather than
+      // skipping it, so the worst case is a screen the user taps past.
+      return false;
+    }
   },
 
   async requestNotifications() {
@@ -101,9 +116,16 @@ export const realPlatformGateway: PlatformPermissionsGateway = {
     // service is what keeps the radio alive with the screen locked. It became a
     // runtime permission in API 33.
     if (Platform.OS !== 'android' || androidApiLevel() < 33) return;
-    await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
-    );
+    try {
+      await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+      );
+    } catch {
+      // A prompt that could not be raised is the same outcome as a prompt the
+      // user declined, and neither blocks onboarding: the radio still runs, it
+      // just posts no notification. Swallowing keeps that off the app's only
+      // route out of a blank first frame.
+    }
   },
 
   /**
@@ -115,15 +137,31 @@ export const realPlatformGateway: PlatformPermissionsGateway = {
   async requestBackgroundLocation() {
     if (Platform.OS !== 'android') return true;
 
-    await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
-    );
-    return PermissionsAndroid.check(
-      PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
-    );
+    try {
+      await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
+      );
+      return await PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
+      );
+    } catch {
+      // `false` keeps the user on the background step with the settings
+      // redirect in front of them, which is the recoverable answer; `true`
+      // would navigate away on a grant that was never confirmed.
+      return false;
+    }
   },
 
-  openSettings: () => Linking.openSettings(),
+  async openSettings() {
+    try {
+      await Linking.openSettings();
+    } catch {
+      // The step's own `needsSettings` copy already spells out the route by
+      // hand ("Permissions, then Location, then 'Allow all the time'"), so a
+      // settings intent the OS refuses costs the user a manual detour rather
+      // than an unhandled rejection.
+    }
+  },
 };
 
 /**
