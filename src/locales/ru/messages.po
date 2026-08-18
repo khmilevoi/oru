@@ -41,6 +41,10 @@ msgstr "{buttonName} готова к работе"
 msgid "Allow"
 msgstr "Разрешить"
 
+#: src/screens/SettingsScreen.tsx:88
+msgid "An external button lets you talk without taking the phone out of your pocket."
+msgstr "Внешняя кнопка позволяет говорить, не доставая телефон из кармана."
+
 #: src/screens/BackgroundStep.tsx:53
 msgid "Android grants this only from the app settings. Open them, choose Permissions, then Location, then \"Allow all the time\"."
 msgstr "Android выдаёт это только в настройках приложения. Откройте их, выберите «Разрешения», затем «Геолокация», затем «Разрешить всегда»."
@@ -61,7 +65,7 @@ msgstr "Кнопка сохранена"
 msgid "Cancel"
 msgstr "Отмена"
 
-#: src/screens/SettingsScreen.tsx:80
+#: src/screens/SettingsScreen.tsx:95
 msgid "Connect"
 msgstr "Подключить"
 
@@ -69,11 +73,11 @@ msgstr "Подключить"
 msgid "CONNECT A BUTTON"
 msgstr "ПОДКЛЮЧЕНИЕ КНОПКИ"
 
-#: src/screens/SettingsScreen.tsx:47
+#: src/screens/SettingsScreen.tsx:50
 msgid "Connected"
 msgstr "Подключена"
 
-#: src/screens/SettingsScreen.tsx:49
+#: src/screens/SettingsScreen.tsx:52
 msgid "Disconnected"
 msgstr "Отключена"
 
@@ -89,7 +93,7 @@ msgstr "Удерживайте её, пока она не будет распо�
 msgid "HOLD TO TALK"
 msgstr "УДЕРЖИВАЙТЕ ЧТОБЫ ГОВОРИТЬ"
 
-#: src/screens/SettingsScreen.tsx:55
+#: src/screens/SettingsScreen.tsx:61
 msgid "Hold to transmit"
 msgstr "Удерживайте, чтобы передавать"
 
@@ -117,7 +121,7 @@ msgstr "Устройства рядом"
 msgid "No buttons found"
 msgstr "Кнопки не найдены"
 
-#: src/screens/SettingsScreen.tsx:76
+#: src/screens/SettingsScreen.tsx:85
 msgid "Not connected"
 msgstr "Не подключена"
 
@@ -162,7 +166,7 @@ msgstr "Разрешение заблокировано. Выдайте его �
 msgid "Press the PTT button"
 msgstr "Нажмите кнопку PTT"
 
-#: src/screens/SettingsScreen.tsx:34
+#: src/screens/SettingsScreen.tsx:33
 msgid "PTT BUTTON"
 msgstr "КНОПКА PTT"
 
@@ -190,7 +194,7 @@ msgstr "ПРИЁМ..."
 msgid "RELEASE TO FINISH"
 msgstr "ОТПУСТИТЕ ЧТОБЫ ЗАКОНЧИТЬ"
 
-#: src/screens/SettingsScreen.tsx:65
+#: src/screens/SettingsScreen.tsx:73
 msgid "Replace"
 msgstr "Заменить"
 
@@ -240,7 +244,7 @@ msgstr "Шаг {step} из {0}"
 msgid "TAP TO TURN ON"
 msgstr "НАЖМИТЕ ЧТОБЫ ВКЛЮЧИТЬ"
 
-#: src/screens/SettingsScreen.tsx:54
+#: src/screens/SettingsScreen.tsx:60
 msgid "Test"
 msgstr "Проверить"
 

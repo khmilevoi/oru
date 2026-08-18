@@ -41,6 +41,10 @@ msgstr "{buttonName} is ready to use"
 msgid "Allow"
 msgstr "Allow"
 
+#: src/screens/SettingsScreen.tsx:88
+msgid "An external button lets you talk without taking the phone out of your pocket."
+msgstr "An external button lets you talk without taking the phone out of your pocket."
+
 #: src/screens/BackgroundStep.tsx:53
 msgid "Android grants this only from the app settings. Open them, choose Permissions, then Location, then \"Allow all the time\"."
 msgstr "Android grants this only from the app settings. Open them, choose Permissions, then Location, then \"Allow all the time\"."
@@ -61,7 +65,7 @@ msgstr "Button saved"
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/screens/SettingsScreen.tsx:80
+#: src/screens/SettingsScreen.tsx:95
 msgid "Connect"
 msgstr "Connect"
 
@@ -69,11 +73,11 @@ msgstr "Connect"
 msgid "CONNECT A BUTTON"
 msgstr "CONNECT A BUTTON"
 
-#: src/screens/SettingsScreen.tsx:47
+#: src/screens/SettingsScreen.tsx:50
 msgid "Connected"
 msgstr "Connected"
 
-#: src/screens/SettingsScreen.tsx:49
+#: src/screens/SettingsScreen.tsx:52
 msgid "Disconnected"
 msgstr "Disconnected"
 
@@ -89,7 +93,7 @@ msgstr "Hold it down until it is recognised"
 msgid "HOLD TO TALK"
 msgstr "HOLD TO TALK"
 
-#: src/screens/SettingsScreen.tsx:55
+#: src/screens/SettingsScreen.tsx:61
 msgid "Hold to transmit"
 msgstr "Hold to transmit"
 
@@ -117,7 +121,7 @@ msgstr "Nearby devices"
 msgid "No buttons found"
 msgstr "No buttons found"
 
-#: src/screens/SettingsScreen.tsx:76
+#: src/screens/SettingsScreen.tsx:85
 msgid "Not connected"
 msgstr "Not connected"
 
@@ -162,7 +166,7 @@ msgstr "Permission is blocked. Grant it in the system settings."
 msgid "Press the PTT button"
 msgstr "Press the PTT button"
 
-#: src/screens/SettingsScreen.tsx:34
+#: src/screens/SettingsScreen.tsx:33
 msgid "PTT BUTTON"
 msgstr "PTT BUTTON"
 
@@ -190,7 +194,7 @@ msgstr "RECEIVING..."
 msgid "RELEASE TO FINISH"
 msgstr "RELEASE TO FINISH"
 
-#: src/screens/SettingsScreen.tsx:65
+#: src/screens/SettingsScreen.tsx:73
 msgid "Replace"
 msgstr "Replace"
 
@@ -240,7 +244,7 @@ msgstr "Step {step} of {0}"
 msgid "TAP TO TURN ON"
 msgstr "TAP TO TURN ON"
 
-#: src/screens/SettingsScreen.tsx:54
+#: src/screens/SettingsScreen.tsx:60
 msgid "Test"
 msgstr "Test"
 
