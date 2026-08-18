@@ -2,6 +2,9 @@
 
 ## Status
 
+**Resolved 2026-08-18: Go.** See "## Go decision — 2026-08-18" at the end of this document.
+Everything below in this section is the historical state and is kept as written.
+
 **No Go/No-Go decision has been made.** This section was accurate as of 2026-08-14; see
 "## Status (repeated)" at the end of this document for the current state as of 2026-08-15 —
 hardware availability and the actual blocker have both changed since this was first written
@@ -891,6 +894,9 @@ knowing before anyone re-runs the Wi-Fi-toggle repro.
 
 ## Status (repeated)
 
+*Superseded 2026-08-18 — the decision is recorded in "## Go decision — 2026-08-18" at the end
+of this document. Kept as written for the 2026-08-15 state.*
+
 **No Go/No-Go decision has been made.** This report documents pre-gate smoke testing, bug fixes,
 and (as of 2026-08-15) a from-scratch iOS build/test pass — RadioKit now compiles end-to-end,
 its full unit test suite passes on the simulator, and it has now run for the first time on real
@@ -1597,3 +1603,26 @@ through the design phase and then implementation.
 
 The planned overnight duration test was superseded: extended locked-screen operation was verified
 in practice across the day's sessions on 2026-08-17/18.
+
+## Go decision — 2026-08-18
+
+**Go.** Declared by the operator on 2026-08-18, during the waves run
+`2026-08-13-offline-nearby-ptt` (recorded at the sync 3 unblock, on the operator's explicit
+instruction).
+
+Basis, as stated by the operator and evidenced above in this report:
+
+- Both the Android and the iOS builds have been run on physical devices, and the pipeline works
+  at the basic level (operator's assessment: "мы уже запускали и андроид и айос версию, все уже
+  работает на базовом уровне").
+- On-device evidence accumulated in this report: Android smoke sections 1–3 plus BLE scanning;
+  iOS building, launching and reaching a real Nearby Connections peer handshake after the
+  `AVAudioEngine` lazy-node fix; extended locked-screen operation verified across the
+  2026-08-17/18 sessions (see "Superseded item" above).
+- The PushToTalk framework was dropped the same day (paid-entitlement blocker): the always-hot
+  session — this report's Spike Test #1 — is now the architecture. Spec §8/§10.2 were revised
+  accordingly; the code landed as `167b864` / `ff6f9dd`.
+
+The formal §15 scenarios A–D were not run as a single scripted ceremony; the operator accepted
+the accumulated on-device evidence as satisfying the gate's intent. Per the schedule's revised
+§10.3 gate scope, this Go releases waves 4 and 5 (P5 `bridge`, P7 `integration`).
