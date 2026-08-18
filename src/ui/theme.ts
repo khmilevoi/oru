@@ -248,6 +248,7 @@ export const testIds = {
   pttTest: 'ptt-test',
   pttReplace: 'ptt-replace',
   settingsBack: 'settings-back',
+  settingsVersion: 'settings-version',
 
   pairingScreen: 'pairing-screen',
   pairingCandidate: 'pairing-candidate',

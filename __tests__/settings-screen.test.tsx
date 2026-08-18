@@ -111,3 +111,30 @@ describe('SettingsScreen — spec section 12', () => {
     screen.unmount();
   });
 });
+
+describe('SettingsScreen — design/02 Settings.dc.html', () => {
+  it('puts the button in a card with a two-up action row', async () => {
+    const screen = await renderScreen(
+      <SettingsScreen onBack={jest.fn()} onConnectPress={jest.fn()} />,
+      {scenario: 'button-lost'},
+    );
+    await screen.act(() => radio.start());
+
+    expect(screen.findAll('settings-card')).toHaveLength(1);
+    expect(screen.findAll(testIds.pttTest)).toHaveLength(1);
+    expect(screen.findAll(testIds.pttReplace)).toHaveLength(1);
+
+    screen.unmount();
+  });
+
+  it('explains the button and shows a version footer when nothing is paired', async () => {
+    const screen = await renderScreen(
+      <SettingsScreen onBack={jest.fn()} onConnectPress={jest.fn()} />,
+    );
+
+    expect(screen.hasText('without taking the phone out')).toBe(true);
+    expect(screen.findAll(testIds.settingsVersion)).toHaveLength(1);
+
+    screen.unmount();
+  });
+});
