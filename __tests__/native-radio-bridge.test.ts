@@ -173,4 +173,15 @@ describe('the iOS Turbo Module (spec section 6.1)', () => {
     // does not call it from app entry.
     expect(read('ios/Oru/AppDelegate.swift')).not.toMatch(/RadioBridge/);
   });
+
+  it('settles the pairing promise exactly once', () => {
+    // failPairing() rejects from stop(), detach() and every section 13 error
+    // event, any of which can land while engine.configurePtt is still in
+    // flight. The engine's late completion must then be dropped rather than
+    // settling an already-settled promise, and a superseded session must be
+    // rejected rather than orphaned.
+    expect(swift()).toMatch(/private var pairingSession = 0/);
+    expect(swift()).toMatch(/guard claimed else \{ return \}/);
+    expect(swift()).toMatch(/pairing_superseded/);
+  });
 });

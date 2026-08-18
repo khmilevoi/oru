@@ -130,14 +130,35 @@ public final class RadioBridge: NSObject {
         reject: @escaping (NSString, NSString) -> Void
     ) {
         lock.lock()
+        let superseded = pendingReject
+        pairingSession += 1
+        let session = pairingSession
         pendingReject = reject
         lock.unlock()
 
+        // `beginPairing` on Android fails a still-pending session before arming
+        // a new one. Without this the earlier promise would simply never settle.
+        superseded?(
+            "pairing_superseded" as NSString,
+            "A new pairing session replaced this one" as NSString
+        )
+
         engine.configurePtt { [weak self] result in
             guard let self else { return }
+
+            // Claim the right to settle. `failPairing` may already have
+            // rejected this session -- from `stop()`, from `detach()`, or from
+            // any section 13 error event arriving mid-pairing -- and a newer
+            // session may have superseded it. In either case this completion is
+            // late and must be dropped rather than settling the promise twice.
             self.lock.lock()
-            self.pendingReject = nil
+            let claimed = self.pairingSession == session && self.pendingReject != nil
+            if claimed {
+                self.pendingReject = nil
+            }
             self.lock.unlock()
+
+            guard claimed else { return }
 
             switch result {
             case let .success(configuration):
@@ -159,6 +180,11 @@ public final class RadioBridge: NSObject {
     // MARK: - Engine events
 
     private var pendingReject: ((NSString, NSString) -> Void)?
+
+    /// Distinguishes one `configurePtt` session from the next, so a late
+    /// completion from a superseded session cannot settle the current one's
+    /// promise. The Android core gets this from its single `pairing` field.
+    private var pairingSession = 0
 
     private func handle(state: RadioState) {
         lock.lock()
