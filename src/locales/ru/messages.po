@@ -36,8 +36,8 @@ msgstr "{0} рядом"
 #~ msgid "● {nearbyCount} nearby"
 #~ msgstr "● {nearbyCount} рядом"
 
-#: src/screens/BackgroundStep.tsx:83
-#: src/screens/OnboardingFlow.tsx:115
+#: src/screens/BackgroundStep.tsx:87
+#: src/screens/OnboardingFlow.tsx:127
 msgid "Allow"
 msgstr "Разрешить"
 
@@ -45,7 +45,7 @@ msgstr "Разрешить"
 msgid "An external button lets you talk without taking the phone out of your pocket."
 msgstr "Внешняя кнопка позволяет говорить, не доставая телефон из кармана."
 
-#: src/screens/BackgroundStep.tsx:53
+#: src/screens/BackgroundStep.tsx:57
 msgid "Android grants this only from the app settings. Open them, choose Permissions, then Location, then \"Allow all the time\"."
 msgstr "Android выдаёт это только в настройках приложения. Откройте их, выберите «Разрешения», затем «Геолокация», затем «Разрешить всегда»."
 
@@ -58,7 +58,7 @@ msgstr "Назад"
 msgid "BLE · {0} dBm"
 msgstr "BLE · {0} dBm"
 
-#: src/screens/OnboardingFlow.tsx:60
+#: src/screens/OnboardingFlow.tsx:68
 msgid "Bluetooth"
 msgstr "Bluetooth"
 
@@ -118,7 +118,7 @@ msgstr "Удерживайте, чтобы передавать"
 msgid "Hold to turn the radio off"
 msgstr "Удерживайте, чтобы выключить рацию"
 
-#: src/screens/BackgroundStep.tsx:42
+#: src/screens/BackgroundStep.tsx:46
 msgid "Keep the radio working"
 msgstr "Чтобы рация работала"
 
@@ -134,11 +134,11 @@ msgstr "Убедитесь, что кнопка включена и находи
 msgid "Make sure the button is turned on and close to the phone."
 msgstr "Убедитесь, что кнопка включена и находится рядом с телефоном."
 
-#: src/screens/OnboardingFlow.tsx:52
+#: src/screens/OnboardingFlow.tsx:60
 msgid "Microphone"
 msgstr "Микрофон"
 
-#: src/screens/OnboardingFlow.tsx:69
+#: src/screens/OnboardingFlow.tsx:77
 msgid "Nearby devices"
 msgstr "Устройства рядом"
 
@@ -150,28 +150,28 @@ msgstr "Кнопки не найдены"
 msgid "Not connected"
 msgstr "Не подключена"
 
-#: src/screens/BackgroundStep.tsx:92
+#: src/screens/BackgroundStep.tsx:96
 msgid "Not now"
 msgstr "Не сейчас"
 
-#: src/screens/BackgroundStep.tsx:63
-#: src/screens/OnboardingFlow.tsx:106
+#: src/screens/BackgroundStep.tsx:67
+#: src/screens/OnboardingFlow.tsx:118
 msgid "Open settings"
 msgstr "Открыть настройки"
 
-#: src/screens/OnboardingFlow.tsx:62
+#: src/screens/OnboardingFlow.tsx:70
 msgid "Oru connects to your push-to-talk button over Bluetooth, including while the screen is locked."
 msgstr "Oru подключается к вашей кнопке PTT по Bluetooth, в том числе при заблокированном экране."
 
-#: src/screens/OnboardingFlow.tsx:71
+#: src/screens/OnboardingFlow.tsx:79
 msgid "Oru finds other radios around you without using the internet."
 msgstr "Oru находит другие рации вокруг вас без интернета."
 
-#: src/screens/BackgroundStep.tsx:45
+#: src/screens/BackgroundStep.tsx:49
 msgid "Oru needs background location to keep finding nearby radios while your phone is locked and in a pocket."
 msgstr "Oru нужен доступ к геолокации в фоне, чтобы находить рации рядом, пока телефон заблокирован и лежит в кармане."
 
-#: src/screens/OnboardingFlow.tsx:54
+#: src/screens/OnboardingFlow.tsx:62
 msgid "Oru uses the microphone to transmit your voice to nearby devices."
 msgstr "Oru использует микрофон, чтобы передавать ваш голос на устройства рядом."
 
@@ -179,11 +179,11 @@ msgstr "Oru использует микрофон, чтобы передават
 msgid "Pairing failed"
 msgstr "Сопряжение не удалось"
 
-#: src/screens/OnboardingFlow.tsx:91
+#: src/screens/OnboardingFlow.tsx:103
 msgid "Permission denied. Oru cannot work without it."
 msgstr "Разрешение отклонено. Без него Oru не сможет работать."
 
-#: src/screens/OnboardingFlow.tsx:97
+#: src/screens/OnboardingFlow.tsx:109
 msgid "Permission is blocked. Grant it in the system settings."
 msgstr "Разрешение заблокировано. Выдайте его в системных настройках."
 
@@ -211,7 +211,7 @@ msgstr "ОШИБКА РАЦИИ"
 msgid "RADIO OFF"
 msgstr "РАЦИЯ ВЫКЛЮЧЕНА"
 
-#: src/screens/OnboardingFlow.tsx:30
+#: src/screens/OnboardingFlow.tsx:36
 msgid "Ready"
 msgstr "Готово"
 
@@ -260,18 +260,23 @@ msgstr "Настройки"
 msgid "SETTINGS"
 msgstr "НАСТРОЙКИ"
 
-#: src/screens/OnboardingFlow.tsx:130
+#: src/screens/OnboardingFlow.tsx:142
 msgid "Skip"
 msgstr "Пропустить"
 
-#: src/screens/OnboardingFlow.tsx:36
+#: src/screens/OnboardingFlow.tsx:43
 msgid "Start"
 msgstr "Начать"
 
 #. placeholder {0}: APP_PERMISSIONS.length
 #: src/screens/OnboardingFlow.tsx:82
-msgid "Step {step} of {0}"
-msgstr "Шаг {step} из {0}"
+#~ msgid "Step {step} of {0}"
+#~ msgstr "Шаг {step} из {0}"
+
+#. placeholder {0}: APP_PERMISSIONS.length
+#: src/screens/OnboardingFlow.tsx:94
+msgid "STEP {step} OF {0}"
+msgstr "ШАГ {step} ИЗ {0}"
 
 #: src/screens/PairingFlow.tsx:78
 msgid "still scanning"
@@ -289,7 +294,7 @@ msgstr "Проверить"
 msgid "TRANSMITTING..."
 msgstr "ПЕРЕДАЧА..."
 
-#: src/screens/OnboardingFlow.tsx:115
+#: src/screens/OnboardingFlow.tsx:127
 msgid "Try again"
 msgstr "Попробовать снова"
 
@@ -302,6 +307,6 @@ msgstr "ВЫКЛЮЧИТЬ"
 msgid "Turn the radio on"
 msgstr "Включить рацию"
 
-#: src/screens/OnboardingFlow.tsx:33
+#: src/screens/OnboardingFlow.tsx:39
 msgid "Turn the radio on and hold anywhere to talk."
 msgstr "Включите рацию и удерживайте экран, чтобы говорить."
