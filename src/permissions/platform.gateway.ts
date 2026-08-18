@@ -44,7 +44,12 @@ const androidApiLevel = (): number =>
  * Every access is guarded, because no native module answers under Jest.
  */
 const readOnboardingFlag = (): boolean => {
-  if (Platform.OS !== 'ios') return false;
+  // Android keeps no flag, so there is nothing here to answer with: the grants
+  // themselves are the record, and `hasOnboardingPermissions()` is the half of
+  // `resolveInitialRoute`'s `completed && granted` that carries the answer
+  // there. Returning `false` would make that conjunction permanently false and
+  // re-run the whole sequence on every launch.
+  if (Platform.OS !== 'ios') return true;
   try {
     return Settings.get(ONBOARDING_COMPLETED_KEY) === true;
   } catch {
