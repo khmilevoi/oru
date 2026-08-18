@@ -222,7 +222,7 @@ describe('RadioEngine (spec sections 6.3, 9.4, 13)', () => {
     expect(engine).not.toMatch(/=\s*120\b/);
   });
 
-  it('asks PushToTalk before it opens the microphone', () => {
+  it('asks the background session before it opens the microphone', () => {
     const request = engine.indexOf('background.requestBeginTransmitting()');
     const capture = engine.indexOf('audio.startCapture()');
     expect(request).toBeGreaterThan(-1);
@@ -370,11 +370,6 @@ describe('AudioEngine (spec section 8)', () => {
     expect(audio).toContain('JitterBuffer()');
   });
 
-  it('configures a voice-chat session for play and record', () => {
-    expect(audio).toContain('.playAndRecord');
-    expect(audio).toContain('.voiceChat');
-  });
-
   // Audio-session activation belongs to the `BackgroundSession` port -- today
   // `AlwaysHotBackgroundManager`, which activates once and keeps the session
   // hot -- because only it knows the route-detection order that activation
@@ -386,49 +381,64 @@ describe('AudioEngine (spec section 8)', () => {
   });
 });
 
-describe('BackgroundManager (spec section 10.2)', () => {
-  const background = source('BackgroundManager.swift');
+describe('AlwaysHotBackgroundManager (spec section 10.2)', () => {
+  const background = source('AlwaysHotBackgroundManager.swift');
 
   it.each([
-    'public final class BackgroundManager',
-    'BackgroundSession',
-    'extension BackgroundManager: PTChannelManagerDelegate',
-    'extension BackgroundManager: PTChannelRestorationDelegate',
+    'public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession',
+    'public func activate()',
+    'public func deactivate()',
+    'public func requestBeginTransmitting()',
+    'public func stopTransmitting()',
+    'public func setReceiving(',
   ])('declares %s', declaration => {
     expect(background).toContain(declaration);
   });
 
-  it('joins a stable channel from config', () => {
-    expect(background).toContain('RadioConfig.Background.channelUUID');
-    expect(background).toContain('requestJoinChannel(');
-    expect(background).toContain('leaveChannel(');
+  it('is the only BackgroundSession implementation', () => {
+    const implementations = swiftFiles().filter(name =>
+      /:\s*NSObject,\s*BackgroundSession\b/.test(source(name)),
+    );
+    expect(implementations).toEqual(['AlwaysHotBackgroundManager.swift']);
   });
 
-  it('drives transmission through the framework', () => {
-    expect(background).toContain('requestBeginTransmitting(');
-    expect(background).toContain('stopTransmitting(');
+  it('configures a voice-chat session for play and record', () => {
+    expect(background).toContain('.playAndRecord');
+    expect(background).toContain('.voiceChat');
   });
 
-  it('announces incoming speech as an active remote participant', () => {
-    expect(background).toContain('setActiveRemoteParticipant(');
-  });
-
-  it('reports audio-session activation to the engine', () => {
-    expect(background).toContain('didActivate audioSession');
+  it('activates the session itself and tells the engine', () => {
+    expect(background).toContain('setActive(true)');
     expect(background).toContain('backgroundSessionDidActivateAudio(self)');
   });
 
-  it('takes its system-visible names from the localized bundle', () => {
-    expect(background).toContain('ptt.channel.name');
-    expect(background).toContain('ptt.participant.nearby');
-    expect(background).toContain('bundle: .module');
+  // The whole point of always-hot: the session is activated once and never
+  // released between transmissions, which is what keeps the process alive
+  // while the screen is locked. Only `deactivate()` may stand it down.
+  it('releases the session only when the radio stops', () => {
+    const deactivate = background.indexOf('public func deactivate()');
+    const nextMember = background.indexOf('public func requestBeginTransmitting()');
+    const release = background.indexOf('.notifyOthersOnDeactivation');
+    expect(deactivate).toBeGreaterThan(-1);
+    expect(release).toBeGreaterThan(deactivate);
+    expect(release).toBeLessThan(nextMember);
+    expect(background.split('.notifyOthersOnDeactivation')).toHaveLength(2);
   });
 
-  it('is the only file that imports PushToTalk', () => {
-    const importers = swiftFiles().filter(name =>
-      source(name).includes('import PushToTalk'),
-    );
-    expect(importers).toEqual(['BackgroundManager.swift']);
+  it('logs the session state a locked-screen run is judged by', () => {
+    expect(background).toContain('HeartbeatLogger.shared.sessionActive');
+    expect(background).toContain('HeartbeatLogger.shared.start()');
+  });
+
+  // PushToTalk was removed on 2026-08-18: its entitlement needs a paid Apple
+  // Developer account, and on-device runs confirmed always-hot works without
+  // it. Nothing may import the framework back in without revisiting spec 10.2.
+  it('leaves no PushToTalk framework use anywhere in the engine', () => {
+    const offenders = swiftFiles().filter(name => {
+      const text = source(name);
+      return text.includes('import PushToTalk') || text.includes('PTChannel');
+    });
+    expect(offenders).toEqual([]);
   });
 });
 
@@ -533,7 +543,7 @@ describe('assembly and spike hooks (spec section 15, phase 0)', () => {
     expect(assembly).toContain('NearbyManager(');
     expect(assembly).toContain('AudioEngine(');
     expect(assembly).toContain('PttManager(');
-    expect(assembly).toContain('BackgroundManager()');
+    expect(assembly).toContain('AlwaysHotBackgroundManager()');
     expect(assembly).toContain('DispatchRadioClock(');
   });
 

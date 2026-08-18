@@ -76,7 +76,7 @@ public protocol PttSourceDelegate: AnyObject {
     func pttSource(_ source: PttSource, pairingStateDidChange state: PttPairingState?)
 }
 
-// MARK: - Background (PushToTalk)
+// MARK: - Background
 
 public protocol BackgroundSession: AnyObject {
     var delegate: BackgroundSessionDelegate? { get set }
@@ -89,10 +89,12 @@ public protocol BackgroundSession: AnyObject {
 }
 
 public protocol BackgroundSessionDelegate: AnyObject {
-    /// The system activated the audio session; the microphone may start now.
+    /// The audio session is active; the microphone may start now.
     func backgroundSessionDidActivateAudio(_ session: BackgroundSession)
     func backgroundSessionDidDeactivateAudio(_ session: BackgroundSession)
-    /// Transmission was started somewhere outside the app (the system PTT UI).
+    /// Transmission was started somewhere outside the app. Nothing raises this
+    /// under the always-hot architecture (spec section 10.2) — it survives for
+    /// a future system-level talk control.
     func backgroundSessionDidRequestTransmitStart(_ session: BackgroundSession)
     func backgroundSessionDidRequestTransmitStop(_ session: BackgroundSession)
     func backgroundSession(_ session: BackgroundSession, didFail error: RadioError)

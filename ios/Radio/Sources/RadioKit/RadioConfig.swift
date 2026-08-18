@@ -57,28 +57,15 @@ public enum RadioConfig {
         public static let centralRestoreIdentifier = "com.oru.radio.ptt.central"
     }
 
+    /// How the app earns the right to run while locked (spec section 10.2):
+    /// one continuously active `.playAndRecord` session under the `audio`
+    /// UIBackgroundMode, kept warm by `AlwaysHotBackgroundManager` and
+    /// `AudioEngine`'s keep-alive tap. There is no second mode — the system
+    /// PushToTalk framework was dropped on 2026-08-18 because its entitlement
+    /// requires a paid Apple Developer account.
     public enum Background {
-        /// How the app earns the right to run while locked. `.pushToTalk` is
-        /// the product architecture (spec section 10.2); `.alwaysHot` is Spike
-        /// Test #1 — a continuously active `.playAndRecord` session under the
-        /// `audio` UIBackgroundMode, no PushToTalk anywhere. `RadioAssembly`
-        /// picks the `BackgroundSession` implementation from this.
-        public enum Mode {
-            case pushToTalk
-            case alwaysHot
-        }
-
-        /// Defaults to `.alwaysHot` on this spike branch; flip back to
-        /// `.pushToTalk` to restore the entitlement-gated PTT path unchanged.
-        public static let mode: Mode = .alwaysHot
-
         /// How often the always-hot heartbeat appends a line to heartbeat.log.
         public static let heartbeatSeconds: TimeInterval = 10
-
-        /// Stable PushToTalk channel identity, the same across launches.
-        public static let channelUUID = UUID(
-            uuidString: "6F5C1C2E-7C1B-4B7A-9F1A-2C3D4E5F6A7B"
-        )!
     }
 
     public enum Spike {

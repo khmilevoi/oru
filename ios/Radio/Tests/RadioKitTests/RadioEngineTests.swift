@@ -64,7 +64,7 @@ final class RadioEngineTests: XCTestCase {
         XCTAssertEqual(currentState().status, .error)
     }
 
-    func testPressAsksPushToTalkAndDoesNotOpenTheMicrophoneYet() {
+    func testPressAsksTheBackgroundSessionAndDoesNotOpenTheMicrophoneYet() {
         engine.startRadio()
         flush()
 

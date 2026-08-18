@@ -14,7 +14,7 @@ imports React or UIKit. React Native calls into it from wave 3 through
 | `NearbyManager.swift` | Nearby Connections: advertise, discover, control, streams |
 | `AudioEngine.swift` | AVAudioEngine capture and playback, mixing per peer |
 | `OpusCodec.swift` | libopus encode/decode |
-| `BackgroundManager.swift` | PushToTalk channel, audio-session activation |
+| `AlwaysHotBackgroundManager.swift` | the always-hot audio session: route detection, activation, interruptions |
 | `PttManager.swift`, `BleGattPttDriver.swift` | the Bluetooth button |
 | `RadioSpike.swift` | Phase 0 hooks |
 
@@ -35,9 +35,11 @@ Then, in order:
 1. Resolve the two remote packages (`google/nearby`, `alta/swift-opus`) and
    commit the resulting `Package.resolved`. Both are declared on `branch: "main"`
    precisely because no release tag could be verified from the planning host.
-2. Set a development team and provisioning profile carrying the
-   `com.apple.developer.push-to-talk` entitlement. Without it the app cannot
-   join a PT channel, and every background scenario fails at once.
+2. Set a development team and provisioning profile. No special entitlement is
+   needed: background execution comes from the `audio` UIBackgroundMode and the
+   always-hot session (spec section 10.2), which is precisely why the
+   PushToTalk framework — whose entitlement requires a paid account — was
+   dropped on 2026-08-18.
 3. Fix compile fallout. Third-party API drift is confined by design to
    `NearbyManager.swift` and `OpusCodec.swift`.
 4. Run the package tests: `xcodebuild test -scheme Oru -destination
@@ -57,11 +59,14 @@ Watch the log in Console.app, filtered to subsystem `com.oru.radio`; every line
 of interest starts with `[spike]`.
 
 - **Scenario A — Android PTT, locked iPhone plays audio.** Lock the iPhone.
-  Transmit from Android. Expect `[spike] state ... rx=true` within a second, the
-  system PTT UI showing an active remote participant, and audible speech.
-- **Scenario B — iPhone PTT, locked Android plays audio.** With the iPhone
-  locked, press the system talk button on the lock screen (the PT channel puts
-  it there). Expect `[spike] state ... tx=true` and audio on Android.
+  Transmit from Android. Expect `[spike] state ... rx=true` within a second and
+  audible speech.
+- **Scenario B — iPhone PTT, locked Android plays audio.** There is no
+  system-provided talk button on the lock screen any more: with PushToTalk gone,
+  transmit is raised only by the Bluetooth button (Scenario C) or by
+  `RadioSpike.startTransmit()` from the debugger with the phone unlocked. Run it
+  the second way to confirm `[spike] state ... tx=true` and audio on Android,
+  then treat Scenario C as the locked-screen transmit case.
 - **Scenario C — locked iPhone, Bluetooth button.** Pair the button first: run
   `RadioSpike.configurePtt()` from the Xcode debugger console. Watch the
   `[spike] pairing phase=scanning candidates=[...]` lines, then either call

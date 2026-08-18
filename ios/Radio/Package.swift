@@ -29,8 +29,11 @@ let package = Package(
                 .product(name: "Opus", package: "swift-opus"),
                 "OpusShim",
                 "MallocCompatShim"
-            ],
-            resources: [.process("Resources")]
+            ]
+            // No `resources:` — the only localized strings this package ever
+            // had were the PushToTalk channel and participant names shown in
+            // system UI, and PushToTalk was removed on 2026-08-18. App-facing
+            // copy is Lingui (JS) and InfoPlist.strings (permission prompts).
         ),
         .testTarget(name: "RadioKitTests", dependencies: ["RadioKit"])
     ]

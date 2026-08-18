@@ -2,8 +2,8 @@ import Foundation
 import os
 
 /// Phase 0 lives here (spec section 15). No UI: the engine starts with the app,
-/// the PushToTalk channel supplies a system talk button on the lock screen, and
-/// every state change lands in the device log as one `[spike]` line.
+/// the always-hot audio session keeps it running while the screen is locked,
+/// and every state change lands in the device log as one `[spike]` line.
 public enum RadioSpike {
 
     private static let log = Logger(

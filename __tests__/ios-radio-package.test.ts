@@ -59,8 +59,13 @@ describe('RadioKit package manifest', () => {
     expect(manifest).toContain('name: "RadioKitTests"');
   });
 
-  it('processes the localized resources directory', () => {
-    expect(manifest).toContain('.process("Resources")');
+  // The only localized resources RadioKit ever had were the PushToTalk channel
+  // and participant names shown in system UI; both went with the framework on
+  // 2026-08-18. `defaultLocalization` stays -- it costs nothing and is the base
+  // locale any future native string would be written in.
+  it('declares no resources now that the PushToTalk strings are gone', () => {
+    expect(manifest).not.toContain('.process("Resources")');
+    expect(manifest).not.toContain('.copy("Resources")');
   });
 });
 

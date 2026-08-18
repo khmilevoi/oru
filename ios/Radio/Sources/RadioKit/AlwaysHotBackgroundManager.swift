@@ -2,14 +2,17 @@ import AVFoundation
 import Foundation
 import os
 
-/// Spike Test #1: background execution without PushToTalk. The app activates a
-/// `.playAndRecord` session itself in the foreground and keeps the microphone
-/// pulling samples continuously (see `AudioEngine`'s keep-alive tap), which
-/// counts as background audio under the `audio` UIBackgroundMode — so the
-/// process legally keeps running while locked, no entitlement required.
+/// The iOS background architecture (spec section 10.2), and the only
+/// `BackgroundSession` there is. The app activates a `.playAndRecord` session
+/// itself in the foreground and keeps the microphone pulling samples
+/// continuously (see `AudioEngine`'s keep-alive tap), which counts as
+/// background audio under the `audio` UIBackgroundMode — so the process legally
+/// keeps running while locked, no entitlement required.
 ///
-/// Deliberately never imports PushToTalk. The PTT implementation stays intact
-/// in `BackgroundManager`; `RadioConfig.Background.mode` picks between them.
+/// It started as Spike Test #1, the alternative to the system PushToTalk
+/// framework; on 2026-08-18 it became the architecture and PushToTalk was
+/// deleted, because `com.apple.developer.push-to-talk` requires a paid Apple
+/// Developer account and on-device runs confirmed this path works.
 public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
 
     public weak var delegate: BackgroundSessionDelegate?
@@ -60,9 +63,9 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
         HeartbeatLogger.shared.sessionActive = true
         HeartbeatLogger.shared.start()
         log.info("always-hot audio session active")
-        // The stand-in for PushToTalk's didActivate callback: RadioEngine
-        // proceeds identically. Harmless at this point (nothing is awaiting
-        // the session yet), delivered for parity with the PTT path.
+        // The port's activation callback. Harmless at this point (nothing is
+        // awaiting the session yet), delivered because the contract says the
+        // engine learns about activation from here and nowhere else.
         delegate?.backgroundSessionDidActivateAudio(self)
     }
 
@@ -91,20 +94,20 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
             )
             return
         }
-        // The session is already hot — acknowledge immediately, mirroring the
-        // system's didActivate callback the PTT path waits for. RadioEngine's
+        // The session is already hot — acknowledge immediately rather than
+        // waiting for an activation that will never come. RadioEngine's
         // beginTransmitLocked() takes it from here.
         delegate?.backgroundSessionDidActivateAudio(self)
     }
 
     public func stopTransmitting() {
         // Nothing to release: the session stays hot between transmissions —
-        // that continuity is the whole spike. RadioEngine has already stopped
-        // capture itself by the time it calls this.
+        // that continuity is the whole architecture. RadioEngine has already
+        // stopped capture itself by the time it calls this.
     }
 
     public func setReceiving(_ receiving: Bool) {
-        // The PTT path uses this to make the system activate the session for
+        // The port exists so an implementation can activate the session for
         // playback; here it is always active, so there is nothing to do.
     }
 
@@ -273,10 +276,10 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
 
     // MARK: - Interruptions
 
-    /// The PTT path never sees these — the system manages its session. Here
-    /// the session is ours, so a phone call or Siri can snatch it away, and
-    /// every occurrence must land in heartbeat.log: reactivation failing while
-    /// backgrounded is exactly the outcome this spike exists to observe.
+    /// The session is ours, not the system's, so a phone call or Siri can
+    /// snatch it away, and every occurrence must land in heartbeat.log:
+    /// reactivation failing while backgrounded is the failure mode this
+    /// architecture has to be watched for.
     private func observeInterruptions() {
         NotificationCenter.default.addObserver(
             self,

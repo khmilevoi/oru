@@ -62,23 +62,22 @@ describe('Info.plist usage descriptions (spec section 11)', () => {
     );
   });
 
-  it('declares the push-to-talk and bluetooth-central background modes', () => {
+  // `audio` is what earns background execution now: the always-hot session
+  // keeps the microphone pulling while the screen is locked (spec section
+  // 10.2). `push-to-talk` went with the PushToTalk framework on 2026-08-18 --
+  // a background mode whose entitlement the app no longer declares is dead
+  // weight at best and a signing failure at worst.
+  it('declares the audio and bluetooth-central background modes', () => {
     const modes = arrayValues(infoPlist, 'UIBackgroundModes');
-    expect(modes).toContain('push-to-talk');
+    expect(modes).toContain('audio');
     expect(modes).toContain('bluetooth-central');
+    expect(modes).not.toContain('push-to-talk');
   });
 });
 
-describe('push-to-talk entitlement (spec section 11)', () => {
-  it('declares com.apple.developer.push-to-talk as true', () => {
-    const keyIndex = entitlements.indexOf(
-      '<key>com.apple.developer.push-to-talk</key>',
-    );
-    expect(keyIndex).not.toBe(-1);
-    const afterKey = entitlements.slice(
-      keyIndex + '<key>com.apple.developer.push-to-talk</key>'.length,
-    );
-    expect(afterKey.trimStart().startsWith('<true/>')).toBe(true);
+describe('app entitlements (spec section 11)', () => {
+  it('no longer claims the push-to-talk entitlement', () => {
+    expect(entitlements).not.toContain('com.apple.developer.push-to-talk');
   });
 
   it('is wired to the app target', () => {

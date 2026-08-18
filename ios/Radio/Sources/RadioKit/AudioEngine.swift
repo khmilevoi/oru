@@ -63,64 +63,21 @@ public final class AudioEngine: AudioIO {
 
     public func startPlayback() throws {
         let session = AVAudioSession.sharedInstance()
-        if RadioConfig.Background.mode == .pushToTalk {
-            // Category only. PushToTalk activates the session, here and in the
-            // background; activating it from the app is what kills locked
-            // playback. In always-hot mode this call is deliberately skipped:
-            // AlwaysHotBackgroundManager owns the session and has already run
-            // the two-phase profile detection (`background.activate()`
-            // precedes `audio.startPlayback()` in
-            // RadioEngine.startRadioLocked()) — only the detection sequence
-            // may touch setCategory, and an extra call from here mid-session
-            // is the documented route-collapse trigger.
-            // Two-phase detection, PTT flavor: the permissive category must
-            // come FIRST or iOS never lists Bluetooth ports at all (the
-            // chicken-and-egg bug fixed in AlwaysHotBackgroundManager).
-            // Unlike always-hot, the system owns activation here, so phase 2
-            // reads the provisional (pre-activation) route instead of the
-            // post-activation one.
-            try session.setCategory(
-                .playAndRecord,
-                mode: .voiceChat,
-                options: AudioSessionProfile.permissiveDetectionOptions
-            )
-            let inputs = session.availableInputs ?? []
-            if AudioSessionProfile.afterPermissiveDetection(
-                availableInputs: inputs.map(\.portType)
-            ) != nil {
-                // HFP input exists; permissive options already equal the HFP
-                // profile's options — just pin the input for the session.
-                if let hfp = inputs.first(where: { $0.portType == .bluetoothHFP }) {
-                    try session.setPreferredInput(hfp)
-                }
-            } else {
-                try session.setCategory(
-                    .playAndRecord,
-                    mode: .voiceChat,
-                    options: AudioSessionProfile.bluetoothA2DP.categoryOptions
-                )
-                let profile = AudioSessionProfile.afterA2DPActivation(
-                    currentOutputs: session.currentRoute.outputs.map(\.portType)
-                )
-                if profile.wantsSpeakerOverride {
-                    // On-demand replacement for the dropped
-                    // `.defaultToSpeaker`: recorded now, takes effect when the
-                    // system activates the session. Best-effort — a failure
-                    // must not sink startup.
-                    try? session.overrideOutputAudioPort(.speaker)
-                }
-            }
-        }
+        // Deliberately no setCategory here. `AlwaysHotBackgroundManager` owns
+        // the session and has already run the two-phase profile detection
+        // (`background.activate()` precedes `audio.startPlayback()` in
+        // RadioEngine.startRadioLocked()) — only that detection sequence may
+        // touch setCategory, and an extra call from here mid-session is the
+        // documented route-collapse trigger.
         awaitRecordPermissionIfUndetermined(session)
         try prepareEngineOnMainThread(session)
-        if RadioConfig.Background.mode == .alwaysHot {
-            // Spike Test #1: the engine must run — and the microphone must
-            // keep delivering buffers — the whole time, not just during a
-            // transmission, or iOS suspends the app once the screen locks.
-            try queue.sync { try installKeepAliveTapLocked() }
-            HeartbeatLogger.shared.isEngineRunning = { [weak self] in
-                self?.engine.isRunning ?? false
-            }
+        // The engine must run — and the microphone must keep delivering
+        // buffers — the whole time, not just during a transmission, or iOS
+        // suspends the app once the screen locks. That continuity is what
+        // earns background execution under the `audio` UIBackgroundMode.
+        try queue.sync { try installKeepAliveTapLocked() }
+        HeartbeatLogger.shared.isEngineRunning = { [weak self] in
+            self?.engine.isRunning ?? false
         }
         log.info("audio session configured")
     }
@@ -136,13 +93,13 @@ public final class AudioEngine: AudioIO {
         var activationError: Error?
         DispatchQueue.main.sync {
             #if DEBUG
-            // Local-test builds skip PushToTalk entirely (see
-            // BackgroundManager), so nothing else will ever activate this
-            // session. Do it here, now that the category and permission are
-            // both settled -- activating before the category is set (an
-            // earlier version of this fix did that, from BackgroundManager)
-            // leaves the engine with no real input/output route once the
-            // category *does* switch.
+            // Belt and braces for local-test builds only: re-assert the
+            // session `AlwaysHotBackgroundManager` already activated, now that
+            // category and permission are both settled. Never do this outside
+            // DEBUG -- activating before the category is set leaves the engine
+            // with no real input/output route once the category *does* switch,
+            // and re-activating mid-session collapses a resolved Bluetooth
+            // route.
             do {
                 try session.setActive(true)
             } catch {
@@ -219,13 +176,11 @@ public final class AudioEngine: AudioIO {
                 playbacks[peerId] = playback
                 // Always-hot silence suspect: the keep-alive tap starts the
                 // engine at startRadio, so this player is attached to an engine
-                // that is already rendering — the one ordering the PTT design
-                // never produced (there, attach always preceded the first
-                // start()). A dynamically attached chain joining a running
-                // engine has been observed to stay silent on device; a
-                // stop/start rebuilds the graph with the player in it. Taps
-                // survive the restart. The PTT path is unaffected: wasRunning
-                // is false there.
+                // that is already rendering. A dynamically attached chain
+                // joining a running engine has been observed to stay silent on
+                // device; a stop/start rebuilds the graph with the player in
+                // it. Taps survive the restart, and when the engine was not
+                // yet running (`wasRunning == false`) nothing is disturbed.
                 if wasRunning {
                     engine.stop()
                 }
@@ -377,11 +332,9 @@ extension AudioEngine {
             encoder = nil
             converter = nil
             captureResidue.removeAll(keepingCapacity: true)
-            if RadioConfig.Background.mode == .alwaysHot {
-                // Hand the input node back to the keep-alive tap so the mic
-                // never stops pulling between transmissions.
-                try? installKeepAliveTapLocked()
-            }
+            // Hand the input node back to the keep-alive tap so the mic never
+            // stops pulling between transmissions.
+            try? installKeepAliveTapLocked()
             log.info("capture stopped")
         }
     }
@@ -443,7 +396,7 @@ extension AudioEngine {
     }
 }
 
-// MARK: - Always-hot keep-alive (Spike Test #1)
+// MARK: - Always-hot keep-alive (spec section 10.2)
 
 extension AudioEngine {
 
@@ -451,9 +404,8 @@ extension AudioEngine {
     /// samples are discarded — the tap exists so continuous recording counts
     /// as background audio (the `audio` UIBackgroundMode) and the process
     /// stays alive while locked. Each buffer stamps the heartbeat, which is
-    /// the proof the spike is after.
+    /// how a locked-screen run is shown to have survived.
     private func installKeepAliveTapLocked() throws {
-        guard RadioConfig.Background.mode == .alwaysHot else { return }
         guard !isKeepAliveTapInstalled, !isCapturing else { return }
 
         let input = engine.inputNode

@@ -35,24 +35,22 @@ const USAGE_KEYS = [
   'NSLocalNetworkUsageDescription',
 ];
 
+// RadioKit shipped exactly two localized strings, both system-UI names for the
+// PushToTalk channel and its remote participant. PushToTalk was removed on
+// 2026-08-18, so the package now ships no user-visible copy at all: app strings
+// are Lingui catalogs (JS) and InfoPlist.strings (permission prompts). The
+// invariant that remains is that no orphaned catalog creeps back in -- an
+// unreferenced .strings file is the kind of thing that survives for years.
 describe('package strings (spec section 12.2)', () => {
-  it.each(['ptt.channel.name', 'ptt.participant.nearby'])(
-    'defines %s in english',
-    key => {
-      expect(valueOf(packageEn, key)).toBeTruthy();
-    },
-  );
-
-  it('has the same key set in both locales', () => {
-    expect(keysOf(packageRu)).toEqual(keysOf(packageEn));
-    expect(keysOf(packageEn).length).toBeGreaterThan(0);
+  it('ships no localized resources', () => {
+    expect(keysOf(packageEn)).toEqual([]);
+    expect(keysOf(packageRu)).toEqual([]);
+    expect(existsSync(join(RESOURCES))).toBe(false);
   });
 
-  it('actually translates every russian value', () => {
-    for (const key of keysOf(packageEn)) {
-      expect(valueOf(packageRu, key)).toBeTruthy();
-      expect(valueOf(packageRu, key)).not.toEqual(valueOf(packageEn, key));
-    }
+  it('declares no resources in the package manifest', () => {
+    const manifest = read(IOS_DIR, 'Radio', 'Package.swift');
+    expect(manifest).not.toContain('.process("Resources")');
   });
 });
 

@@ -5,12 +5,12 @@ import os
 import UIKit
 #endif
 
-/// Spike Test #1 instrumentation. Every `RadioConfig.Background.heartbeatSeconds`
+/// Always-hot instrumentation. Every `RadioConfig.Background.heartbeatSeconds`
 /// this appends one line to Documents/heartbeat.log — a file, not just os_log,
 /// so the record survives a relaunch and can be pulled off the device after a
 /// 30-60 minute locked-screen run to prove the process stayed alive and the
 /// microphone kept delivering samples the whole time. Started and stopped by
-/// `AlwaysHotBackgroundManager`; no other build configuration ever runs it.
+/// `AlwaysHotBackgroundManager`.
 public final class HeartbeatLogger {
 
     public static let shared = HeartbeatLogger()
@@ -20,8 +20,8 @@ public final class HeartbeatLogger {
     /// interrupted, reactivated, deactivated) and the heartbeat reports that.
     public var sessionActive = false
 
-    /// Installed by `AudioEngine` in always-hot mode so the heartbeat can
-    /// report whether the AVAudioEngine is actually running.
+    /// Installed by `AudioEngine` so the heartbeat can report whether the
+    /// AVAudioEngine is actually running.
     public var isEngineRunning: (() -> Bool)?
 
     private let log = Logger(

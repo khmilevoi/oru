@@ -1,5 +1,0 @@
-/* Name of the push-to-talk channel shown in system UI */
-"ptt.channel.name" = "Oru Radio";
-
-/* Shown while a nearby device is speaking */
-"ptt.participant.nearby" = "Nearby device";

@@ -293,9 +293,11 @@ extension RadioEngine: RadioTransportDelegate {
             HeartbeatLogger.shared.record("rx start peer=\(peerId)")
             let wasSilent = self.receivingPeers.isEmpty
             self.receivingPeers.insert(peerId)
-            // PushToTalk activates the audio session in response to an active
-            // remote participant, and AVAudioEngine only runs while that
-            // session is active — so the system is told before playback opens.
+            // AVAudioEngine only runs while the audio session is active, so
+            // the background session is told before playback opens. Under the
+            // always-hot architecture the session is already active and this
+            // is a no-op; the ordering is kept because the port's contract,
+            // not this implementation, is what the engine may rely on.
             if wasSilent {
                 self.background.setReceiving(true)
             }
