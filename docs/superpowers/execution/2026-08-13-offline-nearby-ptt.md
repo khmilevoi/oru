@@ -257,8 +257,8 @@ not break already exist and the no-UI-edit acceptance is checkable.
 
 ### P7 `integration` — wave 5, track A
 - [x] planned   → docs/superpowers/plans/2026-08-13-p7-integration.md
-- [ ] executed  → branch plan/p7-integration · worktree .claude/worktrees/p7-integration
-- [ ] merged    → sync 5
+- [x] executed  → branch plan/p7-integration · worktree .claude/worktrees/p7-integration
+- [x] merged    → sync 5
 
 **Owns:** the app as a whole: app entry (`i18n.loadAndActivate` with system locale + en
 fallback, engine event subscription into the Reatom model, `radio.start()`, AppState resume
