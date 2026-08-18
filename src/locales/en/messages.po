@@ -6,3 +6,59 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: @lingui/cli\n"
 "Language: en\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+#: src/screens/RadioScreen.tsx:106
+msgid "● {nearbyCount} nearby"
+msgstr "● {nearbyCount} nearby"
+
+#: src/screens/RadioScreen.tsx:109
+msgid "HOLD TO TALK"
+msgstr "HOLD TO TALK"
+
+#: src/screens/RadioScreen.tsx:147
+msgid "Hold to turn the radio off"
+msgstr "Hold to turn the radio off"
+
+#: src/screens/RadioScreen.tsx:81
+msgid "Push to talk"
+msgstr "Push to talk"
+
+#: src/screens/RadioScreen.tsx:50
+msgid "RADIO OFF"
+msgstr "RADIO OFF"
+
+#: src/screens/RadioScreen.tsx:131
+msgid "RECEIVING..."
+msgstr "RECEIVING..."
+
+#: src/screens/RadioScreen.tsx:122
+msgid "RELEASE TO FINISH"
+msgstr "RELEASE TO FINISH"
+
+#: src/screens/RadioScreen.tsx:96
+msgid "SEARCHING FOR DEVICES..."
+msgstr "SEARCHING FOR DEVICES..."
+
+#: src/screens/RadioScreen.tsx:60
+#: src/screens/RadioScreen.tsx:152
+msgid "Settings"
+msgstr "Settings"
+
+#: src/screens/RadioScreen.tsx:53
+msgid "TAP TO TURN ON"
+msgstr "TAP TO TURN ON"
+
+#: src/screens/RadioScreen.tsx:119
+msgid "TRANSMITTING..."
+msgstr "TRANSMITTING..."
+
+#: src/screens/RadioScreen.tsx:33
+#: src/screens/RadioScreen.tsx:44
+msgid "Turn the radio on"
+msgstr "Turn the radio on"
