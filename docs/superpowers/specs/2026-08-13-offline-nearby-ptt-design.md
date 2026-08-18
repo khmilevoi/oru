@@ -55,7 +55,7 @@ The MVP is complete only if all of the following hold:
 |---|---|
 | RN foundation | Bare React Native, New Architecture (Turbo Native Modules), TypeScript |
 | UI state | Reatom v1001 (`atom`, `computed`, `effect`, `atom.extend`) |
-| Minimum OS | iOS 16+ (PushToTalk framework requirement); Android 8.0+ (minSdk 26) |
+| Minimum OS | iOS 16+ (originally the PushToTalk framework's floor; kept after PushToTalk was dropped on 2026-08-18, see §10.2); Android 8.0+ (minSdk 26) |
 | Android permissions model | Implemented against Android 12+ Bluetooth permissions and Android 14 foreground-service-type rules |
 | Group size | Designed for 2–8 devices; acceptance tests run with 3 |
 | Audio routing | System default route (speaker or connected headset); no in-app route picker |
@@ -311,8 +311,11 @@ Microphone → PCM 16 kHz mono → Opus (20 ms frames, ~24 kbps)
   inconsistent across Android devices and absent from public iOS APIs.
 - Android: capture via `AudioRecord` with `VOICE_COMMUNICATION` source (system AEC/NS),
   playback via `AudioTrack`.
-- iOS: `AVAudioEngine` for capture/playback; background audio-session activation is
-  delegated to the PushToTalk framework.
+- iOS: `AVAudioEngine` for capture/playback. The app owns the `AVAudioSession` itself:
+  `AlwaysHotBackgroundManager` runs the route detection, sets the category and activates
+  the session once, and it stays active for as long as the radio runs (§10.2). Nothing
+  else may call `setActive` or `setCategory` — re-activating mid-session collapses a
+  resolved Bluetooth route.
 - JS never receives audio frames.
 
 ## 9. PTT subsystem
@@ -371,16 +374,54 @@ independently; the service and engine keep working.
 
 ### 10.2 iOS
 
-- **Transmit lifecycle:** the system **PushToTalk framework** (`PTChannelManager`,
-  entitlement `com.apple.developer.push-to-talk`). On a BLE press:
-  `CoreBluetooth callback → requestBeginTransmitting() → system activates the audio
-  session → engine starts the microphone → Nearby transmit`. PushToTalk is **not** the
-  transport — the app encodes and streams audio itself over Nearby.
+**Always-hot audio session** (decided 2026-08-18). The app keeps one `.playAndRecord`
+`AVAudioSession` active for the whole time the radio is on, and `AudioEngine`'s
+keep-alive tap keeps the microphone delivering buffers even when nobody is transmitting.
+Continuous recording is what qualifies as background audio under the `audio`
+UIBackgroundMode, so the process legally keeps running while the screen is locked. No
+entitlement is involved.
+
+- **Ownership:** `AlwaysHotBackgroundManager` is the only `BackgroundSession`
+  implementation. It runs the two-phase route detection (permissive category first, or
+  Bluetooth ports are invisible to `availableInputs`), activates the session, and watches
+  route changes and interruptions. `AudioEngine` never touches category or activation
+  outside `#if DEBUG`.
+- **Transmit lifecycle:** on a BLE press, `CoreBluetooth callback →
+  BackgroundSession.requestBeginTransmitting() → the manager acknowledges immediately
+  (the session is already active) → engine starts the microphone → Nearby transmit`. The
+  port keeps its "the session became active" callback so the engine's ordering never
+  depends on which implementation is behind it.
 - **BLE wake-ups:** `bluetooth-central` background mode; iOS wakes the suspended app on
   characteristic changes.
+- **Cost:** a permanently open microphone is a real battery and privacy cost, and the
+  orange recording indicator is always lit. This is the reason the radio power toggle is a
+  first-class main-screen control (§5, §12) rather than something hidden in Settings.
+- **Watch item:** the session is ours, not the system's, so a phone call or Siri can take
+  it, and iOS refuses re-activation from the background. Every interruption is written to
+  `heartbeat.log`; a locked-screen run that fails to reactivate is the failure mode to
+  look for.
 - **Incoming audio while suspended is the project's #1 risk** (see R1): there is no
   documented guarantee that an active Nearby connection will keep waking a suspended iOS
   app for incoming realtime audio. This is exactly what Phase 0 must prove.
+
+**Rejected alternative — the system PushToTalk framework** (`PTChannelManager`,
+entitlement `com.apple.developer.push-to-talk`). It was the original design here, and it
+is the better one on paper: the system owns the session, supplies a lock-screen talk
+button, and survives interruptions the always-hot session does not. It was implemented
+and then removed on **2026-08-18**, for two reasons:
+
+1. `com.apple.developer.push-to-talk` is granted only to a **paid Apple Developer
+   account**. On the free Personal Team the app cannot join a channel at all, and the
+   failure is not catchable in Swift — the process exits before any `try`/`catch` around
+   `PTChannelManager.channelManager(...)` runs.
+2. On-device runs of the always-hot path on both an Android and an iPhone device
+   confirmed it works at the basic level, so the entitlement bought nothing that was
+   still missing.
+
+Keeping the implementation behind a mode switch nothing could select would have meant
+maintaining a second, untestable audio-session path forever. If a paid account is
+obtained later, this section is where the decision gets revisited; the `BackgroundSession`
+port was designed for exactly that substitution.
 
 ### 10.3 Go / No-Go condition
 
@@ -413,7 +454,7 @@ are not.
 | iOS | `NSMicrophoneUsageDescription` | microphone |
 | iOS | `NSBluetoothAlwaysUsageDescription` | PTT button |
 | iOS | `NSLocalNetworkUsageDescription` + Bonjour services | Nearby discovery/transfer |
-| iOS | UIBackgroundModes: `push-to-talk`, `bluetooth-central`; entitlement `com.apple.developer.push-to-talk` | background operation |
+| iOS | UIBackgroundModes: `audio`, `bluetooth-central`; no entitlement (the always-hot session replaced PushToTalk on 2026-08-18, §10.2) | background operation |
 
 Permissions onboarding: a short sequence of screens, each explaining one permission in the
 app language before triggering the system prompt. `ACCESS_BACKGROUND_LOCATION` still needs its
@@ -481,9 +522,10 @@ The visual design lives in the Claude Design project **"Offline Nearby PTT"**:
   (bare React Native Metro config). On startup `i18n.loadAndActivate()` selects the system
   locale with `en` fallback.
 - Native-side strings are localized through platform resources: the Android
-  foreground-service notification via `strings.xml`, iOS permission texts via
-  `InfoPlist.strings`, and the PushToTalk channel name shown in system UI via
-  `Localizable.strings`.
+  foreground-service notification via `strings.xml` and iOS permission texts via
+  `InfoPlist.strings`. RadioKit itself ships no localized copy — its only two strings
+  were the channel and participant names `PTChannelManager` showed in system UI, and they
+  went with PushToTalk on 2026-08-18 (§10.2).
 
 ## 13. Error handling
 
