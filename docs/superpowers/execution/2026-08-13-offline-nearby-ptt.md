@@ -256,7 +256,7 @@ not break already exist and the no-UI-edit acceptance is checkable.
 **Model override:** —
 
 ### P7 `integration` — wave 5, track A
-- [ ] planned   → docs/superpowers/plans/2026-08-13-p7-integration.md
+- [x] planned   → docs/superpowers/plans/2026-08-13-p7-integration.md
 - [ ] executed  → branch plan/p7-integration · worktree .claude/worktrees/p7-integration
 - [ ] merged    → sync 5
 
