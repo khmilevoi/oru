@@ -11,9 +11,9 @@ shown per state across frames 02–05 and 07 plus a new frame 08 enumerating eve
 route/mode/locale variant; `02 Settings` gained an Audio section with the one
 `audioMode` setting (auto | voice | media, default auto, rendered Auto / Radio / Music)
 as a segmented control in both frames. Both changes carry en/ru copy; `theme.css` is
-untouched. These additions are local for now: the DesignSync push back to the Claude
-Design project could not be performed from the session that made them, so until that
-push happens the canvas project does not yet carry frames 08/Audio.
+untouched. Both changed screens were pushed back to the ORU project via DesignSync on
+2026-08-18 (write verified: the remote `02 Settings.dc.html` was re-fetched and carries
+the Audio section), so the canvas project and this export match again.
 
 Spec §12.1 (`docs/superpowers/specs/2026-08-13-offline-nearby-ptt-design.md`) points at this
 canvas as the source of the visual design, but until now it was never exported — the P6 UI
