@@ -3,12 +3,16 @@ import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {Trans, useLingui} from '@lingui/react/macro';
 import {reatomComponent} from '@reatom/react';
 import {wrap} from '@reatom/core';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import {ActionButton} from '../ui/ActionButton';
 import {GearButton} from '../ui/GearButton';
+import {LevelBars} from '../ui/LevelBars';
+import {PeerRow} from '../ui/PeerRow';
+import {PingRings} from '../ui/PingRings';
 import {PowerKey} from '../ui/PowerKey';
-import {PulseDot} from '../ui/PulseDot';
-import {chassis, colors, motion, spacing, testIds, type} from '../ui/theme';
+import {StateRing} from '../ui/StateRing';
+import {chassis, colors, motion, spacing, testIds, type, washes} from '../ui/theme';
 import {lastRadioError, radio, screenState} from '../radio/radio.model';
 
 /**
@@ -60,7 +64,23 @@ const RadioErrorState = reatomComponent(() => {
  */
 export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
   ({onSettingsPress}) => {
-    const {t} = useLingui();
+    const {i18n, t} = useLingui();
+    // Unconditional, ahead of the `status === 'error'` early return below,
+    // rather than between it and `state === 'off'` as the plan's own code
+    // block shows it: this component transitions in and out of `error`
+    // without unmounting (see the engine-error scenario), and a Hook placed
+    // after a conditional return is only called on some of that one
+    // instance's renders. `useSafeAreaInsets` happens to be a thin wrapper
+    // around `useContext`, which React doesn't track on the per-render Hook
+    // list the way `useState`/`useEffect` are, so this specific placement
+    // was verified not to throw either way -- but nothing here should depend
+    // on that implementation detail of one specific Hook.
+    const insets = useSafeAreaInsets();
+    const cornerStyle = {
+      bottom: insets.bottom + spacing.gutter,
+      left: spacing.gutter,
+      right: spacing.gutter,
+    };
 
     if (radio().status === 'error') return <RadioErrorState />;
 
@@ -72,32 +92,39 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
       });
 
       return (
-        <View testID={testIds.radioScreen} style={chassis.screen}>
+        <View testID={testIds.radioScreen} style={[chassis.screen, styles.offChassis]}>
           <Pressable
             testID={testIds.powerOnArea}
             accessibilityRole="button"
             accessibilityLabel={t`Turn the radio on`}
             onPress={startRadio}
             style={styles.fill}>
-            <View style={styles.centre}>
+            <PeerRow />
+            <View style={styles.stage}>
               <PowerKey
                 variant="hero"
+                notchColor={colors.backgroundOff}
                 onActivate={startRadio}
                 accessibilityLabel={t`Turn the radio on`}
                 testID={testIds.powerKey}
               />
-              <Text
-                testID={testIds.radioStateLabel}
-                style={[type.hero, styles.headline, styles.deadAir]}>
-                <Trans>RADIO OFF</Trans>
-              </Text>
-              <Text style={[type.label, styles.hint, styles.deadAir]}>
-                <Trans>TAP TO TURN ON</Trans>
-              </Text>
+              <View style={styles.offCopy}>
+                <Text
+                  testID={testIds.radioStateLabel}
+                  style={[type.state, styles.headline, styles.deadAir]}>
+                  <Trans>RADIO OFF</Trans>
+                </Text>
+                <Text style={[type.subhint, styles.hint]}>
+                  <Trans>TAP TO TURN ON</Trans>
+                </Text>
+              </View>
             </View>
           </Pressable>
-          <View style={styles.gearCorner}>
+          <View style={[styles.gearOnly, cornerStyle]}>
+            {/* Same darker chassis the hero `PowerKey` beside it is told about:
+                the two corner controls have to agree on what they sit on. */}
             <GearButton
+              notchColor={colors.backgroundOff}
               onPress={onSettingsPress}
               accessibilityLabel={t`Settings`}
               testID={testIds.settingsGear}
@@ -128,50 +155,72 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
             void radio.releasePtt();
           })}
           style={styles.fill}>
-          <View style={styles.centre}>
+          <PeerRow
+            testID={state === 'searching' ? undefined : 'radio-peer'}
+            label={
+              state === 'searching' ? undefined : (
+                <Trans>{radio().nearbyCount} nearby</Trans>
+              )
+            }
+          />
+
+          <View style={styles.stage}>
             {state === 'searching' ? (
               <>
-                <PulseDot active color={colors.textMuted} size={12} />
+                <PingRings testID="radio-pings" />
                 <Text
                   testID={testIds.radioStateLabel}
-                  style={[type.title, styles.headline]}>
+                  style={[type.scan, styles.hint]}>
                   <Trans>SEARCHING FOR DEVICES...</Trans>
                 </Text>
               </>
             ) : null}
 
             {state === 'ready' ? (
-              <>
+              <StateRing tone="idle" testID="radio-ring">
+                {/*
+                  The canvas sets this headline in `.holden` (40pt) for `en` and
+                  drops to `.holdword` (33pt) for `ru`, whose translation of
+                  "HOLD TO TALK" is far longer than the 302pt ring it sits in
+                  (`design/01 Radio.dc.html:195-224`). Every non-`en` locale
+                  takes the tighter face for the same reason.
+                */}
                 <Text
                   testID={testIds.radioStateLabel}
-                  style={[type.hero, styles.headline]}>
-                  <Trans>● {radio().nearbyCount} nearby</Trans>
-                </Text>
-                <Text style={[type.label, styles.hint]}>
+                  style={[
+                    i18n.locale === 'en' ? type.hero : type.heroTight,
+                    styles.headline,
+                  ]}>
                   <Trans>HOLD TO TALK</Trans>
                 </Text>
-              </>
+              </StateRing>
             ) : null}
 
             {state === 'transmitting' ? (
               <>
-                <Text
-                  testID={testIds.radioStateLabel}
-                  style={[type.hero, styles.headline, styles.txText]}>
-                  <Trans>TRANSMITTING...</Trans>
-                </Text>
-                <Text style={[type.label, styles.hint, styles.txText]}>
+                <StateRing tone="tx" testID="radio-ring">
+                  <Text
+                    testID={testIds.radioStateLabel}
+                    style={[type.state, styles.onTx]}>
+                    <Trans>TRANSMITTING...</Trans>
+                  </Text>
+                  <LevelBars color={colors.text} testID="radio-bars" />
+                </StateRing>
+                <Text style={[type.subhint, styles.txHint]}>
                   <Trans>RELEASE TO FINISH</Trans>
                 </Text>
               </>
             ) : null}
 
             {state === 'receiving' ? (
-              <Text
-                testID={testIds.radioStateLabel}
-                style={[type.hero, styles.headline, styles.rxText]}>
-                <Trans>RECEIVING...</Trans>
-              </Text>
+              <StateRing tone="rx" testID="radio-ring">
+                <Text
+                  testID={testIds.radioStateLabel}
+                  style={[type.state, styles.rxText]}>
+                  <Trans>RECEIVING...</Trans>
+                </Text>
+                <LevelBars color={colors.rx} testID="radio-bars" />
+              </StateRing>
             ) : null}
           </View>
         </Pressable>
@@ -179,7 +228,12 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
         <View
           testID="corner-controls"
           pointerEvents={live ? 'none' : 'auto'}
-          style={[styles.corners, live && styles.receded]}>
+          style={[styles.corners, cornerStyle, live && styles.receded]}>
+          <GearButton
+            onPress={onSettingsPress}
+            accessibilityLabel={t`Settings`}
+            testID={testIds.settingsGear}
+          />
           <PowerKey
             variant="corner"
             holdToConfirm
@@ -188,11 +242,6 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
             })}
             accessibilityLabel={t`Hold to turn the radio off`}
             testID={testIds.powerKey}
-          />
-          <GearButton
-            onPress={onSettingsPress}
-            accessibilityLabel={t`Settings`}
-            testID={testIds.settingsGear}
           />
         </View>
       </View>
@@ -203,6 +252,33 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
 
 const styles = StyleSheet.create({
   fill: {flex: 1},
+  offChassis: {backgroundColor: colors.backgroundOff},
+  stage: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xl,
+    paddingBottom: spacing.xl,
+  },
+  offCopy: {alignItems: 'center', gap: spacing.md},
+  headline: {color: colors.text, textAlign: 'center'},
+  hint: {color: colors.textFaint, textAlign: 'center'},
+  deadAir: {color: colors.deadAir},
+  txWash: {backgroundImage: washes.tx},
+  rxWash: {backgroundImage: washes.rx},
+  onTx: {color: '#ffffff', textAlign: 'center'},
+  txHint: {color: colors.txHint, textAlign: 'center'},
+  rxText: {color: colors.rx, textAlign: 'center'},
+  errorWash: {borderWidth: 3, borderColor: colors.danger},
+  errorText: {color: colors.danger},
+  corners: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  gearOnly: {position: 'absolute', alignItems: 'flex-start'},
+  receded: {opacity: motion.recededOpacity},
   centre: {
     flex: 1,
     alignItems: 'center',
@@ -210,24 +286,4 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
     padding: spacing.xl,
   },
-  headline: {color: colors.text, textAlign: 'center'},
-  hint: {color: colors.textMuted, textAlign: 'center'},
-  deadAir: {color: colors.off},
-  txWash: {backgroundColor: colors.txWash, borderWidth: 10, borderColor: colors.tx},
-  rxWash: {backgroundColor: colors.rxWash, borderWidth: 3, borderColor: colors.rx},
-  txText: {color: colors.tx},
-  rxText: {color: colors.rx},
-  errorWash: {borderWidth: 3, borderColor: colors.danger},
-  errorText: {color: colors.danger},
-  corners: {
-    position: 'absolute',
-    top: spacing.xxl,
-    left: spacing.lg,
-    right: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  receded: {opacity: motion.recededOpacity},
-  gearCorner: {position: 'absolute', top: spacing.xxl, right: spacing.lg},
 });

@@ -30,19 +30,19 @@ describe('the pairing flow — spec sections 9.3 and 12.1', () => {
     // No `radio.start()` anywhere in this suite: the flow opens its own session
     // on mount, and starting the radio afterwards would cancel it -- `start()`
     // cancels every pending timer and aborts an in-flight pairing by design.
-    expect(screen.hasText('Searching for Bluetooth buttons...')).toBe(true);
-    expect(screen.findAll('pulse-dot')).toHaveLength(1);
+    expect(screen.hasText('SCANNING FOR BLE DEVICES...')).toBe(true);
+    expect(screen.findAll('pairing-pings')).toHaveLength(1);
 
     await screen.advance(1000);
-    expect(screen.hasText('Select your button')).toBe(true);
+    expect(screen.hasText('Found')).toBe(true);
     expect(screen.hasText('ORU-PTT-01')).toBe(true);
     expect(screen.hasText('BT-REMOTE')).toBe(true);
 
     await screen.press(`${testIds.pairingCandidate}-mock-ptt-01`);
-    expect(screen.hasText('Press the PTT button')).toBe(true);
+    expect(screen.hasText('PRESS THE PTT BUTTON')).toBe(true);
 
     await screen.advance(1300);
-    expect(screen.hasText('Button saved')).toBe(true);
+    expect(screen.hasText('BUTTON CONNECTED')).toBe(true);
     expect(radio().pttButton).toEqual({
       configured: true,
       connected: true,
@@ -60,7 +60,7 @@ describe('the pairing flow — spec sections 9.3 and 12.1', () => {
       scenario: 'pairing-empty',
     });
 
-    expect(screen.hasText('Searching for Bluetooth buttons...')).toBe(true);
+    expect(screen.hasText('SCANNING FOR BLE DEVICES...')).toBe(true);
 
     await screen.advance(2600);
 
@@ -68,7 +68,7 @@ describe('the pairing flow — spec sections 9.3 and 12.1', () => {
     expect(screen.findAll(testIds.pairingRetry)).toHaveLength(1);
 
     await screen.press(testIds.pairingRetry);
-    expect(screen.hasText('Searching for Bluetooth buttons...')).toBe(true);
+    expect(screen.hasText('SCANNING FOR BLE DEVICES...')).toBe(true);
 
     await screen.advance(2600);
     expect(screen.hasText('No buttons found')).toBe(true);
@@ -81,7 +81,7 @@ describe('the pairing flow — spec sections 9.3 and 12.1', () => {
       scenario: 'pairing-success',
     });
 
-    expect(screen.hasText('Searching for Bluetooth buttons...')).toBe(true);
+    expect(screen.hasText('SCANNING FOR BLE DEVICES...')).toBe(true);
 
     // A failure `configurePtt()` can return that is not the empty-scan
     // timeout -- the Turbo Module itself missing, say -- must not be
@@ -118,16 +118,16 @@ describe('the pairing flow — spec sections 9.3 and 12.1', () => {
       locale: 'ru',
     });
 
-    expect(screen.hasText('Ищем Bluetooth-кнопки...')).toBe(true);
+    expect(screen.hasText('ИЩЕМ BLE-УСТРОЙСТВА...')).toBe(true);
 
     await screen.advance(1000);
-    expect(screen.hasText('Выберите вашу кнопку')).toBe(true);
+    expect(screen.hasText('Найдено')).toBe(true);
 
     await screen.press(`${testIds.pairingCandidate}-mock-ptt-01`);
-    expect(screen.hasText('Нажмите кнопку PTT')).toBe(true);
+    expect(screen.hasText('НАЖМИТЕ КНОПКУ PTT')).toBe(true);
 
     await screen.advance(1300);
-    expect(screen.hasText('Кнопка сохранена')).toBe(true);
+    expect(screen.hasText('КНОПКА ПОДКЛЮЧЕНА')).toBe(true);
 
     screen.unmount();
   });
@@ -140,7 +140,7 @@ describe('the pairing flow — spec sections 9.3 and 12.1', () => {
     // Well under `pairing-success`'s scanMs (900ms): the session is still
     // pending underneath -- its `configurePtt()` promise has not settled.
     await abandoned.advance(200);
-    expect(abandoned.hasText('Searching for Bluetooth buttons...')).toBe(true);
+    expect(abandoned.hasText('SCANNING FOR BLE DEVICES...')).toBe(true);
 
     // Back out before the scan settles. `resetPairing` only clears the local
     // `pairingError` atom; it never touches the engine session, so the
@@ -173,12 +173,64 @@ describe('the pairing flow — spec sections 9.3 and 12.1', () => {
     });
 
     const text = collectText(tree.root).join('');
-    expect(text).toContain('Searching for Bluetooth buttons...');
+    expect(text).toContain('SCANNING FOR BLE DEVICES...');
     expect(text).not.toContain('No buttons found');
 
     subscription.remove();
     ReactTestRenderer.act(() => {
       tree.unmount();
     });
+  });
+});
+
+describe('PairingFlow — design/03 Pairing.dc.html', () => {
+  it('scans behind the small ping set', async () => {
+    const screen = await renderScreen(<PairingFlow onClose={jest.fn()} />, {
+      scenario: 'happy',
+    });
+
+    expect(screen.findAll('pairing-pings')).toHaveLength(1);
+
+    // Settle the in-flight scan (`SUCCESSFUL_PAIRING.scanMs`) before
+    // unmounting: `jest.useFakeTimers()` is set up once for the whole file, so
+    // its clock -- and any `setTimeout` the mock engine scheduled -- outlives
+    // this test. Unmounting with `configurePtt()` still pending leaves a
+    // dangling continuation that a *later* test's `renderScreen()` (which
+    // calls `context.reset()`) can walk into once its own `advance()` crosses
+    // this timer's threshold, throwing deep inside Reatom on an unrelated
+    // test. Same root cause as `ui-state-ring.test.tsx`'s
+    // reduced-motion-overlap bug, one layer further down the stack: settle
+    // before unmount rather than leave it dangling across a test boundary.
+    await screen.advance(1000);
+    screen.unmount();
+  });
+
+  it('learns inside the amber ring', async () => {
+    const screen = await renderScreen(<PairingFlow onClose={jest.fn()} />, {
+      scenario: 'happy',
+    });
+    await screen.advance(1000);
+    await screen.press(`${testIds.pairingCandidate}-mock-ptt-01`);
+
+    expect(screen.findAll('pairing-ring')).toHaveLength(1);
+
+    // Same reason as above: settle the in-flight learn step
+    // (`SUCCESSFUL_PAIRING.learnMs`) before unmounting.
+    await screen.advance(1300);
+    screen.unmount();
+  });
+
+  it('confirms with the canvas tick', async () => {
+    const screen = await renderScreen(<PairingFlow onClose={jest.fn()} />, {
+      scenario: 'happy',
+    });
+    await screen.advance(1000);
+    await screen.press(`${testIds.pairingCandidate}-mock-ptt-01`);
+    await screen.advance(1300);
+
+    expect(screen.findAll('pairing-tick')).toHaveLength(1);
+    expect(screen.findAll(testIds.pairingDone)).toHaveLength(1);
+
+    screen.unmount();
   });
 });

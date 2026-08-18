@@ -25,10 +25,10 @@ const COPY = {
     receiving: 'RECEIVING...',
     error: 'RADIO ERROR',
     restart: 'RESTART RADIO',
-    pairingSaved: 'Button saved',
+    pairingSaved: 'BUTTON CONNECTED',
     pairingEmpty: 'No buttons found',
     onboardingDenied: 'Permission denied',
-    onboardingReady: 'Ready',
+    onboardingReady: 'All set',
   },
   ru: {
     off: 'РАЦИЯ ВЫКЛЮЧЕНА',
@@ -38,10 +38,10 @@ const COPY = {
     receiving: 'ПРИЁМ...',
     error: 'ОШИБКА РАЦИИ',
     restart: 'ПЕРЕЗАПУСТИТЬ',
-    pairingSaved: 'Кнопка сохранена',
+    pairingSaved: 'КНОПКА ПОДКЛЮЧЕНА',
     pairingEmpty: 'Кнопки не найдены',
     onboardingDenied: 'Разрешение отклонено',
-    onboardingReady: 'Готово',
+    onboardingReady: 'Всё готово',
   },
 } as const;
 
@@ -209,12 +209,14 @@ describe.each(LOCALES)('spec section 15 Stage 2 — locale %s', locale => {
     );
 
     await screen.press(testIds.powerOnArea);
-    const dot = screen.find('pulse-dot');
+    const dot = screen.find('radio-pings-ring');
     const before = JSON.stringify(dot.props.style);
 
-    await screen.advance(motion.pulseMs * 2);
+    await screen.advance(motion.pingMs * 2);
 
-    expect(JSON.stringify(screen.find('pulse-dot').props.style)).toEqual(before);
+    expect(JSON.stringify(screen.find('radio-pings-ring').props.style)).toEqual(
+      before,
+    );
     screen.unmount();
   });
 

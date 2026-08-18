@@ -5,8 +5,9 @@ import {reatomComponent} from '@reatom/react';
 import {wrap} from '@reatom/core';
 
 import {ActionButton} from '../ui/ActionButton';
+import {PermissionMark} from '../ui/PermissionMark';
 import {ScreenFrame} from '../ui/ScreenFrame';
-import {colors, spacing, type} from '../ui/theme';
+import {chrome, colors, spacing, type} from '../ui/theme';
 import {
   backgroundStatus,
   completeBackgroundStep,
@@ -37,8 +38,11 @@ export const BackgroundStep = reatomComponent(() => {
 
   return (
     <ScreenFrame testID={backgroundStepTestIds.screen}>
-      <View style={styles.centre}>
-        <Text style={[type.hero, styles.headline]}>
+      <View style={styles.mark}>
+        <PermissionMark kind="nearbyDevices" />
+      </View>
+      <View style={styles.foot}>
+        <Text style={[type.hero, styles.title]}>
           <Trans>Keep the radio working</Trans>
         </Text>
         <Text style={[type.body, styles.body]}>
@@ -102,15 +106,10 @@ export const BackgroundStep = reatomComponent(() => {
 }, 'BackgroundStep');
 
 const styles = StyleSheet.create({
-  centre: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.lg,
-    padding: spacing.lg,
-  },
-  headline: {color: colors.text, textAlign: 'center'},
-  body: {color: colors.textMuted, textAlign: 'center'},
-  warning: {color: colors.learning, textAlign: 'center'},
+  mark: {flex: 1, alignItems: 'center', justifyContent: 'center'},
+  foot: {...chrome.footer},
+  title: {color: colors.text},
+  body: {color: colors.textMuted, maxWidth: 320},
+  warning: {color: colors.learning},
   actions: {gap: spacing.md, alignSelf: 'stretch'},
 });

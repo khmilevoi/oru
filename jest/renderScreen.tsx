@@ -3,6 +3,7 @@ import ReactTestRenderer from 'react-test-renderer';
 import {I18nProvider} from '@lingui/react';
 import {i18n} from '@lingui/core';
 import {context} from '@reatom/core';
+import {SafeAreaProvider} from 'react-native-safe-area-context';
 import type {ReactTestInstance} from 'react-test-renderer';
 
 import {RadioNative} from '../src/radio/radio.native';
@@ -81,7 +82,16 @@ export async function renderScreen(
   let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
   await ReactTestRenderer.act(async () => {
     renderer = ReactTestRenderer.create(
-      <I18nProvider i18n={i18n}>{element}</I18nProvider>,
+      // Mirrors `App.tsx`'s own provider order: `RadioScreen` (task 5) reads
+      // `useSafeAreaInsets()` for the corner controls' bottom inset, and that
+      // hook throws outright with no `SafeAreaProvider` ancestor -- the real
+      // library has no silent zero-inset fallback. The mock module this
+      // resolves to under Jest (`__mocks__/reactNativeSafeAreaContext.tsx`)
+      // supplies synchronous zero insets, so every other screen's tree is
+      // unaffected by gaining this ancestor.
+      <SafeAreaProvider>
+        <I18nProvider i18n={i18n}>{element}</I18nProvider>
+      </SafeAreaProvider>,
     );
   });
 

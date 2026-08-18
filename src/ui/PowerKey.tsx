@@ -2,7 +2,7 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Animated, Pressable, StyleSheet, View} from 'react-native';
 import {reatomComponent} from '@reatom/react';
 
-import {colors, motion, radii} from './theme';
+import {colors, motion, radii, sizes} from './theme';
 import {reducedMotion} from './reducedMotion';
 
 /**
@@ -20,17 +20,36 @@ export type PowerKeyProps = {
   onActivate: () => void;
   holdToConfirm?: boolean;
   disabled?: boolean;
+  /**
+   * The colour the ring's gap is painted in. The notch has to match whatever
+   * the key is sitting on, and the canvas gives the `off` screen its own,
+   * darker chassis (`.phone.off`), so the hero variant is told rather than
+   * assuming.
+   */
+  notchColor?: string;
   accessibilityLabel: string;
   testID?: string;
 };
 
 const SIZES = {
-  hero: {box: 128, border: 8, bar: 8, barHeight: 46, notch: 26},
-  corner: {box: 34, border: 3, bar: 3, barHeight: 13, notch: 9},
+  hero: {
+    box: sizes.powerKeyHero,
+    border: 5,
+    bar: 5,
+    barHeight: Math.round(sizes.powerKeyHero * 0.66),
+    notch: Math.round(sizes.powerKeyHero * 0.34),
+  },
+  corner: {
+    box: sizes.powerKeyCorner,
+    border: 2,
+    bar: 2,
+    barHeight: Math.round(sizes.powerKeyCorner * 0.66),
+    notch: Math.round(sizes.powerKeyCorner * 0.34),
+  },
 } as const;
 
 export const PowerKey = reatomComponent<PowerKeyProps>(
-  ({variant, onActivate, holdToConfirm = false, disabled = false, accessibilityLabel, testID}) => {
+  ({variant, onActivate, holdToConfirm = false, disabled = false, notchColor = colors.background, accessibilityLabel, testID}) => {
     const still = reducedMotion();
     const size = SIZES[variant];
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -86,9 +105,10 @@ export const PowerKey = reatomComponent<PowerKeyProps>(
         onPress={onPress}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
-        hitSlop={variant === 'corner' ? 12 : 0}
+        hitSlop={variant === 'corner' ? (sizes.cornerControl - SIZES.corner.box) / 2 : 0}
         style={[styles.hit, {width: size.box, height: size.box}]}>
         <View
+          testID="power-key-ring"
           style={[
             styles.ring,
             {
@@ -96,7 +116,7 @@ export const PowerKey = reatomComponent<PowerKeyProps>(
               height: size.box,
               borderRadius: size.box / 2,
               borderWidth: size.border,
-              borderColor: holding ? colors.tx : colors.text,
+              borderColor: holding ? colors.tx : colors.textFaint,
               opacity: disabled ? 0.35 : 1,
             },
           ]}
@@ -104,12 +124,13 @@ export const PowerKey = reatomComponent<PowerKeyProps>(
         {/* The gap the bar rises through: chassis-coloured, so it reads as a
             break in the ring rather than a shape sitting on top of it. */}
         <View
+          testID="power-key-notch"
           style={[
             styles.notch,
             {
               width: size.notch,
               height: size.border * 2,
-              backgroundColor: colors.background,
+              backgroundColor: notchColor,
               top: -size.border / 2,
             },
           ]}
@@ -121,7 +142,7 @@ export const PowerKey = reatomComponent<PowerKeyProps>(
               width: size.bar,
               height: size.barHeight,
               borderRadius: size.bar / 2,
-              backgroundColor: holding ? colors.tx : colors.text,
+              backgroundColor: holding ? colors.tx : colors.textFaint,
               top: size.box / 2 - size.barHeight + size.border,
               opacity: disabled ? 0.35 : 1,
             },

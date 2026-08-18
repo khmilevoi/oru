@@ -5,8 +5,10 @@ import {reatomComponent} from '@reatom/react';
 import {wrap} from '@reatom/core';
 
 import {ActionButton} from '../ui/ActionButton';
+import {PermissionMark} from '../ui/PermissionMark';
 import {ScreenFrame} from '../ui/ScreenFrame';
-import {colors, spacing, testIds, type} from '../ui/theme';
+import {StepDots} from '../ui/StepDots';
+import {chrome, colors, spacing, testIds, type} from '../ui/theme';
 import {APP_PERMISSIONS} from '../permissions/permissions.types';
 import {
   advanceOnboarding,
@@ -25,19 +27,28 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
     if (onboardingFinished()) {
       return (
         <ScreenFrame testID={testIds.onboardingScreen}>
-          <View style={styles.centre}>
-            <Text style={[type.hero, styles.headline]}>
-              <Trans>Ready</Trans>
+          <StepDots total={APP_PERMISSIONS.length} current={APP_PERMISSIONS.length} />
+          <View style={styles.mark}>
+            <PermissionMark kind="done" />
+          </View>
+          <View style={styles.foot}>
+            <Text style={[type.hero, styles.title]}>
+              <Trans>All set</Trans>
             </Text>
             <Text style={[type.body, styles.body]}>
-              <Trans>Turn the radio on and hold anywhere to talk.</Trans>
+              <Trans>
+                Whoever is nearby is connected — and hears you. Lock the
+                phone and put it in your pocket.
+              </Trans>
             </Text>
-            <ActionButton
-              label={t`Start`}
-              tone="primary"
-              onPress={onDone}
-              testID={testIds.onboardingStart}
-            />
+            <View style={styles.actions}>
+              <ActionButton
+                label={t`Go on air`}
+                tone="primary"
+                onPress={onDone}
+                testID={testIds.onboardingStart}
+              />
+            </View>
           </View>
         </ScreenFrame>
       );
@@ -52,7 +63,8 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
         title: <Trans>Microphone</Trans>,
         body: (
           <Trans>
-            Oru uses the microphone to transmit your voice to nearby devices.
+            Your voice is transmitted only while the button is held. Nothing
+            is recorded — the air is never stored.
           </Trans>
         ),
       },
@@ -60,8 +72,8 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
         title: <Trans>Bluetooth</Trans>,
         body: (
           <Trans>
-            Oru connects to your push-to-talk button over Bluetooth, including
-            while the screen is locked.
+            Connects nearby phones and pairs the external PTT button. No
+            internet involved.
           </Trans>
         ),
       },
@@ -69,7 +81,8 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
         title: <Trans>Nearby devices</Trans>,
         body: (
           <Trans>
-            Oru finds other radios around you without using the internet.
+            Phones find each other and connect directly — no servers, no
+            accounts. On iOS this is the “Local Network” permission.
           </Trans>
         ),
       },
@@ -77,13 +90,17 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
 
     return (
       <ScreenFrame testID={testIds.onboardingScreen}>
-        <View style={styles.centre}>
-          <Text style={[type.caption, styles.counter]}>
+        <StepDots total={APP_PERMISSIONS.length} current={step - 1} />
+        <View style={styles.mark}>
+          <PermissionMark kind={permission ?? 'microphone'} />
+        </View>
+        <View style={styles.foot}>
+          <Text style={[type.label, styles.step]}>
             <Trans>
-              Step {step} of {APP_PERMISSIONS.length}
+              STEP {step} OF {APP_PERMISSIONS.length}
             </Trans>
           </Text>
-          <Text style={[type.hero, styles.headline]}>{copy.title}</Text>
+          <Text style={[type.hero, styles.title]}>{copy.title}</Text>
           <Text style={[type.body, styles.body]}>{copy.body}</Text>
 
           {status === 'denied' ? (
@@ -143,16 +160,11 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
 );
 
 const styles = StyleSheet.create({
-  centre: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.lg,
-    padding: spacing.lg,
-  },
-  counter: {color: colors.textMuted},
-  headline: {color: colors.text, textAlign: 'center'},
-  body: {color: colors.textMuted, textAlign: 'center'},
-  warning: {color: colors.learning, textAlign: 'center'},
+  mark: {flex: 1, alignItems: 'center', justifyContent: 'center'},
+  foot: {...chrome.footer},
+  step: {color: colors.textFaint},
+  title: {color: colors.text},
+  body: {color: colors.textMuted, maxWidth: 320},
+  warning: {color: colors.learning},
   actions: {gap: spacing.md, alignSelf: 'stretch'},
 });

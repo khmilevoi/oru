@@ -1,7 +1,6 @@
 import React from 'react';
-import {StyleSheet, Text, View} from 'react-native';
+import {Pressable, StyleSheet, Text, View} from 'react-native';
 
-import {ActionButton} from './ActionButton';
 import {chassis, colors, spacing, type} from './theme';
 
 /** The dark panel every non-main screen sits in. */
@@ -25,15 +24,19 @@ export function ScreenFrame({
     <View testID={testID} style={chassis.screen}>
       {title === undefined && onBack === undefined ? null : (
         <View style={styles.bar}>
-          {title === undefined ? null : (
-            <Text style={[type.label, styles.title]}>{title}</Text>
-          )}
           {onBack === undefined || backLabel === undefined ? null : (
-            <ActionButton
-              label={backLabel}
-              onPress={onBack}
+            <Pressable
               testID={backTestID}
-            />
+              accessibilityRole="button"
+              accessibilityLabel={backLabel}
+              onPress={onBack}
+              hitSlop={12}
+              style={styles.back}>
+              <Text style={styles.backGlyph}>←</Text>
+            </Pressable>
+          )}
+          {title === undefined ? null : (
+            <Text style={[type.title, styles.title]}>{title}</Text>
           )}
         </View>
       )}
@@ -44,15 +47,14 @@ export function ScreenFrame({
 
 const styles = StyleSheet.create({
   bar: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xxl,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.hairline,
+    paddingHorizontal: 26,
+    paddingTop: spacing.gutter,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: spacing.md,
   },
-  title: {color: colors.textMuted},
-  body: {flex: 1, padding: spacing.lg},
+  back: {width: 32},
+  backGlyph: {fontSize: 22, color: colors.textMuted},
+  title: {color: colors.text},
+  body: {flex: 1},
 });

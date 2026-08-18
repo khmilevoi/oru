@@ -3,10 +3,11 @@ import {StyleSheet, Text} from 'react-native';
 import {context} from '@reatom/core';
 
 import {ActionButton} from '../src/ui/ActionButton';
+import {GearButton} from '../src/ui/GearButton';
 import {PowerKey} from '../src/ui/PowerKey';
 import {PulseDot} from '../src/ui/PulseDot';
 import {ScreenFrame} from '../src/ui/ScreenFrame';
-import {colors, motion} from '../src/ui/theme';
+import {colors, motion, sizes} from '../src/ui/theme';
 import {reducedMotion} from '../src/ui/reducedMotion';
 import {renderScreen} from '../jest/renderScreen';
 import {loadPoCatalog} from '../jest/loadPoCatalog';
@@ -114,6 +115,78 @@ describe('PowerKey', () => {
   });
 });
 
+describe('PowerKey — design/01 Radio.dc.html', () => {
+  it('draws the hero key at the canvas size in the faint chassis colour', async () => {
+    const screen = await renderScreen(
+      <PowerKey
+        variant="hero"
+        onActivate={jest.fn()}
+        accessibilityLabel="Turn the radio on"
+        testID="power-key"
+      />,
+    );
+
+    const flat = JSON.stringify(screen.find('power-key-ring').props.style);
+    expect(flat).toContain(String(sizes.powerKeyHero));
+    expect(flat).toContain(colors.textFaint.slice(1));
+
+    screen.unmount();
+  });
+
+  it('paints the notch in the background it is told it sits on', async () => {
+    const screen = await renderScreen(
+      <PowerKey
+        variant="hero"
+        notchColor={colors.backgroundOff}
+        onActivate={jest.fn()}
+        accessibilityLabel="Turn the radio on"
+        testID="power-key"
+      />,
+    );
+
+    expect(JSON.stringify(screen.find('power-key-notch').props.style)).toContain(
+      colors.backgroundOff.slice(1),
+    );
+
+    screen.unmount();
+  });
+});
+
+describe('GearButton — design/theme.css .gear', () => {
+  it('draws the gear in the faint chassis colour, like the key beside it', async () => {
+    const screen = await renderScreen(
+      <GearButton
+        onPress={jest.fn()}
+        accessibilityLabel="Settings"
+        testID="gear"
+      />,
+    );
+
+    const flat = JSON.stringify(screen.find('gear-ring').props.style);
+    expect(flat).toContain(colors.textFaint.slice(1));
+    expect(flat).not.toContain(colors.text.slice(1));
+
+    screen.unmount();
+  });
+
+  it('paints the hub in the background it is told it sits on', async () => {
+    const screen = await renderScreen(
+      <GearButton
+        notchColor={colors.backgroundOff}
+        onPress={jest.fn()}
+        accessibilityLabel="Settings"
+        testID="gear"
+      />,
+    );
+
+    expect(JSON.stringify(screen.find('gear-hub').props.style)).toContain(
+      colors.backgroundOff.slice(1),
+    );
+
+    screen.unmount();
+  });
+});
+
 describe('PulseDot', () => {
   it('renders under both motion settings, and picks up the reduced-motion flag the harness set', async () => {
     const animated = await renderScreen(<PulseDot active color={colors.rx} />, {
@@ -145,6 +218,40 @@ describe('ActionButton and ScreenFrame', () => {
 
     await screen.press('connect');
     expect(onPress).toHaveBeenCalledTimes(1);
+    screen.unmount();
+  });
+});
+
+describe('ActionButton — design/theme.css .btn', () => {
+  it('draws the solid key at the canvas height', async () => {
+    const screen = await renderScreen(
+      <ActionButton label="Connect" tone="primary" onPress={jest.fn()} testID="key" />,
+    );
+
+    const node = screen.root
+      .findAllByProps({testID: 'key'})
+      .find(n => n.props.style && typeof n.props.style !== 'function');
+    if (!node) throw new Error('ActionButton style-bearing node not found');
+    const flat = JSON.stringify(node.props.style);
+    expect(flat).toContain(String(sizes.button));
+    expect(flat).toContain(colors.text.slice(1));
+
+    screen.unmount();
+  });
+
+  it('draws the ghost key as an outline', async () => {
+    const screen = await renderScreen(
+      <ActionButton label="Test" onPress={jest.fn()} testID="key" />,
+    );
+
+    const node = screen.root
+      .findAllByProps({testID: 'key'})
+      .find(n => n.props.style && typeof n.props.style !== 'function');
+    if (!node) throw new Error('ActionButton style-bearing node not found');
+    const flat = JSON.stringify(node.props.style);
+    expect(flat).toContain(colors.hairlineRaised.slice(1));
+    expect(flat).not.toContain(`"backgroundColor":"${colors.text}"`);
+
     screen.unmount();
   });
 });

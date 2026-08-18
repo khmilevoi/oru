@@ -15,28 +15,41 @@ msgstr ""
 
 #. placeholder {0}: candidate.rssi
 #: src/screens/PairingFlow.tsx:85
-msgid "{0} dBm"
-msgstr "{0} дБм"
+#~ msgid "{0} dBm"
+#~ msgstr "{0} дБм"
+
+#. placeholder {0}: radio().nearbyCount
+#: src/screens/RadioScreen.tsx:159
+msgid "{0} nearby"
+msgstr "{0} рядом"
 
 #: src/screens/PairingFlow.tsx:110
-msgid "{buttonName} is ready to use"
-msgstr "{buttonName} готова к работе"
+#~ msgid "{buttonName} is ready to use"
+#~ msgstr "{buttonName} готова к работе"
 
 #. placeholder {0}: radio().nearbyCount
 #: src/screens/RadioScreen.tsx:148
-msgid "● {0} nearby"
-msgstr "● {0} рядом"
+#~ msgid "● {0} nearby"
+#~ msgstr "● {0} рядом"
 
 #: src/screens/RadioScreen.tsx:106
 #~ msgid "● {nearbyCount} nearby"
 #~ msgstr "● {nearbyCount} рядом"
 
-#: src/screens/BackgroundStep.tsx:72
-#: src/screens/OnboardingFlow.tsx:115
+#: src/screens/OnboardingFlow.tsx:36
+msgid "All set"
+msgstr "Всё готово"
+
+#: src/screens/BackgroundStep.tsx:87
+#: src/screens/OnboardingFlow.tsx:132
 msgid "Allow"
 msgstr "Разрешить"
 
-#: src/screens/BackgroundStep.tsx:53
+#: src/screens/SettingsScreen.tsx:88
+msgid "An external button lets you talk without taking the phone out of your pocket."
+msgstr "Внешняя кнопка позволяет говорить, не доставая телефон из кармана."
+
+#: src/screens/BackgroundStep.tsx:57
 msgid "Android grants this only from the app settings. Open them, choose Permissions, then Location, then \"Allow all the time\"."
 msgstr "Android выдаёт это только в настройках приложения. Откройте их, выберите «Разрешения», затем «Геолокация», затем «Разрешить всегда»."
 
@@ -44,173 +57,222 @@ msgstr "Android выдаёт это только в настройках при�
 msgid "Back"
 msgstr "Назад"
 
-#: src/screens/OnboardingFlow.tsx:60
+#. placeholder {0}: candidate.rssi
+#: src/screens/PairingFlow.tsx:99
+msgid "BLE · {0} dBm"
+msgstr "BLE · {0} dBm"
+
+#: src/screens/OnboardingFlow.tsx:72
 msgid "Bluetooth"
 msgstr "Bluetooth"
 
-#: src/screens/PairingFlow.tsx:107
-msgid "Button saved"
-msgstr "Кнопка сохранена"
+#: src/screens/PairingFlow.tsx:127
+msgid "BUTTON CONNECTED"
+msgstr "КНОПКА ПОДКЛЮЧЕНА"
 
-#: src/screens/PairingFlow.tsx:54
+#: src/screens/PairingFlow.tsx:107
+#~ msgid "Button saved"
+#~ msgstr "Кнопка сохранена"
+
+#: src/screens/PairingFlow.tsx:56
 msgid "Cancel"
 msgstr "Отмена"
 
-#: src/screens/SettingsScreen.tsx:80
+#: src/screens/SettingsScreen.tsx:95
 msgid "Connect"
 msgstr "Подключить"
 
-#: src/screens/PairingFlow.tsx:53
+#: src/screens/PairingFlow.tsx:55
 msgid "CONNECT A BUTTON"
 msgstr "ПОДКЛЮЧЕНИЕ КНОПКИ"
 
-#: src/screens/SettingsScreen.tsx:47
+#: src/screens/SettingsScreen.tsx:50
 msgid "Connected"
 msgstr "Подключена"
 
-#: src/screens/SettingsScreen.tsx:49
+#: src/screens/OnboardingFlow.tsx:74
+msgid "Connects nearby phones and pairs the external PTT button. No internet involved."
+msgstr "Соединяет телефоны рядом и подключает внешнюю PTT-кнопку. Интернет не используется."
+
+#: src/screens/PairingFlow.tsx:132
+msgid "device"
+msgstr "устройство"
+
+#: src/screens/SettingsScreen.tsx:52
 msgid "Disconnected"
 msgstr "Отключена"
 
-#: src/screens/PairingFlow.tsx:113
+#: src/screens/PairingFlow.tsx:138
 msgid "Done"
 msgstr "Готово"
 
-#: src/screens/PairingFlow.tsx:99
-msgid "Hold it down until it is recognised"
-msgstr "Удерживайте её, пока она не будет распознана"
+#: src/screens/PairingFlow.tsx:82
+msgid "Found"
+msgstr "Найдено"
 
-#: src/screens/RadioScreen.tsx:151
+#: src/screens/OnboardingFlow.tsx:46
+msgid "Go on air"
+msgstr "В эфир"
+
+#: src/screens/PairingFlow.tsx:99
+#~ msgid "Hold it down until it is recognised"
+#~ msgstr "Удерживайте её, пока она не будет распознана"
+
+#: src/screens/RadioScreen.tsx:181
 msgid "HOLD TO TALK"
 msgstr "УДЕРЖИВАЙТЕ ЧТОБЫ ГОВОРИТЬ"
 
-#: src/screens/SettingsScreen.tsx:55
+#: src/screens/SettingsScreen.tsx:61
 msgid "Hold to transmit"
 msgstr "Удерживайте, чтобы передавать"
 
-#: src/screens/RadioScreen.tsx:189
+#: src/screens/RadioScreen.tsx:230
 msgid "Hold to turn the radio off"
 msgstr "Удерживайте, чтобы выключить рацию"
 
-#: src/screens/BackgroundStep.tsx:42
+#: src/screens/BackgroundStep.tsx:46
 msgid "Keep the radio working"
 msgstr "Чтобы рация работала"
 
-#: src/screens/PairingFlow.tsx:129
+#: src/screens/PairingFlow.tsx:116
+msgid "Listening for a signal from {buttonName}..."
+msgstr "Слушаем сигнал от {buttonName}..."
+
+#: src/screens/PairingFlow.tsx:154
 msgid "Make sure the button is switched on and in pairing mode."
 msgstr "Убедитесь, что кнопка включена и находится в режиме сопряжения."
 
-#: src/screens/OnboardingFlow.tsx:52
+#: src/screens/PairingFlow.tsx:66
+msgid "Make sure the button is turned on and close to the phone."
+msgstr "Убедитесь, что кнопка включена и находится рядом с телефоном."
+
+#: src/screens/OnboardingFlow.tsx:63
 msgid "Microphone"
 msgstr "Микрофон"
 
-#: src/screens/OnboardingFlow.tsx:69
+#: src/screens/OnboardingFlow.tsx:81
 msgid "Nearby devices"
 msgstr "Устройства рядом"
 
-#: src/screens/PairingFlow.tsx:126
+#: src/screens/PairingFlow.tsx:151
 msgid "No buttons found"
 msgstr "Кнопки не найдены"
 
-#: src/screens/SettingsScreen.tsx:76
+#: src/screens/SettingsScreen.tsx:85
 msgid "Not connected"
 msgstr "Не подключена"
 
-#: src/screens/BackgroundStep.tsx:82
+#: src/screens/BackgroundStep.tsx:96
 msgid "Not now"
 msgstr "Не сейчас"
 
-#: src/screens/BackgroundStep.tsx:63
-#: src/screens/OnboardingFlow.tsx:106
+#: src/screens/BackgroundStep.tsx:67
+#: src/screens/OnboardingFlow.tsx:123
 msgid "Open settings"
 msgstr "Открыть настройки"
 
-#: src/screens/OnboardingFlow.tsx:62
-msgid "Oru connects to your push-to-talk button over Bluetooth, including while the screen is locked."
-msgstr "Oru подключается к вашей кнопке PTT по Bluetooth, в том числе при заблокированном экране."
+#: src/screens/OnboardingFlow.tsx:70
+#~ msgid "Oru connects to your push-to-talk button over Bluetooth, including while the screen is locked."
+#~ msgstr "Oru подключается к вашей кнопке PTT по Bluetooth, в том числе при заблокированном экране."
 
-#: src/screens/OnboardingFlow.tsx:71
-msgid "Oru finds other radios around you without using the internet."
-msgstr "Oru находит другие рации вокруг вас без интернета."
+#: src/screens/OnboardingFlow.tsx:79
+#~ msgid "Oru finds other radios around you without using the internet."
+#~ msgstr "Oru находит другие рации вокруг вас без интернета."
 
-#: src/screens/BackgroundStep.tsx:45
+#: src/screens/BackgroundStep.tsx:49
 msgid "Oru needs background location to keep finding nearby radios while your phone is locked and in a pocket."
 msgstr "Oru нужен доступ к геолокации в фоне, чтобы находить рации рядом, пока телефон заблокирован и лежит в кармане."
 
-#: src/screens/OnboardingFlow.tsx:54
-msgid "Oru uses the microphone to transmit your voice to nearby devices."
-msgstr "Oru использует микрофон, чтобы передавать ваш голос на устройства рядом."
+#: src/screens/OnboardingFlow.tsx:62
+#~ msgid "Oru uses the microphone to transmit your voice to nearby devices."
+#~ msgstr "Oru использует микрофон, чтобы передавать ваш голос на устройства рядом."
 
-#: src/screens/PairingFlow.tsx:137
+#: src/screens/PairingFlow.tsx:162
 msgid "Pairing failed"
 msgstr "Сопряжение не удалось"
 
-#: src/screens/OnboardingFlow.tsx:91
+#: src/screens/OnboardingFlow.tsx:108
 msgid "Permission denied. Oru cannot work without it."
 msgstr "Разрешение отклонено. Без него Oru не сможет работать."
 
-#: src/screens/OnboardingFlow.tsx:97
+#: src/screens/OnboardingFlow.tsx:114
 msgid "Permission is blocked. Grant it in the system settings."
 msgstr "Разрешение заблокировано. Выдайте его в системных настройках."
 
+#: src/screens/OnboardingFlow.tsx:83
+msgid "Phones find each other and connect directly — no servers, no accounts. On iOS this is the “Local Network” permission."
+msgstr "Телефоны находят друг друга и соединяются напрямую — без серверов и аккаунтов. На iOS это разрешение «Локальная сеть»."
+
 #: src/screens/PairingFlow.tsx:96
-msgid "Press the PTT button"
-msgstr "Нажмите кнопку PTT"
+#~ msgid "Press the PTT button"
+#~ msgstr "Нажмите кнопку PTT"
 
-#: src/screens/SettingsScreen.tsx:34
-msgid "PTT BUTTON"
-msgstr "КНОПКА PTT"
+#: src/screens/PairingFlow.tsx:112
+msgid "PRESS THE PTT BUTTON"
+msgstr "НАЖМИТЕ КНОПКУ PTT"
 
-#: src/screens/RadioScreen.tsx:123
+#: src/screens/SettingsScreen.tsx:33
+msgid "PTT button"
+msgstr "PTT-кнопка"
+
+#: src/screens/SettingsScreen.tsx:33
+#~ msgid "PTT BUTTON"
+#~ msgstr "КНОПКА PTT"
+
+#: src/screens/RadioScreen.tsx:147
 msgid "Push to talk"
 msgstr "Нажмите и говорите"
 
-#: src/screens/RadioScreen.tsx:28
+#: src/screens/RadioScreen.tsx:32
 msgid "RADIO ERROR"
 msgstr "ОШИБКА РАЦИИ"
 
-#: src/screens/RadioScreen.tsx:92
+#: src/screens/RadioScreen.tsx:115
 msgid "RADIO OFF"
 msgstr "РАЦИЯ ВЫКЛЮЧЕНА"
 
-#: src/screens/OnboardingFlow.tsx:30
-msgid "Ready"
-msgstr "Готово"
+#: src/screens/OnboardingFlow.tsx:36
+#~ msgid "Ready"
+#~ msgstr "Готово"
 
-#: src/screens/RadioScreen.tsx:173
+#: src/screens/RadioScreen.tsx:207
 msgid "RECEIVING..."
 msgstr "ПРИЁМ..."
 
-#: src/screens/RadioScreen.tsx:164
+#: src/screens/RadioScreen.tsx:197
 msgid "RELEASE TO FINISH"
 msgstr "ОТПУСТИТЕ ЧТОБЫ ЗАКОНЧИТЬ"
 
-#: src/screens/SettingsScreen.tsx:65
+#: src/screens/SettingsScreen.tsx:73
 msgid "Replace"
 msgstr "Заменить"
 
-#: src/screens/RadioScreen.tsx:34
+#: src/screens/RadioScreen.tsx:38
 msgid "RESTART RADIO"
 msgstr "ПЕРЕЗАПУСТИТЬ"
 
-#: src/screens/PairingFlow.tsx:149
+#: src/screens/PairingFlow.tsx:174
 msgid "Retry"
 msgstr "Повторить"
 
-#: src/screens/PairingFlow.tsx:61
-msgid "Searching for Bluetooth buttons..."
-msgstr "Ищем Bluetooth-кнопки..."
+#: src/screens/PairingFlow.tsx:63
+msgid "SCANNING FOR BLE DEVICES..."
+msgstr "ИЩЕМ BLE-УСТРОЙСТВА..."
 
-#: src/screens/RadioScreen.tsx:138
+#: src/screens/PairingFlow.tsx:61
+#~ msgid "Searching for Bluetooth buttons..."
+#~ msgstr "Ищем Bluetooth-кнопки..."
+
+#: src/screens/RadioScreen.tsx:171
 msgid "SEARCHING FOR DEVICES..."
 msgstr "ИЩЕМ УСТРОЙСТВА..."
 
 #: src/screens/PairingFlow.tsx:69
-msgid "Select your button"
-msgstr "Выберите вашу кнопку"
+#~ msgid "Select your button"
+#~ msgstr "Выберите вашу кнопку"
 
-#: src/screens/RadioScreen.tsx:102
-#: src/screens/RadioScreen.tsx:194
+#: src/screens/RadioScreen.tsx:126
+#: src/screens/RadioScreen.tsx:221
 msgid "Settings"
 msgstr "Настройки"
 
@@ -218,44 +280,61 @@ msgstr "Настройки"
 msgid "SETTINGS"
 msgstr "НАСТРОЙКИ"
 
-#: src/screens/OnboardingFlow.tsx:130
+#: src/screens/OnboardingFlow.tsx:147
 msgid "Skip"
 msgstr "Пропустить"
 
-#: src/screens/OnboardingFlow.tsx:36
-msgid "Start"
-msgstr "Начать"
+#: src/screens/OnboardingFlow.tsx:43
+#~ msgid "Start"
+#~ msgstr "Начать"
 
 #. placeholder {0}: APP_PERMISSIONS.length
 #: src/screens/OnboardingFlow.tsx:82
-msgid "Step {step} of {0}"
-msgstr "Шаг {step} из {0}"
+#~ msgid "Step {step} of {0}"
+#~ msgstr "Шаг {step} из {0}"
 
-#: src/screens/RadioScreen.tsx:95
+#. placeholder {0}: APP_PERMISSIONS.length
+#: src/screens/OnboardingFlow.tsx:99
+msgid "STEP {step} OF {0}"
+msgstr "ШАГ {step} ИЗ {0}"
+
+#: src/screens/PairingFlow.tsx:78
+msgid "still scanning"
+msgstr "поиск продолжается"
+
+#: src/screens/RadioScreen.tsx:118
 msgid "TAP TO TURN ON"
 msgstr "НАЖМИТЕ ЧТОБЫ ВКЛЮЧИТЬ"
 
-#: src/screens/SettingsScreen.tsx:54
+#: src/screens/SettingsScreen.tsx:60
 msgid "Test"
 msgstr "Проверить"
 
-#: src/screens/RadioScreen.tsx:161
+#: src/screens/RadioScreen.tsx:192
 msgid "TRANSMITTING..."
 msgstr "ПЕРЕДАЧА..."
 
-#: src/screens/OnboardingFlow.tsx:115
+#: src/screens/OnboardingFlow.tsx:132
 msgid "Try again"
 msgstr "Попробовать снова"
 
-#: src/screens/RadioScreen.tsx:42
+#: src/screens/RadioScreen.tsx:46
 msgid "TURN OFF"
 msgstr "ВЫКЛЮЧИТЬ"
 
-#: src/screens/RadioScreen.tsx:79
-#: src/screens/RadioScreen.tsx:86
+#: src/screens/RadioScreen.tsx:99
+#: src/screens/RadioScreen.tsx:108
 msgid "Turn the radio on"
 msgstr "Включить рацию"
 
-#: src/screens/OnboardingFlow.tsx:33
-msgid "Turn the radio on and hold anywhere to talk."
-msgstr "Включите рацию и удерживайте экран, чтобы говорить."
+#: src/screens/OnboardingFlow.tsx:39
+#~ msgid "Turn the radio on and hold anywhere to talk."
+#~ msgstr "Включите рацию и удерживайте экран, чтобы говорить."
+
+#: src/screens/OnboardingFlow.tsx:39
+msgid "Whoever is nearby is connected — and hears you. Lock the phone and put it in your pocket."
+msgstr "Кто рядом — тот подключён — тот слышит. Телефон можно заблокировать и убрать в карман."
+
+#: src/screens/OnboardingFlow.tsx:65
+msgid "Your voice is transmitted only while the button is held. Nothing is recorded — the air is never stored."
+msgstr "Голос передаётся, только пока удержана кнопка. Запись не ведётся — эфир нигде не сохраняется."

@@ -2,7 +2,7 @@ import React from 'react';
 import {context} from '@reatom/core';
 
 import {RadioScreen} from '../src/screens/RadioScreen';
-import {motion, testIds} from '../src/ui/theme';
+import {motion, testIds, type, washes} from '../src/ui/theme';
 import {renderScreen} from '../jest/renderScreen';
 import type {MockScenarioName} from '../src/mock/mock.scenario';
 
@@ -30,7 +30,7 @@ describe('RadioScreen — spec sections 12 and 12.1', () => {
 
     await screen.press(testIds.powerOnArea);
     expect(screen.hasText('SEARCHING FOR DEVICES...')).toBe(true);
-    expect(screen.findAll('pulse-dot')).toHaveLength(1);
+    expect(screen.findAll('radio-pings')).toHaveLength(1);
 
     await screen.advance(2100);
     expect(screen.hasText('nearby')).toBe(true);
@@ -171,6 +171,98 @@ describe('RadioScreen — spec sections 12 and 12.1', () => {
 
     await screen.advance(6000);
     expect(screen.hasText('ПРИЁМ...')).toBe(true);
+
+    screen.unmount();
+  });
+});
+
+describe('RadioScreen — design/01 Radio.dc.html', () => {
+  it('sits the corner controls at the foot of the screen', async () => {
+    const screen = await renderScreen(
+      <RadioScreen onSettingsPress={jest.fn()} />,
+      {scenario: 'happy'},
+    );
+    await screen.press(testIds.powerOnArea);
+
+    const style = JSON.stringify(screen.find('corner-controls').props.style);
+    expect(style).toContain('bottom');
+    expect(style).not.toContain('"top"');
+
+    screen.unmount();
+  });
+
+  it('shows the ping rings while searching and the ring once ready', async () => {
+    const screen = await renderScreen(
+      <RadioScreen onSettingsPress={jest.fn()} />,
+      {scenario: 'happy'},
+    );
+
+    await screen.press(testIds.powerOnArea);
+    expect(screen.findAll('radio-pings')).toHaveLength(1);
+    expect(screen.findAll('radio-ring')).toHaveLength(0);
+
+    await screen.advance(2100);
+    expect(screen.findAll('radio-ring')).toHaveLength(1);
+    expect(screen.findAll('radio-pings')).toHaveLength(0);
+
+    screen.unmount();
+  });
+
+  it('washes the screen with the canvas gradient while transmitting', async () => {
+    const screen = await renderScreen(
+      <RadioScreen onSettingsPress={jest.fn()} />,
+      {scenario: 'happy'},
+    );
+
+    await screen.press(testIds.powerOnArea);
+    await screen.advance(2100);
+    await screen.pressIn(testIds.pttArea);
+
+    expect(JSON.stringify(screen.find(testIds.radioScreen).props.style)).toContain(
+      washes.tx,
+    );
+    expect(screen.findAll('radio-bars')).toHaveLength(1);
+
+    screen.unmount();
+  });
+
+  it('sets the ready headline in the tighter face outside en', async () => {
+    const readyHeadline = async (locale: 'en' | 'ru') => {
+      const screen = await renderScreen(
+        <RadioScreen onSettingsPress={jest.fn()} />,
+        {scenario: 'happy', locale},
+      );
+      await screen.press(testIds.powerOnArea);
+      await screen.advance(2100);
+      const style = JSON.stringify(
+        screen.find(testIds.radioStateLabel).props.style,
+      );
+      screen.unmount();
+      return style;
+    };
+
+    // `.holden` (40pt) for en, `.holdword` (33pt) for the longer locales --
+    // design/01 Radio.dc.html:195-224.
+    expect(await readyHeadline('en')).toContain(`"fontSize":${type.hero.fontSize}`);
+    expect(await readyHeadline('ru')).toContain(
+      `"fontSize":${type.heroTight.fontSize}`,
+    );
+  });
+
+  it('moves the nearby count out of the headline and into the peer row', async () => {
+    const screen = await renderScreen(
+      <RadioScreen onSettingsPress={jest.fn()} />,
+      {scenario: 'happy'},
+    );
+
+    await screen.press(testIds.powerOnArea);
+    await screen.advance(2100);
+
+    expect(screen.findAll('radio-peer')).toHaveLength(1);
+    expect(screen.find(testIds.radioStateLabel).props.testID).toBe(
+      testIds.radioStateLabel,
+    );
+    expect(screen.hasText('HOLD TO TALK')).toBe(true);
 
     screen.unmount();
   });
