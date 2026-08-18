@@ -340,18 +340,18 @@ violation: it is reported before the merge is accepted, not quietly merged.
 
 ## Closeout
 
-- [ ] Full merge gate on trunk from a clean checkout and fresh `pnpm install`.
-- [ ] macOS build: `pod install` + Xcode build with the `com.apple.developer.push-to-talk`
+- [x] Full merge gate on trunk from a clean checkout and fresh `pnpm install`.
+- [x] macOS build: `pod install` + Xcode build with the `com.apple.developer.push-to-talk`
       entitlement and provisioning — the first time any Swift in this project compiles.
       Compile fallout is fixed here or spawns a follow-up plan.
-- [ ] Phase 0 spike report archived and referenced (written at the sync 2 pause).
+- [x] Phase 0 spike report archived and referenced (written at the sync 2 pause).
 - [ ] Stage 5: reverse-engineer the purchased button (nRF Connect, GATT inspection); run
       the learning flow end-to-end with the real button; if it is HID-only, record the R2
       fallback (button stays Android-only, a GATT-capable button is purchased for iOS).
 - [ ] Stage 6 reliability matrix on physical devices: 5 min / 30 min / multi-hour locked;
       PTT-button loss + reconnect; peer loss + reconnect; incoming call; BT headphones;
       route switch.
-- [ ] Definition of Done (§4) checked line by line; `lingui extract` reports no missing
+- [x] Definition of Done (§4) checked line by line; `lingui extract` reports no missing
       `ru` translations.
 
 ## Diagram
