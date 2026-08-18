@@ -31,9 +31,14 @@ msgstr "● {0} рядом"
 #~ msgid "● {nearbyCount} nearby"
 #~ msgstr "● {nearbyCount} рядом"
 
+#: src/screens/BackgroundStep.tsx:72
 #: src/screens/OnboardingFlow.tsx:115
 msgid "Allow"
 msgstr "Разрешить"
+
+#: src/screens/BackgroundStep.tsx:53
+msgid "Android grants this only from the app settings. Open them, choose Permissions, then Location, then \"Allow all the time\"."
+msgstr "Android выдаёт это только в настройках приложения. Откройте их, выберите «Разрешения», затем «Геолокация», затем «Разрешить всегда»."
 
 #: src/screens/SettingsScreen.tsx:29
 msgid "Back"
@@ -87,6 +92,10 @@ msgstr "Удерживайте, чтобы передавать"
 msgid "Hold to turn the radio off"
 msgstr "Удерживайте, чтобы выключить рацию"
 
+#: src/screens/BackgroundStep.tsx:42
+msgid "Keep the radio working"
+msgstr "Чтобы рация работала"
+
 #: src/screens/PairingFlow.tsx:129
 msgid "Make sure the button is switched on and in pairing mode."
 msgstr "Убедитесь, что кнопка включена и находится в режиме сопряжения."
@@ -107,6 +116,11 @@ msgstr "Кнопки не найдены"
 msgid "Not connected"
 msgstr "Не подключена"
 
+#: src/screens/BackgroundStep.tsx:82
+msgid "Not now"
+msgstr "Не сейчас"
+
+#: src/screens/BackgroundStep.tsx:63
 #: src/screens/OnboardingFlow.tsx:106
 msgid "Open settings"
 msgstr "Открыть настройки"
@@ -118,6 +132,10 @@ msgstr "Oru подключается к вашей кнопке PTT по Bluetoo
 #: src/screens/OnboardingFlow.tsx:71
 msgid "Oru finds other radios around you without using the internet."
 msgstr "Oru находит другие рации вокруг вас без интернета."
+
+#: src/screens/BackgroundStep.tsx:45
+msgid "Oru needs background location to keep finding nearby radios while your phone is locked and in a pocket."
+msgstr "Oru нужен доступ к геолокации в фоне, чтобы находить рации рядом, пока телефон заблокирован и лежит в кармане."
 
 #: src/screens/OnboardingFlow.tsx:54
 msgid "Oru uses the microphone to transmit your voice to nearby devices."

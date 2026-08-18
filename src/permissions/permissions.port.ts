@@ -1,5 +1,10 @@
 import * as errore from 'errore';
+import {Platform} from 'react-native';
 
+import {
+  androidPermissionsBackend,
+  iosPermissionsBackend,
+} from './permissions.native';
 import type {
   AppPermission,
   PermissionStatus,
@@ -66,14 +71,15 @@ export function createPermissions(
 }
 
 /**
- * P7 owns the real implementation: first-launch permission sequencing against
- * the actual OS prompts (spec section 11, including the two-step
- * ACCESS_BACKGROUND_LOCATION redirect). Until then the native branch reports
- * itself unavailable rather than lying about a grant -- and there is no release
- * build to reach it, because app entry is P7's too.
+ * The real runtime prompts (spec section 11). Android goes through
+ * `PermissionsAndroid`; iOS has no pre-request API and prompts at first use --
+ * see `permissions.native.ts` for why its backend answers the way it does.
  */
-export const resolveNativePermissions: ResolvePermissions = () =>
-  new PermissionsUnavailableError({platform: 'native'});
+export const resolveNativePermissions: ResolvePermissions = () => {
+  if (Platform.OS === 'android') return androidPermissionsBackend;
+  if (Platform.OS === 'ios') return iosPermissionsBackend;
+  return new PermissionsUnavailableError({platform: Platform.OS});
+};
 
 /**
  * Spec section 6.5's flag, resolved locally. The expression is repeated here
@@ -81,11 +87,16 @@ export const resolveNativePermissions: ResolvePermissions = () =>
  * `__DEV__` and `process.env.RADIO_BACKEND` per module, and Metro folds
  * constants per module, so an imported constant would not fold and the mock
  * backend would survive into a release bundle.
+ *
+ * The dev default is `native` as of section 15 Stage 4, matching
+ * `radio.native.ts`: onboarding now reaches the real OS prompts.
+ * `RADIO_BACKEND=mock` remains the way design work, demos, screenshots and the
+ * Jest suite run, and `jest.config.js` pins it.
  */
 const backend: 'mock' | 'native' = __DEV__
-  ? process.env.RADIO_BACKEND === 'native'
-    ? 'native'
-    : 'mock'
+  ? process.env.RADIO_BACKEND === 'mock'
+    ? 'mock'
+    : 'native'
   : 'native';
 
 export const Permissions: PermissionsPort = createPermissions(

@@ -28,6 +28,15 @@ module.exports = {
     '^errore$': '<rootDir>/node_modules/errore/dist/index.js',
     // Jest never runs the Metro .po transformer; map catalogs to a stand-in.
     '\\.po$': '<rootDir>/__mocks__/poCatalog.js',
+    // `App.tsx` wraps the tree in `SafeAreaProvider`. The real component holds
+    // `insets` at `null` until a native `onInsetsChange` event arrives -- an
+    // event nothing under Jest ever sends -- so its children, the whole app,
+    // would never render at all. `__mocks__/reactNativeSafeAreaContext.tsx`
+    // stands in with synchronous default insets. No merged screen or test
+    // imports this package today (only `App.tsx` does), so the mapping is
+    // additive.
+    '^react-native-safe-area-context$':
+      '<rootDir>/__mocks__/reactNativeSafeAreaContext.tsx',
   },
   transform: {
     ...preset.transform,
