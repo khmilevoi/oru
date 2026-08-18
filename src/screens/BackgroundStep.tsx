@@ -67,16 +67,26 @@ export const BackgroundStep = reatomComponent(() => {
               })}
               testID={backgroundStepTestIds.openSettings}
             />
-          ) : (
-            <ActionButton
-              label={t`Allow`}
-              tone="primary"
-              onPress={wrap(() => {
-                void requestBackgroundPermissions();
-              })}
-              testID={backgroundStepTestIds.allow}
-            />
-          )}
+          ) : null}
+
+          {/*
+            "Allow" survives `needsSettings` rather than being replaced by
+            "Open settings": nothing here re-reads the grant on its own, so a
+            user who followed the redirect, chose "Allow all the time" and came
+            back would otherwise still be facing the warning with "Not now" as
+            the only way out -- the success half of section 11's two-step
+            redirect, unreachable. Pressing it re-runs
+            `requestBackgroundPermissions`, whose `requestBackgroundLocation`
+            re-reads the grant from the system and then navigates on.
+          */}
+          <ActionButton
+            label={t`Allow`}
+            tone={status === 'needsSettings' ? 'default' : 'primary'}
+            onPress={wrap(() => {
+              void requestBackgroundPermissions();
+            })}
+            testID={backgroundStepTestIds.allow}
+          />
 
           <ActionButton
             label={t`Not now`}

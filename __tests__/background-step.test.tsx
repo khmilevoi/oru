@@ -50,6 +50,24 @@ describe('the background-location step — spec section 11', () => {
     screen.unmount();
   });
 
+  it('takes the user on once they come back from Settings having granted it', async () => {
+    // The success half of section 11's two-step redirect. Nothing re-reads the
+    // grant on its own, so if `needsSettings` replaced "Allow" rather than
+    // adding to it, a user who did exactly what the screen asked would still be
+    // staring at the warning with "Not now" as the only way out.
+    const screen = await renderScreen(<BackgroundStep />);
+    gateway(false);
+
+    await screen.press(backgroundStepTestIds.allow);
+    expect(screen.findAll(backgroundStepTestIds.openSettings)).toHaveLength(1);
+    expect(screen.findAll(backgroundStepTestIds.allow)).toHaveLength(1);
+
+    gateway(true);
+    await screen.press(backgroundStepTestIds.allow);
+    expect(route()).toBe('radio');
+    screen.unmount();
+  });
+
   it('can be skipped', async () => {
     const screen = await renderScreen(<BackgroundStep />);
     gateway(false);
