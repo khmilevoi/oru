@@ -1,7 +1,7 @@
 import React from 'react';
 import {Pressable, StyleSheet, Text} from 'react-native';
 
-import {colors, radii, spacing, type} from './theme';
+import {colors, radii, sizes, spacing, type} from './theme';
 
 /** The chassis-style key every screen but the main one uses. */
 export function ActionButton({
@@ -46,25 +46,29 @@ export function ActionButton({
         pressed && styles.pressed,
         disabled && styles.disabled,
       ]}>
-      <Text style={[type.label, styles.label]}>{label}</Text>
+      <Text style={[type.button, tone === 'primary' ? styles.labelSolid : styles.label]}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   key: {
-    minHeight: 48,
+    height: sizes.button,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
     borderRadius: radii.md,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  neutral: {backgroundColor: colors.surfaceRaised, borderColor: colors.hairline},
-  primary: {backgroundColor: colors.surfaceRaised, borderColor: colors.rx},
-  danger: {backgroundColor: colors.surfaceRaised, borderColor: colors.danger},
-  pressed: {backgroundColor: colors.surface},
+  /** `.btn.ghost` */
+  neutral: {borderWidth: 1, borderColor: colors.hairlineRaised},
+  /** `.btn.solid` */
+  primary: {backgroundColor: colors.text},
+  /** No canvas equivalent -- a ghost key in the danger colour (decision D5). */
+  danger: {borderWidth: 1, borderColor: colors.danger},
+  pressed: {opacity: 0.7},
   disabled: {opacity: 0.4},
   label: {color: colors.text},
+  labelSolid: {color: colors.textInverse},
 });

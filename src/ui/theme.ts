@@ -16,12 +16,6 @@ export const colors = {
   backgroundOff: '#070809',
   /** A recessed panel: cards, list rows, settings sections (`--bg2`). */
   surface: '#13161a',
-  /**
-   * No canvas equivalent -- the canvas has no raised surface, only filled and
-   * outlined keys. Retained ONLY so `ActionButton` keeps compiling until Task 6
-   * rewrites it; Task 6 deletes this token. Do not reach for it in new code.
-   */
-  surfaceRaised: '#13161a',
   /** An engraved seam between panels (`--line`). */
   hairline: '#242b32',
   /** The brighter seam used for ring outlines and ghost keys (`--line2`). */

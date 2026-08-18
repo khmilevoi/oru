@@ -186,6 +186,40 @@ describe('ActionButton and ScreenFrame', () => {
   });
 });
 
+describe('ActionButton — design/theme.css .btn', () => {
+  it('draws the solid key at the canvas height', async () => {
+    const screen = await renderScreen(
+      <ActionButton label="Connect" tone="primary" onPress={jest.fn()} testID="key" />,
+    );
+
+    const node = screen.root
+      .findAllByProps({testID: 'key'})
+      .find(n => n.props.style && typeof n.props.style !== 'function');
+    if (!node) throw new Error('ActionButton style-bearing node not found');
+    const flat = JSON.stringify(node.props.style);
+    expect(flat).toContain(String(sizes.button));
+    expect(flat).toContain(colors.text.slice(1));
+
+    screen.unmount();
+  });
+
+  it('draws the ghost key as an outline', async () => {
+    const screen = await renderScreen(
+      <ActionButton label="Test" onPress={jest.fn()} testID="key" />,
+    );
+
+    const node = screen.root
+      .findAllByProps({testID: 'key'})
+      .find(n => n.props.style && typeof n.props.style !== 'function');
+    if (!node) throw new Error('ActionButton style-bearing node not found');
+    const flat = JSON.stringify(node.props.style);
+    expect(flat).toContain(colors.hairlineRaised.slice(1));
+    expect(flat).not.toContain(`"backgroundColor":"${colors.text}"`);
+
+    screen.unmount();
+  });
+});
+
 describe('the locale harness', () => {
   it('renders macro copy in the locale it activated', async () => {
     const screen = await renderScreen(<Text>plain</Text>, {locale: 'ru'});
