@@ -120,7 +120,7 @@ environment by default):
 ## Plans
 
 ### P1 `mode-policy` — wave 1, track A
-- [ ] planned   → docs/superpowers/plans/2026-08-18-p1-mode-policy.md
+- [x] planned   → docs/superpowers/plans/2026-08-18-p1-mode-policy.md
 - [ ] executed  → branch plan/p1-mode-policy · worktree .claude/worktrees/p1-mode-policy
 - [ ] merged    → sync 1
 
@@ -145,7 +145,7 @@ outputs (session config apply, SCO raise, tone playback) → P3 iOS / P4 Android
 **Model override:** —
 
 ### P2 `js-contract-ui` — wave 1, track B
-- [ ] planned   → docs/superpowers/plans/2026-08-18-p2-js-contract-ui.md
+- [x] planned   → docs/superpowers/plans/2026-08-18-p2-js-contract-ui.md
 - [ ] executed  → branch plan/p2-js-contract-ui · worktree .claude/worktrees/p2-js-contract-ui
 - [ ] merged    → sync 1
 
