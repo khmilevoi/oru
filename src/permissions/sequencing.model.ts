@@ -41,6 +41,16 @@ export const completeOnboarding = action(async (): Promise<SequencingStep> => {
   const gateway = platformGateway();
   gateway.markOnboardingCompleted();
 
+  // POST_NOTIFICATIONS is an ordinary dialog belonging to the end of
+  // onboarding, not to background location. Asking for it from the background
+  // step's "Allow" instead missed it on every other way out of onboarding --
+  // "Not now", an already-granted background permission, a platform with no
+  // background step, and iOS -- and on API 33+ that silently suppresses the
+  // foreground-service notification, which is what keeps the radio alive with
+  // the screen locked (sections 10.1 and 11). The reactive read above is
+  // already captured, so this `await` is safe to sit before the branch.
+  await wrap(gateway.requestNotifications());
+
   if (!gateway.backgroundStepSupported()) {
     navigate('radio');
     return 'radio';
@@ -58,14 +68,14 @@ export const completeOnboarding = action(async (): Promise<SequencingStep> => {
 }, 'completeOnboarding');
 
 /**
- * The background step's primary action. Notifications first -- an ordinary
- * dialog -- then background location, whose grant is re-read from the system
- * rather than inferred, because on API 30+ the dialog cannot grant it.
+ * The background step's primary action: background location alone, whose grant
+ * is re-read from the system rather than inferred, because on API 30+ the
+ * dialog cannot grant it. Notifications are asked for in `completeOnboarding`,
+ * which every path out of onboarding goes through.
  */
 export const requestBackgroundPermissions = action(async () => {
   const gateway = platformGateway();
 
-  await wrap(gateway.requestNotifications());
   const granted = await wrap(gateway.requestBackgroundLocation());
 
   if (granted) {

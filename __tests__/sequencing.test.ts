@@ -92,15 +92,23 @@ describe('first-launch sequencing — spec section 11', () => {
     await expect(completeOnboarding()).resolves.toBe('background');
     expect(route()).toBe('background');
     expect(calls.markCompleted).toBe(1);
+    // POST_NOTIFICATIONS belongs to the end of onboarding, not to the
+    // background step: it is an ordinary dialog, and the foreground-service
+    // notification it enables is what keeps the radio alive with the screen
+    // locked (sections 10.1 and 11). Asking only on the background step's
+    // "Allow" path missed it on every other way out of onboarding.
+    expect(calls.notifications).toBe(1);
   });
 
   it('skips the background step when it is already granted', async () => {
-    fakeGateway({
+    const calls = fakeGateway({
       backgroundStepSupported: () => true,
       hasBackgroundLocation: async () => true,
     });
     await expect(completeOnboarding()).resolves.toBe('radio');
     expect(route()).toBe('radio');
+    // The same dialog on the path that never sees the background step at all.
+    expect(calls.notifications).toBe(1);
   });
 
   it('skips the background step on a platform without one', async () => {
@@ -109,12 +117,9 @@ describe('first-launch sequencing — spec section 11', () => {
   });
 
   it('reports the two-step redirect when the dialog cannot grant it', async () => {
-    const calls = fakeGateway({requestBackgroundLocation: async () => false});
+    fakeGateway({requestBackgroundLocation: async () => false});
     await expect(requestBackgroundPermissions()).resolves.toBe('needsSettings');
     expect(backgroundStatus()).toBe('needsSettings');
-    // Section 11: POST_NOTIFICATIONS rides with this step, because the
-    // foreground-service notification is what keeps the radio alive locked.
-    expect(calls.notifications).toBe(1);
   });
 
   it('reports a grant and leaves the step', async () => {
