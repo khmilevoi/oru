@@ -291,6 +291,11 @@ public final class RadioBridge: NSObject {
     /// survives a power cycle (section 9.2 stores it natively) but is never
     /// reported connected while nothing is running.
     private func offDictionary(status: String) -> NSDictionary {
+        // `buttonState` does a `queue.sync` onto PttManager's own queue while we
+        // hold `lock`. Analysed and safe: that queue is `com.oru.radio.ptt`,
+        // distinct from the engine's `com.oru.radio.engine`, and nothing running
+        // on it ever blocks on the engine queue or on this lock -- every
+        // PttSourceDelegate hop is `queue.async`. There is no cycle to deadlock.
         var button = RadioAssembly.shared.ptt.buttonState
         button.connected = false
 

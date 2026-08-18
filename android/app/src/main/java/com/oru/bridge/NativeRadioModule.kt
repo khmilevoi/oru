@@ -100,7 +100,14 @@ class NativeRadioModule(private val reactContext: ReactApplicationContext) :
         // Before the service is touched: stopRadio() emits a `starting` snapshot
         // on its way down and core.stop() is what masks it into `off`.
         core.stop()
-        RadioController.stop(reactContext)
+        try {
+            RadioController.stop(reactContext)
+        } catch (error: Exception) {
+            // Same exposure as start(): this also goes through
+            // startForegroundService. The radio is already `off` as far as
+            // JavaScript is concerned, so report the failure and leave it there.
+            core.onEngineError("stop_failed", error.message ?: error.javaClass.simpleName)
+        }
         promise.resolve(null)
     }
 
