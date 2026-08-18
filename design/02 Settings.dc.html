@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet" />
+        <link rel="stylesheet" href="./theme.css" />
+        <style>
+          .devrow { display: flex; align-items: flex-start; gap: 14px; }
+          .devrow .pdot { margin-top: 8px; }
+          .devsub { margin-top: 5px; font-size: 13px; color: var(--green); }
+          .btnrow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 22px; }
+          .offname { font-size: 19px; font-weight: 400; color: var(--dim); }
+          .connectbtn { margin-top: 22px; }
+        </style>
+      </helmet>
+
+      <div class="frame" style="left:48px;top:56px" data-screen-label="Settings — Button connected">
+        <div class="flabel" data-drags-parent="1">settings · 01 connected</div>
+        <div class="phone">
+          <div class="sbar"><span>14:32</span><span class="batt"></span></div>
+          <div class="shead"><span class="back">←</span><span class="stitle">{{ t.title }}</span></div>
+          <div class="slabel">{{ t.section }}</div>
+          <div class="card">
+            <div class="devrow">
+              <span class="pdot"></span>
+              <div>
+                <div class="devname">{{ t.dev }}</div>
+                <div class="devsub">{{ t.sub }}</div>
+              </div>
+            </div>
+            <div class="btnrow">
+              <div class="btn ghost">{{ t.test }}</div>
+              <div class="btn ghost">{{ t.replace }}</div>
+            </div>
+          </div>
+          <div class="vers">OFFLINE NEARBY PTT · V0.1</div>
+        </div>
+      </div>
+
+      <div class="frame" style="left:498px;top:56px" data-screen-label="Settings — No button">
+        <div class="flabel" data-drags-parent="1">settings · 02 not configured</div>
+        <div class="phone">
+          <div class="sbar"><span>14:32</span><span class="batt"></span></div>
+          <div class="shead"><span class="back">←</span><span class="stitle">{{ t.title }}</span></div>
+          <div class="slabel">{{ t.section }}</div>
+          <div class="card">
+            <div class="offname">{{ t.off }}</div>
+            <div class="note">{{ t.note }}</div>
+            <div class="btn solid connectbtn">{{ t.connect }}</div>
+          </div>
+          <div class="vers">OFFLINE NEARBY PTT · V0.1</div>
+        </div>
+      </div>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{
+  "lang": { "editor": "enum", "options": ["en", "ru"], "default": "en", "tsType": "\"en\" | \"ru\"" }
+}'>
+      class Component extends DCLogic {
+        strings() {
+          return {
+            en: {
+              title: "Settings",
+              section: "PTT button",
+              dev: "Zello PTT",
+              sub: "Connected",
+              test: "Test",
+              replace: "Replace",
+              off: "Not connected",
+              note: "An external button lets you talk without taking the phone out of your pocket.",
+              connect: "Connect"
+            },
+            ru: {
+              title: "Настройки",
+              section: "PTT-кнопка",
+              dev: "Zello PTT",
+              sub: "Подключена",
+              test: "Проверить",
+              replace: "Заменить",
+              off: "Не подключена",
+              note: "Внешняя кнопка позволяет говорить, не доставая телефон из кармана.",
+              connect: "Подключить"
+            }
+          };
+        }
+        renderVals() {
+          const all = this.strings();
+          const lang = this.props.lang === "ru" ? "ru" : "en";
+          return { t: all[lang] };
+        }
+      }
+    </script>
+  </body>
+</html>

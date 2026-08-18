@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet" />
+        <link rel="stylesheet" href="./theme.css" />
+        <style>
+          .scantext { font-size: 14px; letter-spacing: 0.14em; color: var(--dim); text-transform: uppercase; }
+          .scanhint { position: absolute; left: 40px; right: 40px; bottom: 40px; text-align: center; font-size: 12px; line-height: 1.7; color: var(--faint); }
+          .scanrow { display: flex; align-items: center; gap: 10px; padding: 30px 28px 0; font-size: 11px; letter-spacing: 0.14em; color: var(--faint); text-transform: uppercase; }
+          .scandot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); }
+          .learnring { width: 272px; height: 272px; border-radius: 50%; border: 2px solid var(--amber); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; color: var(--amber); }
+          .learnword { font-size: 30px; line-height: 1.3; white-space: pre-line; }
+          .learnsub { font-size: 13px; line-height: 1.7; color: var(--dim); text-align: center; max-width: 300px; }
+          .oktick { width: 96px; height: 96px; border-radius: 50%; border: 2px solid var(--green); position: relative; box-shadow: 0 0 60px oklch(0.72 0.17 152 / 0.22); }
+          .oktick::after { content: ""; position: absolute; left: 26px; top: 30px; width: 40px; height: 20px; border-left: 3px solid var(--green); border-bottom: 3px solid var(--green); transform: rotate(-45deg); }
+          .okword { font-size: 30px; line-height: 1.3; text-align: center; white-space: pre-line; }
+          .bindcard { width: 302px; padding: 16px 22px; }
+          .brow { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; font-size: 12.5px; }
+          .bk { color: var(--faint); }
+          .bv { color: var(--ink); }
+          .pfoot { padding: 0 22px 30px; display: flex; flex-direction: column; }
+          .stage.pair { gap: 30px; }
+        </style>
+      </helmet>
+
+      <div class="frame" style="left:48px;top:56px" data-screen-label="Pairing — Scan">
+        <div class="flabel" data-drags-parent="1">pairing · 01 scan</div>
+        <div class="phone">
+          <div class="sbar"><span>14:32</span><span class="batt"></span></div>
+          <div class="shead"><span class="back">←</span><span class="stitle">{{ t.title }}</span></div>
+          <div class="stage">
+            <div class="pingset sm">
+              <div class="ping"></div>
+              <div class="ping"></div>
+              <div class="ping"></div>
+              <div class="cdot"></div>
+            </div>
+            <div class="scantext">{{ t.scan }}</div>
+          </div>
+          <div class="scanhint">{{ t.hint }}</div>
+        </div>
+      </div>
+
+      <div class="frame" style="left:498px;top:56px" data-screen-label="Pairing — Select device">
+        <div class="flabel" data-drags-parent="1">pairing · 02 select</div>
+        <div class="phone">
+          <div class="sbar"><span>14:32</span><span class="batt"></span></div>
+          <div class="shead"><span class="back">←</span><span class="stitle">{{ t.title }}</span></div>
+          <div class="scanrow"><span class="scandot pulse"></span><span>{{ t.still }}</span></div>
+          <div class="slabel">{{ t.found }}</div>
+          <div class="dev">
+            <div>
+              <div class="devname">Zello PTT</div>
+              <div class="devmeta">BLE · −52 dBm</div>
+            </div>
+            <span class="chev">›</span>
+          </div>
+          <div class="dev">
+            <div>
+              <div class="devname">PTT-B01</div>
+              <div class="devmeta">BLE · −71 dBm</div>
+            </div>
+            <span class="chev">›</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" style="left:948px;top:56px" data-screen-label="Pairing — Press PTT">
+        <div class="flabel" data-drags-parent="1">pairing · 03 learn</div>
+        <div class="phone">
+          <div class="sbar"><span>14:32</span><span class="batt"></span></div>
+          <div class="shead"><span class="back">←</span><span class="stitle">{{ t.title }}</span></div>
+          <div class="stage pair">
+            <div class="learnring pulse">
+              <div class="display learnword">{{ t.learn }}</div>
+            </div>
+            <div class="learnsub">{{ t.learnSub }}</div>
+          </div>
+          <div class="pfoot">
+            <div class="btn ghost">{{ t.cancel }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" style="left:1398px;top:56px" data-screen-label="Pairing — Saved">
+        <div class="flabel" data-drags-parent="1">pairing · 04 saved</div>
+        <div class="phone">
+          <div class="sbar"><span>14:32</span><span class="batt"></span></div>
+          <div class="shead"><span class="back">←</span><span class="stitle">{{ t.title }}</span></div>
+          <div class="stage pair">
+            <div class="oktick"></div>
+            <div class="display okword">{{ t.ok }}</div>
+            <div class="card bindcard">
+              <div class="brow"><span class="bk">{{ t.kDevice }}</span><span class="bv">Zello PTT</span></div>
+              <div class="brow"><span class="bk">service</span><span class="bv">0x1812</span></div>
+              <div class="brow"><span class="bk">characteristic</span><span class="bv">0x2A4D</span></div>
+              <div class="brow"><span class="bk">{{ t.kPress }}</span><span class="bv">0x01 / 0x00</span></div>
+            </div>
+          </div>
+          <div class="pfoot">
+            <div class="btn solid">{{ t.done }}</div>
+          </div>
+        </div>
+      </div>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{
+  "lang": { "editor": "enum", "options": ["en", "ru"], "default": "en", "tsType": "\"en\" | \"ru\"" }
+}'>
+      class Component extends DCLogic {
+        strings() {
+          return {
+            en: {
+              title: "Connect PTT button",
+              scan: "SCANNING FOR BLE DEVICES...",
+              hint: "Make sure the button is turned on and close to the phone.",
+              still: "still scanning",
+              found: "Found",
+              learn: "PRESS THE\nPTT BUTTON",
+              learnSub: "Listening for a signal from “Zello PTT”...",
+              cancel: "Cancel",
+              ok: "BUTTON\nCONNECTED",
+              kDevice: "device",
+              kPress: "press / release",
+              done: "Done"
+            },
+            ru: {
+              title: "Подключение кнопки",
+              scan: "ИЩЕМ BLE-УСТРОЙСТВА...",
+              hint: "Убедитесь, что кнопка включена и находится рядом с телефоном.",
+              still: "поиск продолжается",
+              found: "Найдено",
+              learn: "НАЖМИТЕ\nКНОПКУ PTT",
+              learnSub: "Слушаем сигнал от «Zello PTT»...",
+              cancel: "Отмена",
+              ok: "КНОПКА\nПОДКЛЮЧЕНА",
+              kDevice: "устройство",
+              kPress: "нажатие / отпуск",
+              done: "Готово"
+            }
+          };
+        }
+        renderVals() {
+          const all = this.strings();
+          const lang = this.props.lang === "ru" ? "ru" : "en";
+          return { t: all[lang] };
+        }
+      }
+    </script>
+  </body>
+</html>

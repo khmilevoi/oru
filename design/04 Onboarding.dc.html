@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet" />
+        <link rel="stylesheet" href="./theme.css" />
+        <style>
+          .mk { position: relative; width: 176px; height: 176px; display: flex; align-items: center; justify-content: center; }
+          .mkmic { flex-direction: column; }
+          .miccap { width: 56px; height: 88px; border: 2.5px solid var(--ink); border-radius: 28px; }
+          .micstem { width: 2.5px; height: 18px; background: var(--faint); }
+          .micbase { width: 34px; height: 2.5px; background: var(--faint); }
+          .mkbt { width: 76px; height: 76px; border: 2.5px solid var(--ink); border-radius: 10px; transform: rotate(45deg); }
+          .nc { position: absolute; border-radius: 50%; border: 1.5px solid var(--line2); }
+          .n1 { inset: 0; }
+          .n2 { inset: 30px; border-color: var(--faint); }
+          .n3 { inset: 60px; border-color: var(--dim); }
+          .ndot { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--green); box-shadow: 0 0 16px var(--green); }
+          .okbig { width: 132px; height: 132px; border-radius: 50%; border: 2.5px solid var(--green); position: relative; box-shadow: 0 0 70px oklch(0.72 0.17 152 / 0.25); }
+          .okbig::after { content: ""; position: absolute; left: 34px; top: 40px; width: 56px; height: 28px; border-left: 3.5px solid var(--green); border-bottom: 3.5px solid var(--green); transform: rotate(-45deg); }
+        </style>
+      </helmet>
+
+      <div class="frame" style="left:48px;top:56px" data-screen-label="Onboarding — Microphone">
+        <div class="flabel" data-drags-parent="1">onboarding · 01 microphone</div>
+        <div class="phone">
+          <div class="sbar"><span>14:32</span><span class="batt"></span></div>
+          <div class="obdots"><i class="on"></i><i></i><i></i></div>
+          <div class="obmark">
+            <div class="mk mkmic">
+              <div class="miccap"></div>
+              <div class="micstem"></div>
+              <div class="micbase"></div>
+            </div>
+          </div>
+          <div class="obfoot">
+            <div class="obstep">{{ t.step1 }}</div>
+            <div class="obtitle">{{ t.t1 }}</div>
+            <div class="obbody">{{ t.b1 }}</div>
+            <div class="btn solid">{{ t.a1 }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" style="left:498px;top:56px" data-screen-label="Onboarding — Bluetooth">
+        <div class="flabel" data-drags-parent="1">onboarding · 02 bluetooth</div>
+        <div class="phone">
+          <div class="sbar"><span>14:32</span><span class="batt"></span></div>
+          <div class="obdots"><i class="done"></i><i class="on"></i><i></i></div>
+          <div class="obmark">
+            <div class="mk"><div class="mkbt"></div></div>
+          </div>
+          <div class="obfoot">
+            <div class="obstep">{{ t.step2 }}</div>
+            <div class="obtitle">Bluetooth</div>
+            <div class="obbody">{{ t.b2 }}</div>
+            <div class="btn solid">{{ t.a2 }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" style="left:948px;top:56px" data-screen-label="Onboarding — Nearby devices">
+        <div class="flabel" data-drags-parent="1">onboarding · 03 nearby devices</div>
+        <div class="phone">
+          <div class="sbar"><span>14:32</span><span class="batt"></span></div>
+          <div class="obdots"><i class="done"></i><i class="done"></i><i class="on"></i></div>
+          <div class="obmark">
+            <div class="mk">
+              <div class="nc n1"></div>
+              <div class="nc n2"></div>
+              <div class="nc n3"></div>
+              <div class="ndot"></div>
+            </div>
+          </div>
+          <div class="obfoot">
+            <div class="obstep">{{ t.step3 }}</div>
+            <div class="obtitle">{{ t.t3 }}</div>
+            <div class="obbody">{{ t.b3 }}</div>
+            <div class="btn solid">{{ t.a3 }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame" style="left:1398px;top:56px" data-screen-label="Onboarding — Done">
+        <div class="flabel" data-drags-parent="1">onboarding · 04 done</div>
+        <div class="phone">
+          <div class="sbar"><span>14:32</span><span class="batt"></span></div>
+          <div class="obdots"><i class="done"></i><i class="done"></i><i class="done"></i></div>
+          <div class="obmark">
+            <div class="mk"><div class="okbig"></div></div>
+          </div>
+          <div class="obfoot">
+            <div class="obtitle">{{ t.t4 }}</div>
+            <div class="obbody">{{ t.b4 }}</div>
+            <div class="btn solid">{{ t.a4 }}</div>
+          </div>
+        </div>
+      </div>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props="{&quot;lang&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;en&quot;,&quot;ru&quot;],&quot;default&quot;:&quot;ru&quot;,&quot;tsType&quot;:&quot;\&quot;en\&quot; | \&quot;ru\&quot;&quot;}}">
+      class Component extends DCLogic {
+        strings() {
+          return {
+            en: {
+              step1: "STEP 1 OF 3",
+              step2: "STEP 2 OF 3",
+              step3: "STEP 3 OF 3",
+              t1: "Microphone",
+              b1: "Your voice is transmitted only while the button is held. Nothing is recorded — the air is never stored.",
+              a1: "Allow microphone",
+              b2: "Connects nearby phones and pairs the external PTT button. No internet involved.",
+              a2: "Allow Bluetooth",
+              t3: "Nearby devices",
+              b3: "Phones find each other and connect directly — no servers, no accounts. On iOS this is the “Local Network” permission.",
+              a3: "Allow discovery",
+              t4: "All set",
+              b4: "Whoever is nearby is connected — and hears you. Lock the phone and put it in your pocket.",
+              a4: "Go on air"
+            },
+            ru: {
+              step1: "ШАГ 1 ИЗ 3",
+              step2: "ШАГ 2 ИЗ 3",
+              step3: "ШАГ 3 ИЗ 3",
+              t1: "Микрофон",
+              b1: "Голос передаётся, только пока удержана кнопка. Запись не ведётся — эфир нигде не сохраняется.",
+              a1: "Разрешить микрофон",
+              b2: "Соединяет телефоны рядом и подключает внешнюю PTT-кнопку. Интернет не используется.",
+              a2: "Разрешить Bluetooth",
+              t3: "Устройства рядом",
+              b3: "Телефоны находят друг друга и соединяются напрямую — без серверов и аккаунтов. На iOS это разрешение «Локальная сеть».",
+              a3: "Разрешить поиск",
+              t4: "Всё готово",
+              b4: "Кто рядом — тот подключён — тот слышит. Телефон можно заблокировать и убрать в карман.",
+              a4: "В эфир"
+            }
+          };
+        }
+        renderVals() {
+          const all = this.strings();
+          const lang = this.props.lang === "ru" ? "ru" : "en";
+          return { t: all[lang] };
+        }
+      }
+    </script>
+  </body>
+</html>
