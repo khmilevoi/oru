@@ -162,14 +162,14 @@ export const resolveRadioNativeModule: ResolveNativeRadio = () => {
  * compile-time constant. A release build is therefore always `'native'`: the
  * flag cannot reach it and nothing can switch it at runtime.
  *
- * The dev default is `'mock'` while the Turbo Module does not exist. P5 flips
- * it to `'native'` and keeps `RADIO_BACKEND=mock` working for design work,
- * demos and screenshots.
+ * The dev default is `'native'` as of section 15 Stage 3: the Turbo Module is
+ * real on both platforms. `RADIO_BACKEND=mock` remains the way design work,
+ * demos, screenshots and the Jest suite run.
  */
 const backend: 'mock' | 'native' = __DEV__
-  ? process.env.RADIO_BACKEND === 'native'
-    ? 'native'
-    : 'mock'
+  ? process.env.RADIO_BACKEND === 'mock'
+    ? 'mock'
+    : 'native'
   : 'native';
 
 /** Spec section 6.2 calls this object `RadioNative`. */
