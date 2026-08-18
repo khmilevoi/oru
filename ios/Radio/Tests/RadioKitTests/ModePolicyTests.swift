@@ -350,6 +350,22 @@ final class ModePolicyTests: XCTestCase {
         ])
     }
 
+    func testALateVoiceLinkEstablishedAfterTheTimeoutIsIgnored() {
+        // D2 rejects a mid-transmission mic hot-swap, and the spec records real headsets
+        // establishing SCO at 5-8 s, so a late link arriving after the phone mic is
+        // already capturing is a routine field event, not an edge case.
+        assertRow("a voice link established after the timeout is ignored", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
+            Step(6_999, .tick, .voice, [], .at(7_000)),
+            Step(7_000, .tick, .media,
+                 [.dropVoiceLink, .playGrantTone, .startCapture(.phoneFallback)], .noTimer),
+            Step(8_000, .voiceLinkEstablished, .media, [], .noTimer),
+        ])
+    }
+
     func testAnImmediateFailureFallsBackAtOnce() {
         assertRow("an immediate link failure falls back to the phone mic without waiting", [
             Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
@@ -467,6 +483,25 @@ final class ModePolicyTests: XCTestCase {
             Step(10_000, .radioActive(true), .voice, [], .at(20_000)),
             Step(20_000, .tick, .voice, [], .noTimer),
             Step(25_000, .radioActive(false), .media, [.dropVoiceLink], .noTimer),
+        ])
+    }
+
+    func testAPressWhileTheDropIsPendingIsInstant() {
+        // Reachable whenever the linger expires while the radio is busy and the user
+        // barges in to reply before it goes idle: the link is still up, so the press
+        // must be instant, exactly like a press inside the linger window.
+        assertRow("a press while the drop is pending is instant", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
+            Step(3_500, .voiceLinkEstablished, .voice,
+                 [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
+            Step(5_000, .pttReleased, .voice, [], .at(20_000)),
+            Step(10_000, .radioActive(true), .voice, [], .at(20_000)),
+            Step(20_000, .tick, .voice, [], .noTimer),
+            Step(25_000, .pttPressed, .voice,
+                 [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
         ])
     }
 

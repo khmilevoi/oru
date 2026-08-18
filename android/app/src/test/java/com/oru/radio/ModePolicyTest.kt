@@ -360,6 +360,24 @@ class ModePolicyTest {
     }
 
     @Test
+    fun `a voice link established after the timeout is ignored`() {
+        // D2 rejects a mid-transmission mic hot-swap, and the spec records real headsets
+        // establishing SCO at 5-8 s, so a late link arriving after the phone mic is
+        // already capturing is a routine field event, not an edge case.
+        assertRow("a voice link established after the timeout is ignored", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.PttPressed, Profile.VOICE, listOf(Action.RaiseVoiceLink), Wakeup.At(7_000L)),
+            Step(6_999L, Input.Tick, Profile.VOICE, emptyList(), Wakeup.At(7_000L)),
+            Step(7_000L, Input.Tick, Profile.MEDIA,
+                listOf(Action.DropVoiceLink, Action.PlayGrantTone, Action.StartCapture(MicSource.PHONE_FALLBACK)),
+                Wakeup.NoTimer),
+            Step(8_000L, Input.VoiceLinkEstablished, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
     fun `an immediate link failure falls back to the phone mic without waiting`() {
         assertRow("an immediate link failure falls back to the phone mic without waiting", listOf(
             Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
@@ -489,6 +507,26 @@ class ModePolicyTest {
             Step(10_000L, Input.RadioActive(true), Profile.VOICE, emptyList(), Wakeup.At(20_000L)),
             Step(20_000L, Input.Tick, Profile.VOICE, emptyList(), Wakeup.NoTimer),
             Step(25_000L, Input.RadioActive(false), Profile.MEDIA, listOf(Action.DropVoiceLink), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `a press while the drop is pending is instant`() {
+        // Reachable whenever the linger expires while the radio is busy and the user
+        // barges in to reply before it goes idle: the link is still up, so the press
+        // must be instant, exactly like a press inside the linger window.
+        assertRow("a press while the drop is pending is instant", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.PttPressed, Profile.VOICE, listOf(Action.RaiseVoiceLink), Wakeup.At(7_000L)),
+            Step(3_500L, Input.VoiceLinkEstablished, Profile.VOICE,
+                listOf(Action.PlayGrantTone, Action.StartCapture(MicSource.ROUTE_DEFAULT)), Wakeup.NoTimer),
+            Step(5_000L, Input.PttReleased, Profile.VOICE, emptyList(), Wakeup.At(20_000L)),
+            Step(10_000L, Input.RadioActive(true), Profile.VOICE, emptyList(), Wakeup.At(20_000L)),
+            Step(20_000L, Input.Tick, Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(25_000L, Input.PttPressed, Profile.VOICE,
+                listOf(Action.PlayGrantTone, Action.StartCapture(MicSource.ROUTE_DEFAULT)), Wakeup.NoTimer),
         ))
     }
 

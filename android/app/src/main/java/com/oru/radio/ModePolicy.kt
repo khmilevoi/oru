@@ -40,6 +40,11 @@ class ModePolicy {
         PHONE_FALLBACK,
     }
 
+    /**
+     * On iOS, [RaiseVoiceLink]/[DropVoiceLink] and a [Decision.profile] change are the
+     * same `setCategory` session-configuration call: apply the profile diff first and
+     * treat the raise/drop as satisfied by it, rather than performing the work twice.
+     */
     sealed interface Action {
         /**
          * Bring the headset voice link up now — `setCommunicationDevice`/SCO on Android,
@@ -73,7 +78,8 @@ class ModePolicy {
         val actions: List<Action>,
         /**
          * Absolute monotonic millisecond at which the platform must call [tick], or null
-         * when nothing is pending. Re-read after every call.
+         * when nothing is pending. Re-read after every call: null obliges the caller to
+         * cancel any outstanding timer, not merely to skip scheduling a new one.
          */
         val nextWakeupMs: Long?,
     )
@@ -194,12 +200,22 @@ class ModePolicy {
      * True when reaching the accessory's microphone would need a BT-Classic voice link
      * raised. False for speaker, wired, USB and anything else with no profile conflict —
      * section 7's "the policy is inert there".
+     *
+     * If a raise is in flight when the route it targeted disappears, the caller must
+     * report [voiceLinkFailed] — otherwise the policy will wait out the full 4 s grant
+     * timeout before falling back to the phone mic.
      */
     fun setRouteRequiresVoiceLink(requires: Boolean, nowMs: Long): Decision = step(nowMs) {
         routeRequiresVoiceLink = requires
         emptyList()
     }
 
+    /**
+     * Every [pttPressed] must be answered by exactly one [pttReleased] — the policy has
+     * no watchdog on an unreleased press. A dropped release (a BLE, HID or media-button
+     * PTT driver disconnecting mid-press) wedges the policy for the rest of the session:
+     * no mode switch ever applies again and a raised link is never dropped.
+     */
     fun pttPressed(nowMs: Long): Decision = step(nowMs) { press(nowMs) }
 
     fun pttReleased(nowMs: Long): Decision = step(nowMs) { release(nowMs) }
@@ -309,6 +325,12 @@ class ModePolicy {
      * link that arrives late is not used for this transmission. Restoring the base profile
      * here is part of the raise/drop mechanism and so is exempt from the rate limit: it
      * neither consults nor stamps [lastSwitchMs].
+     *
+     * When the base profile is already VOICE this emits `StartCapture(PHONE_FALLBACK)`
+     * with no accompanying [Action.DropVoiceLink] — there is nothing to undo on the
+     * platform's session, since the link never came up. That `StartCapture` still implies
+     * the pending raise is void: the platform must treat it as cancelled even though no
+     * [Action.DropVoiceLink] accompanies it.
      */
     private fun abandonRaise(startCapture: Boolean = true): List<Action> {
         pttState = if (startCapture) PttState.Talking(linkRaised = false) else PttState.Idle
