@@ -9,7 +9,16 @@ import {PingRings} from '../ui/PingRings';
 import {PulseDot} from '../ui/PulseDot';
 import {ScreenFrame} from '../ui/ScreenFrame';
 import {StateRing} from '../ui/StateRing';
-import {colors, glows, radii, sizes, spacing, testIds, type} from '../ui/theme';
+import {
+  chrome,
+  colors,
+  glows,
+  radii,
+  sizes,
+  spacing,
+  testIds,
+  type,
+} from '../ui/theme';
 import {radio} from '../radio/radio.model';
 import {
   pairingCandidates,
@@ -187,11 +196,17 @@ export const PairingFlow = reatomComponent<{onClose: () => void}>(
 );
 
 const styles = StyleSheet.create({
+  // `ScreenFrame`'s body carries no padding of its own any more -- each rebuilt
+  // screen states its own gutters -- so the `failed` step, which is the one
+  // branch here that was left on its pre-canvas layout, has to state its side
+  // inset itself. Without it the retry copy, and the unbounded native
+  // `failure.message` diagnostic under it, run edge to edge.
   centre: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.lg,
+    paddingHorizontal: spacing.gutter,
   },
   headline: {color: colors.text, textAlign: 'center'},
   hint: {color: colors.textMuted, textAlign: 'center'},
@@ -225,12 +240,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
   },
   scanRowLabel: {color: colors.textFaint},
-  sectionLabel: {
-    paddingTop: 34,
-    paddingHorizontal: 28,
-    paddingBottom: 12,
-    color: colors.textFaint,
-  },
+  sectionLabel: {...chrome.sectionLabel, color: colors.textFaint},
   row: {
     marginHorizontal: spacing.gutter,
     marginBottom: 12,

@@ -1,5 +1,5 @@
 import {StyleSheet} from 'react-native';
-import type {TextStyle} from 'react-native';
+import type {TextStyle, ViewStyle} from 'react-native';
 
 /**
  * The Claude Design canvas, resolved to React Native values. `design/theme.css`
@@ -88,6 +88,13 @@ export const fonts = {
  * The canvas states letter-spacing in `em`; React Native takes points, so each
  * value below is the canvas's em figure multiplied by its own font size.
  * `lineHeight` is likewise absolute here and a ratio there.
+ *
+ * `textTransform: 'uppercase'` is part of a token wherever the canvas class it
+ * resolves reaches the same effect in CSS -- `.display` (which `.holden`,
+ * `.holdword`, `.bigword`, `.learnword` and `.okword` are all composed with),
+ * `.obtitle`, `.slabel`, `.subhint`, `.scantext` and `.scanrow`. It belongs
+ * here and not in the catalogs: a `.po` msgid is source text, and shouting is
+ * a rendering decision.
  */
 export const type = {
   /** `.holden` -- the one-line headline, and `.obtitle`. */
@@ -96,6 +103,7 @@ export const type = {
     fontSize: 40,
     lineHeight: 42,
     letterSpacing: 2,
+    textTransform: 'uppercase',
   },
   /** `.holdword` -- the two-line headline locales like `ru` fall back to. */
   heroTight: {
@@ -103,6 +111,7 @@ export const type = {
     fontSize: 33,
     lineHeight: 43,
     letterSpacing: 1.65,
+    textTransform: 'uppercase',
   },
   /** `.bigword` -- TRANSMITTING / RECEIVING / RADIO OFF. */
   state: {
@@ -110,6 +119,7 @@ export const type = {
     fontSize: 34,
     lineHeight: 40,
     letterSpacing: 1.7,
+    textTransform: 'uppercase',
   },
   /** `.stitle` -- the settings/pairing screen title. */
   title: {
@@ -124,6 +134,7 @@ export const type = {
     fontSize: 15,
     lineHeight: 20,
     letterSpacing: 2.4,
+    textTransform: 'uppercase',
   },
   /** `.subhint` -- the uppercase hint under a ring. */
   subhint: {
@@ -131,13 +142,20 @@ export const type = {
     fontSize: 13,
     lineHeight: 18,
     letterSpacing: 1.56,
+    textTransform: 'uppercase',
   },
-  /** `.slabel` and `.obstep` -- engraved section labels. */
+  /**
+   * `.slabel`, `.scanrow` and `.obstep` -- engraved section labels. `.obstep`
+   * alone carries no `text-transform` on the canvas, but its own copy there is
+   * already shouted ("STEP 1 OF 3"), so the token's uppercase is a no-op for it
+   * rather than a deviation.
+   */
   label: {
     fontFamily: fonts.monoMedium,
     fontSize: 11,
     lineHeight: 15,
     letterSpacing: 2.2,
+    textTransform: 'uppercase',
   },
   /** `.btn`. */
   button: {
@@ -173,6 +191,19 @@ export const spacing = {
   /** The canvas's own side gutter: `.card` and `.dev` margin. */
   gutter: 22,
 } as const;
+
+/**
+ * Canvas classes that more than one screen paints. `design/theme.css` declares
+ * `.slabel` and `.obfoot` once each and shares them across screens; restating
+ * their padding per screen is how the two copies drift apart, so the shapes are
+ * written down here and spread at the call site.
+ */
+export const chrome = {
+  /** `.slabel` -- `padding: 34px 28px 12px` (settings and pairing labels). */
+  sectionLabel: {paddingTop: 34, paddingHorizontal: 28, paddingBottom: 12},
+  /** `.obfoot` -- `padding: 0 26px 30px; gap: 18px` (the onboarding footers). */
+  footer: {paddingHorizontal: 26, paddingBottom: 30, gap: 18},
+} as const satisfies Record<string, ViewStyle>;
 
 export const radii = {
   /** `.bars span`. */

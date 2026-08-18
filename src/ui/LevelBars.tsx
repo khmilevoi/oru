@@ -28,26 +28,38 @@ export const LevelBars = reatomComponent<{color: string; testID?: string}>(
     useEffect(() => {
       if (still) return;
 
-      const loops = scales.map((scale, index) =>
-        Animated.loop(
-          Animated.sequence([
-            Animated.delay(index * motion.levelStaggerMs),
-            Animated.timing(scale, {
-              toValue: MIN_SCALE,
-              duration: motion.levelMs / 2,
-              useNativeDriver: true,
-            }),
-            Animated.timing(scale, {
-              toValue: 1,
-              duration: motion.levelMs / 2,
-              useNativeDriver: true,
-            }),
-          ]),
-        ),
+      // The stagger sits OUTSIDE the loop, and has to: `Animated.loop` defaults
+      // to `resetBeforeIteration: true`, so a delay *inside* it would be
+      // replayed on every lap -- giving bar `i` a period of 0.9s + i*0.12s and
+      // stalling it at full height in between, rather than the canvas's
+      // one-time phase offset across five bars that then breathe at a single
+      // shared period. Only the delay moves; the down-then-up pair is the cycle
+      // itself and stays inside the loop.
+      const runs = scales.map((scale, index) =>
+        Animated.sequence([
+          Animated.delay(index * motion.levelStaggerMs),
+          Animated.loop(
+            Animated.sequence([
+              Animated.timing(scale, {
+                toValue: MIN_SCALE,
+                duration: motion.levelMs / 2,
+                useNativeDriver: true,
+              }),
+              Animated.timing(scale, {
+                toValue: 1,
+                duration: motion.levelMs / 2,
+                useNativeDriver: true,
+              }),
+            ]),
+          ),
+        ]),
       );
-      loops.forEach(loop => loop.start());
+      runs.forEach(run => run.start());
 
-      return () => loops.forEach(loop => loop.stop());
+      // `Animated.sequence`'s own `stop()` stops whichever leg is currently
+      // running -- the delay if the bar has not entered its loop yet, the loop
+      // once it has -- so unmounting mid-stagger cancels cleanly either way.
+      return () => runs.forEach(run => run.stop());
     }, [still, scales]);
 
     return (

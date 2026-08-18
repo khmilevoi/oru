@@ -8,7 +8,7 @@ import {ActionButton} from '../ui/ActionButton';
 import {PermissionMark} from '../ui/PermissionMark';
 import {ScreenFrame} from '../ui/ScreenFrame';
 import {StepDots} from '../ui/StepDots';
-import {colors, spacing, testIds, type} from '../ui/theme';
+import {chrome, colors, spacing, testIds, type} from '../ui/theme';
 import {APP_PERMISSIONS} from '../permissions/permissions.types';
 import {
   advanceOnboarding,
@@ -161,7 +161,7 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
 
 const styles = StyleSheet.create({
   mark: {flex: 1, alignItems: 'center', justifyContent: 'center'},
-  foot: {paddingHorizontal: 26, paddingBottom: 30, gap: 18},
+  foot: {...chrome.footer},
   step: {color: colors.textFaint},
   title: {color: colors.text},
   body: {color: colors.textMuted, maxWidth: 320},

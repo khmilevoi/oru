@@ -7,7 +7,7 @@ import {wrap} from '@reatom/core';
 import {ActionButton} from '../ui/ActionButton';
 import {PermissionMark} from '../ui/PermissionMark';
 import {ScreenFrame} from '../ui/ScreenFrame';
-import {colors, spacing, type} from '../ui/theme';
+import {chrome, colors, spacing, type} from '../ui/theme';
 import {
   backgroundStatus,
   completeBackgroundStep,
@@ -107,7 +107,7 @@ export const BackgroundStep = reatomComponent(() => {
 
 const styles = StyleSheet.create({
   mark: {flex: 1, alignItems: 'center', justifyContent: 'center'},
-  foot: {paddingHorizontal: 26, paddingBottom: 30, gap: 18},
+  foot: {...chrome.footer},
   title: {color: colors.text},
   body: {color: colors.textMuted, maxWidth: 320},
   warning: {color: colors.learning},

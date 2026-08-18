@@ -32,21 +32,29 @@ export const PingRings = reatomComponent<{
   useEffect(() => {
     if (still) return;
 
-    const loops = progress.map((value, index) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(index * motion.pingStaggerMs),
+    // The stagger sits OUTSIDE the loop, and has to: `Animated.loop` defaults
+    // to `resetBeforeIteration: true`, so a delay *inside* it would be replayed
+    // on every lap -- giving ring `i` a period of 3s + i*1s and freezing it at
+    // its start scale in between, rather than the canvas's one-time phase
+    // offset between three rings that then travel at a single shared period.
+    const runs = progress.map((value, index) =>
+      Animated.sequence([
+        Animated.delay(index * motion.pingStaggerMs),
+        Animated.loop(
           Animated.timing(value, {
             toValue: 1,
             duration: motion.pingMs,
             useNativeDriver: true,
           }),
-        ]),
-      ),
+        ),
+      ]),
     );
-    loops.forEach(loop => loop.start());
+    runs.forEach(run => run.start());
 
-    return () => loops.forEach(loop => loop.stop());
+    // `Animated.sequence`'s own `stop()` stops whichever leg is currently
+    // running -- the delay if the ring has not entered its loop yet, the loop
+    // once it has -- so unmounting mid-stagger cancels cleanly either way.
+    return () => runs.forEach(run => run.stop());
   }, [still, progress]);
 
   return (

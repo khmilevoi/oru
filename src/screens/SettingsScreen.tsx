@@ -6,7 +6,7 @@ import {wrap} from '@reatom/core';
 
 import {ActionButton} from '../ui/ActionButton';
 import {ScreenFrame} from '../ui/ScreenFrame';
-import {colors, glows, radii, spacing, testIds, type} from '../ui/theme';
+import {chrome, colors, glows, radii, spacing, testIds, type} from '../ui/theme';
 import {radio} from '../radio/radio.model';
 
 /**
@@ -110,12 +110,7 @@ export const SettingsScreen = reatomComponent<{
 }, 'SettingsScreen');
 
 const styles = StyleSheet.create({
-  sectionLabel: {
-    paddingTop: 34,
-    paddingHorizontal: 28,
-    paddingBottom: 12,
-    color: colors.textFaint,
-  },
+  sectionLabel: {...chrome.sectionLabel, color: colors.textFaint},
   card: {
     marginHorizontal: spacing.gutter,
     backgroundColor: colors.surface,

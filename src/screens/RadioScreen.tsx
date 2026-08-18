@@ -64,7 +64,7 @@ const RadioErrorState = reatomComponent(() => {
  */
 export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
   ({onSettingsPress}) => {
-    const {t} = useLingui();
+    const {i18n, t} = useLingui();
     // Unconditional, ahead of the `status === 'error'` early return below,
     // rather than between it and `state === 'off'` as the plan's own code
     // block shows it: this component transitions in and out of `error`
@@ -121,7 +121,10 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
             </View>
           </Pressable>
           <View style={[styles.gearOnly, cornerStyle]}>
+            {/* Same darker chassis the hero `PowerKey` beside it is told about:
+                the two corner controls have to agree on what they sit on. */}
             <GearButton
+              notchColor={colors.backgroundOff}
               onPress={onSettingsPress}
               accessibilityLabel={t`Settings`}
               testID={testIds.settingsGear}
@@ -175,9 +178,19 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
 
             {state === 'ready' ? (
               <StateRing tone="idle" testID="radio-ring">
+                {/*
+                  The canvas sets this headline in `.holden` (40pt) for `en` and
+                  drops to `.holdword` (33pt) for `ru`, whose translation of
+                  "HOLD TO TALK" is far longer than the 302pt ring it sits in
+                  (`design/01 Radio.dc.html:195-224`). Every non-`en` locale
+                  takes the tighter face for the same reason.
+                */}
                 <Text
                   testID={testIds.radioStateLabel}
-                  style={[type.hero, styles.headline]}>
+                  style={[
+                    i18n.locale === 'en' ? type.hero : type.heroTight,
+                    styles.headline,
+                  ]}>
                   <Trans>HOLD TO TALK</Trans>
                 </Text>
               </StateRing>

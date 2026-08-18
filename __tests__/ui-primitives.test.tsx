@@ -3,6 +3,7 @@ import {StyleSheet, Text} from 'react-native';
 import {context} from '@reatom/core';
 
 import {ActionButton} from '../src/ui/ActionButton';
+import {GearButton} from '../src/ui/GearButton';
 import {PowerKey} from '../src/ui/PowerKey';
 import {PulseDot} from '../src/ui/PulseDot';
 import {ScreenFrame} from '../src/ui/ScreenFrame';
@@ -144,6 +145,41 @@ describe('PowerKey — design/01 Radio.dc.html', () => {
     );
 
     expect(JSON.stringify(screen.find('power-key-notch').props.style)).toContain(
+      colors.backgroundOff.slice(1),
+    );
+
+    screen.unmount();
+  });
+});
+
+describe('GearButton — design/theme.css .gear', () => {
+  it('draws the gear in the faint chassis colour, like the key beside it', async () => {
+    const screen = await renderScreen(
+      <GearButton
+        onPress={jest.fn()}
+        accessibilityLabel="Settings"
+        testID="gear"
+      />,
+    );
+
+    const flat = JSON.stringify(screen.find('gear-ring').props.style);
+    expect(flat).toContain(colors.textFaint.slice(1));
+    expect(flat).not.toContain(colors.text.slice(1));
+
+    screen.unmount();
+  });
+
+  it('paints the hub in the background it is told it sits on', async () => {
+    const screen = await renderScreen(
+      <GearButton
+        notchColor={colors.backgroundOff}
+        onPress={jest.fn()}
+        accessibilityLabel="Settings"
+        testID="gear"
+      />,
+    );
+
+    expect(JSON.stringify(screen.find('gear-hub').props.style)).toContain(
       colors.backgroundOff.slice(1),
     );
 

@@ -2,7 +2,7 @@ import React from 'react';
 import {context} from '@reatom/core';
 
 import {RadioScreen} from '../src/screens/RadioScreen';
-import {motion, testIds, washes} from '../src/ui/theme';
+import {motion, testIds, type, washes} from '../src/ui/theme';
 import {renderScreen} from '../jest/renderScreen';
 import type {MockScenarioName} from '../src/mock/mock.scenario';
 
@@ -224,6 +224,29 @@ describe('RadioScreen — design/01 Radio.dc.html', () => {
     expect(screen.findAll('radio-bars')).toHaveLength(1);
 
     screen.unmount();
+  });
+
+  it('sets the ready headline in the tighter face outside en', async () => {
+    const readyHeadline = async (locale: 'en' | 'ru') => {
+      const screen = await renderScreen(
+        <RadioScreen onSettingsPress={jest.fn()} />,
+        {scenario: 'happy', locale},
+      );
+      await screen.press(testIds.powerOnArea);
+      await screen.advance(2100);
+      const style = JSON.stringify(
+        screen.find(testIds.radioStateLabel).props.style,
+      );
+      screen.unmount();
+      return style;
+    };
+
+    // `.holden` (40pt) for en, `.holdword` (33pt) for the longer locales --
+    // design/01 Radio.dc.html:195-224.
+    expect(await readyHeadline('en')).toContain(`"fontSize":${type.hero.fontSize}`);
+    expect(await readyHeadline('ru')).toContain(
+      `"fontSize":${type.heroTight.fontSize}`,
+    );
   });
 
   it('moves the nearby count out of the headline and into the peer row', async () => {
