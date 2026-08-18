@@ -31,9 +31,14 @@ msgstr "● {0} nearby"
 #~ msgid "● {nearbyCount} nearby"
 #~ msgstr "● {nearbyCount} nearby"
 
+#: src/screens/BackgroundStep.tsx:72
 #: src/screens/OnboardingFlow.tsx:115
 msgid "Allow"
 msgstr "Allow"
+
+#: src/screens/BackgroundStep.tsx:53
+msgid "Android grants this only from the app settings. Open them, choose Permissions, then Location, then \"Allow all the time\"."
+msgstr "Android grants this only from the app settings. Open them, choose Permissions, then Location, then \"Allow all the time\"."
 
 #: src/screens/SettingsScreen.tsx:29
 msgid "Back"
@@ -87,6 +92,10 @@ msgstr "Hold to transmit"
 msgid "Hold to turn the radio off"
 msgstr "Hold to turn the radio off"
 
+#: src/screens/BackgroundStep.tsx:42
+msgid "Keep the radio working"
+msgstr "Keep the radio working"
+
 #: src/screens/PairingFlow.tsx:129
 msgid "Make sure the button is switched on and in pairing mode."
 msgstr "Make sure the button is switched on and in pairing mode."
@@ -107,6 +116,11 @@ msgstr "No buttons found"
 msgid "Not connected"
 msgstr "Not connected"
 
+#: src/screens/BackgroundStep.tsx:82
+msgid "Not now"
+msgstr "Not now"
+
+#: src/screens/BackgroundStep.tsx:63
 #: src/screens/OnboardingFlow.tsx:106
 msgid "Open settings"
 msgstr "Open settings"
@@ -118,6 +132,10 @@ msgstr "Oru connects to your push-to-talk button over Bluetooth, including while
 #: src/screens/OnboardingFlow.tsx:71
 msgid "Oru finds other radios around you without using the internet."
 msgstr "Oru finds other radios around you without using the internet."
+
+#: src/screens/BackgroundStep.tsx:45
+msgid "Oru needs background location to keep finding nearby radios while your phone is locked and in a pocket."
+msgstr "Oru needs background location to keep finding nearby radios while your phone is locked and in a pocket."
 
 #: src/screens/OnboardingFlow.tsx:54
 msgid "Oru uses the microphone to transmit your voice to nearby devices."

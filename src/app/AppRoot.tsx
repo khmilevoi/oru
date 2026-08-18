@@ -4,6 +4,7 @@ import {reatomComponent} from '@reatom/react';
 import {wrap} from '@reatom/core';
 
 import {completeOnboarding} from '../permissions/sequencing.model';
+import {BackgroundStep} from '../screens/BackgroundStep';
 import {OnboardingFlow} from '../screens/OnboardingFlow';
 import {PairingFlow} from '../screens/PairingFlow';
 import {RadioScreen} from '../screens/RadioScreen';
@@ -49,6 +50,10 @@ export const AppRoot = reatomComponent(() => {
 
   if (current === 'pairing') {
     return <PairingFlow onClose={wrap(() => navigate('settings'))} />;
+  }
+
+  if (current === 'background') {
+    return <BackgroundStep />;
   }
 
   return <RadioScreen onSettingsPress={wrap(() => navigate('settings'))} />;
