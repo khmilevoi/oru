@@ -20,7 +20,7 @@ describe('StateRing — design/01 Radio.dc.html', () => {
       </StateRing>,
     );
 
-    const flat = JSON.stringify(screen.find('ring').props.style);
+    const flat = JSON.stringify(screen.find('state-ring').props.style);
     expect(flat).toContain(String(sizes.ring));
     expect(flat).toContain(colors.hairlineRaised.slice(1));
 
@@ -34,7 +34,7 @@ describe('StateRing — design/01 Radio.dc.html', () => {
       </StateRing>,
     );
 
-    const flat = JSON.stringify(screen.find('ring').props.style);
+    const flat = JSON.stringify(screen.find('state-ring').props.style);
     expect(flat).toContain(colors.tx.slice(1));
     expect(flat).toContain('110px');
 
@@ -48,7 +48,7 @@ describe('StateRing — design/01 Radio.dc.html', () => {
       </StateRing>,
     );
 
-    const flat = JSON.stringify(screen.find('ring').props.style);
+    const flat = JSON.stringify(screen.find('state-ring').props.style);
     expect(flat).toContain(colors.rx.slice(1));
     expect(flat).toContain('90px');
     expect(flat).not.toContain(`"backgroundColor":"${colors.rx}"`);
@@ -63,7 +63,7 @@ describe('StateRing — design/01 Radio.dc.html', () => {
       </StateRing>,
     );
 
-    const flat = JSON.stringify(screen.find('ring').props.style);
+    const flat = JSON.stringify(screen.find('state-ring').props.style);
     expect(flat).toContain(String(sizes.ringLearning));
     expect(flat).toContain(colors.learning.slice(1));
 
@@ -88,16 +88,15 @@ describe('LevelBars — design/01 Radio.dc.html', () => {
       {reducedMotion: true},
     );
     const stillStyle = JSON.stringify(still.find('bars-bar').props.style);
+    still.unmount();
 
     const moving = await renderScreen(
       <LevelBars color={colors.text} testID="bars" />,
       {reducedMotion: false},
     );
     const movingStyle = JSON.stringify(moving.find('bars-bar').props.style);
+    moving.unmount();
 
     expect(stillStyle).not.toBe(movingStyle);
-
-    still.unmount();
-    moving.unmount();
   });
 });

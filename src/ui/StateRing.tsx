@@ -17,17 +17,28 @@ export type StateRingTone = 'idle' | 'tx' | 'rx' | 'learning';
 export function StateRing({
   tone,
   children,
-  testID,
 }: {
   tone: StateRingTone;
   children: React.ReactNode;
+  /**
+   * Accepted so callers (and their own tests) can address a particular
+   * `StateRing` instance in a screen with more than one -- the value itself
+   * is never read here. The ring's actual style-bearing node carries its own
+   * fixed `state-ring` testID instead: `jest/renderScreen.tsx`'s `find` dedups
+   * `testID` matches down to the outermost node sharing a value, and a
+   * function component's own fiber "carries" every prop it received
+   * (including `testID`) whether or not the body uses it -- so forwarding the
+   * caller's `testID` onto this View as well would make it the *inner*, and
+   * therefore discarded, match. `src/ui/PowerKey.tsx` solves the identical
+   * problem the same way, with `testID="power-key-ring"`.
+   */
   testID?: string;
 }) {
   const size = tone === 'learning' ? sizes.ringLearning : sizes.ring;
 
   return (
     <View
-      testID={testID}
+      testID="state-ring"
       style={[
         styles.ring,
         {width: size, height: size, borderRadius: size / 2},
