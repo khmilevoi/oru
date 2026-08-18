@@ -1,97 +1,146 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Oru
 
-# Getting Started
+An offline push-to-talk radio for Android and iPhone, over Nearby Connections: no internet, no
+accounts, no backend. Full design and rationale live in
+[`docs/superpowers/specs/2026-08-13-offline-nearby-ptt-design.md`](docs/superpowers/specs/2026-08-13-offline-nearby-ptt-design.md).
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Requirements
 
-## Step 1: Start Metro
+- Node ≥ 22.11 (see `engines` in `package.json`) and pnpm (built against 10.14.0; pnpm 11.x
+  also works — see the `node-linker` note under Install).
+- The Android SDK and the Android Studio JBR (Java runtime), for Android.
+- macOS with Xcode and CocoaPods, for iOS.
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+**iOS is built only on macOS, and no gate in this repository compiles Swift.** A green
+`pnpm test` says nothing about whether the iOS build even compiles.
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+## Install
 
-```sh
-# Using npm
-npm start
-
-# OR using Yarn
-yarn start
+```bash
+pnpm install
 ```
 
-## Step 2: Build and run your app
+Both `.npmrc` and `pnpm-workspace.yaml` pin `node-linker`/`nodeLinker: hoisted`, which React
+Native requires (its native-linking tooling expects a flat, hoisted `node_modules`, not pnpm's
+default symlinked layout). Both files are needed: pnpm 11.x silently ignores `.npmrc`'s
+`node-linker` and reads the setting from `pnpm-workspace.yaml` instead (`pnpm config get
+node-linker` should print `hoisted`).
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+## Run on Android
 
-### Android
+In one shell:
 
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
+```bash
+pnpm start
 ```
 
-### iOS
+In another:
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+```bash
+pnpm android
+```
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+`pnpm android` (`react-native run-android`) assumes an already-configured Android SDK/JDK on
+`PATH`. If you'd rather not set that up, use `pnpm build:android` instead
+(`scripts/build-android.js`): it resolves the SDK and a JDK itself, writes
+`android/local.properties`, and pins `org.gradle.java.home`, so it works in a fresh shell with no
+environment setup. Either way, the first run downloads Gradle, the NDK and CMake, and is slow.
 
-```sh
+## Run on iOS
+
+From the repo root, once:
+
+```bash
 bundle install
 ```
 
-Then, and every time you update your native dependencies, run:
+Then, from `ios/`, every time native dependencies change:
 
-```sh
-bundle exec pod install
+```bash
+cd ios && bundle exec pod install
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+Then, from the repo root:
 
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
+```bash
+pnpm ios
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+Two open native-side notes:
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+- The fonts folder reference in `ios/Oru.xcodeproj` is still an open Xcode step, recorded by P6
+  — Xcode itself has to add it; it cannot be hand-edited into the `pbxproj` blind.
+- The local `Radio` Swift package (`ios/Radio/Package.swift`) builds `RadioKit`, the iOS radio
+  engine (Nearby Connections + Opus), as a Swift Package Manager dependency of the app.
 
-## Step 3: Modify your app
+## Permissions on first launch
 
-Now that you have successfully run the app, let's make changes!
+Onboarding is three permission screens plus a done screen — microphone, Bluetooth, nearby
+devices, done (`src/screens/OnboardingFlow.tsx`) — each explaining one permission before
+triggering the system prompt. On Android there is a fourth, Android-only step
+(`src/screens/BackgroundStep.tsx`) for `ACCESS_BACKGROUND_LOCATION`, which cannot be granted from
+a normal permission dialog on API 30+ and needs its own "Allow all the time" Settings redirect.
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+On Android, the microphone, Bluetooth and location grants are required before the foreground
+service will start; without them the radio reports `foreground_service_denied`. To pre-grant
+them for testing (from `docs/stage3-bridge-acceptance.md`):
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+```bash
+adb shell pm grant com.oru android.permission.RECORD_AUDIO
+```
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+(plus the Bluetooth and location grants listed in `docs/phase0-android-spike-hooks.md`).
 
-## Congratulations! :tada:
+## The mock backend
 
-You've successfully run and modified your React Native App. :partying_face:
+`RADIO_BACKEND=mock` builds the app against the §6.5 mock engine and the mock permission
+gateway — this is how design work, demos and screenshots run, and it's what the Jest suite runs
+against unconditionally. Under `__DEV__`, the Dev Menu carries one entry per mock scenario
+(`src/dev/mockScenarioDevMenu.ts`), letting you switch scenarios inside a running dev build.
 
-### Now what?
+**The default backend, in both dev and release, is the real native one.** `RADIO_BACKEND=mock`
+is the opt-in:
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+```bash
+RADIO_BACKEND=mock pnpm android
+RADIO_BACKEND=mock pnpm ios
+```
 
-# Troubleshooting
+## Locales
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+English by default, Russian for a `ru` system locale; there is no in-app language picker. Copy
+lives in `src/locales/{en,ru}/messages.po` and is regenerated with `pnpm lingui:extract`.
 
-# Learn More
+## Tests and gates
 
-To learn more about React Native, take a look at the following resources:
+```bash
+pnpm typecheck    # tsc --noEmit
+pnpm lint         # eslint . --ext .js,.jsx,.ts,.tsx
+pnpm test         # jest
+pnpm build:android
+```
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+The JS suite runs entirely against the mock: `jest.config.js` pins `RADIO_BACKEND=mock`
+unconditionally, so a green suite says nothing about a device — it only proves the app's
+behaviour against the mock engine's scenarios.
+
+## Acceptance on real hardware
+
+Automated gates cannot stand in for a device. **Physical devices are the only source of truth
+for Nearby, BLE and background behaviour** (§16) — simulators cannot emulate them. Manual
+acceptance checklists executed on real Android + iPhone hardware:
+
+- [`docs/stage3-bridge-acceptance.md`](docs/stage3-bridge-acceptance.md) — the RadioNative
+  bridge.
+- [`docs/stage4-integration-acceptance.md`](docs/stage4-integration-acceptance.md) — this
+  integration stage.
+
+## Layout
+
+```text
+src/            TypeScript app: screens, Reatom models, the radio/permissions ports, UI kit
+android/app/src/main/java/com/oru/   Kotlin: the Turbo Module bridge and the native radio engine
+ios/            Swift app plus the local `Radio` (RadioKit) Swift package
+specs/          Codegen'd Turbo Module spec (`NativeRadio.ts`)
+docs/           Design spec, manual acceptance checklists, and planning notes
+```
