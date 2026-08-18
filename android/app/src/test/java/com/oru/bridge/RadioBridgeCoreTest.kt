@@ -233,6 +233,29 @@ class RadioBridgeCoreTest {
     }
 
     @Test
+    fun `a saved binding that cannot be read back fails instead of resolving`() {
+        val output = RecordingOutput()
+        // PttManager.onLearned saves before publishing SAVED, so a null here is
+        // the store failing to read back what was just written -- not the normal
+        // path. The promise must fail rather than hang or resolve with nothing.
+        val core = core(output) { null }
+        core.start()
+
+        var saved: Map<String, Any?>? = null
+        var failure: Pair<String, String>? = null
+        core.beginPairing(
+            engineAvailable = true,
+            onSaved = { saved = it },
+            onFailed = { code, message -> failure = code to message },
+        )
+        core.onEngineState(RadioState(pttPairing = PttPairingState(PttPairingPhase.SCANNING)))
+        core.onEngineState(RadioState(pttPairing = PttPairingState(PttPairingPhase.SAVED)))
+
+        assertNull("an unreadable binding must not resolve the promise", saved)
+        assertEquals("pairing_unreadable", failure?.first)
+    }
+
+    @Test
     fun `an engine error is emitted and fails a pending pairing`() {
         val output = RecordingOutput()
         val core = core(output)
