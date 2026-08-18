@@ -82,6 +82,13 @@ class NativeRadioModule(private val reactContext: ReactApplicationContext) :
             // they see an engine failure.
             core.startFailed("start_failed", error.message ?: error.javaClass.simpleName)
         }
+        // The engine no-ops startRadio() while already started and does not
+        // clear that flag on failure, so a section 13 restart can leave it
+        // exactly where it was. Re-read it rather than leaving JavaScript on
+        // the `starting` we optimistically published. Null on a cold start --
+        // the service is not up yet -- and the buffered listener replay covers
+        // that case instead.
+        RadioController.engine()?.let { core.onEngineState(it.getState()) }
         promise.resolve(null)
     }
 

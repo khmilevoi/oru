@@ -91,6 +91,13 @@ public final class RadioBridge: NSObject {
         // its mirror from a call's return value.
         onStateChanged?(state)
         engine.startRadio()
+        // Same reason as Android: startRadioLocked() no-ops while already
+        // started and failLocked() does not clear `isStarted`, so a section 13
+        // restart can be a no-op. getState hops the engine queue and therefore
+        // reports the post-start truth.
+        engine.getState { [weak self] state in
+            self?.handle(state: state)
+        }
     }
 
     @objc public func stop() {

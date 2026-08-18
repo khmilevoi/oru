@@ -325,6 +325,24 @@ class RadioBridgeCoreTest {
     }
 
     @Test
+    fun `a restart the engine refuses reports its real state, not starting`() {
+        val output = RecordingOutput()
+        val core = core(output)
+        core.start()
+        core.onEngineState(RadioState(status = RadioStatus.ERROR))
+        output.states.clear()
+
+        // Section 13's restart action. Both engines no-op startRadio() while
+        // already started and neither clears that flag on failure, so the
+        // module re-reads the engine and feeds the truth back in.
+        core.start()
+        core.onEngineState(RadioState(status = RadioStatus.ERROR))
+
+        assertEquals("error", output.last()["status"])
+        assertEquals("error", core.snapshot()["status"])
+    }
+
+    @Test
     fun `refresh re-publishes the current projection`() {
         val output = RecordingOutput()
         var stored: PttConfiguration? = bleConfiguration
