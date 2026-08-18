@@ -80,6 +80,23 @@ class RadioBridgeCore(
         output.emitState(project())
     }
 
+    /**
+     * Adopts an engine that is already running when this bridge attaches.
+     *
+     * `RadioForegroundService` is START_STICKY and outlives the React context,
+     * so a fresh JavaScript context can attach to a radio that is already on.
+     * Without this the projection answers `off` -- with `nearbyCount: 0`, and a
+     * `configurePtt()` that rejects `radio_off` -- for a radio whose own
+     * notification says it is running.
+     */
+    @Synchronized
+    fun adopt(state: RadioState) {
+        running = true
+        failed = false
+        lastEngineState = state
+        output.emitState(project())
+    }
+
     /** Spec section 13: an unrecoverable failure is an error event *and* the error status. */
     @Synchronized
     fun startFailed(code: String, message: String) {

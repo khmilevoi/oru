@@ -343,6 +343,29 @@ class RadioBridgeCoreTest {
     }
 
     @Test
+    fun `adopting a service that outlived the app reports the live radio, not off`() {
+        val output = RecordingOutput()
+        val core = core(output) { bleConfiguration }
+
+        core.adopt(RadioState(status = RadioStatus.READY, nearbyCount = 2))
+
+        assertEquals("ready", output.last()["status"])
+        assertEquals(2, output.last()["nearbyCount"])
+        assertEquals("ready", core.snapshot()["status"])
+    }
+
+    @Test
+    fun `an adopted radio can pair, because its engine is available`() {
+        val output = RecordingOutput()
+        val core = core(output) { bleConfiguration }
+        core.adopt(RadioState(status = RadioStatus.READY))
+
+        val armed = core.beginPairing(true, onSaved = {}, onFailed = { _, _ -> })
+
+        assertTrue("an adopted radio is running, so pairing must arm", armed)
+    }
+
+    @Test
     fun `refresh re-publishes the current projection`() {
         val output = RecordingOutput()
         var stored: PttConfiguration? = bleConfiguration

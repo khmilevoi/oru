@@ -56,6 +56,9 @@ class NativeRadioModule(private val reactContext: ReactApplicationContext) :
     private fun attach() {
         if (attached.compareAndSet(false, true)) {
             RadioController.addListener(engineListener)
+            // START_STICKY: the service can outlive this React context, so the
+            // radio may already be on the first time JavaScript reaches us.
+            RadioController.engine()?.let { core.adopt(it.getState()) }
         }
     }
 
