@@ -1,5 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
       Phase 0 spike hooks (spec section 15). Confined to the debug source set so a release
@@ -16,32 +15,18 @@
       breaks every ptt-* command sent from adb. Since this whole surface only ships in debug
       builds and disappears from release, exported="true" is an acceptable trade to keep it
       actually reachable from adb everywhere.
+
+      The launcher used to be aliased to SpikeActivity because debug builds had no RN UI yet.
+      The real screens exist now, so the launcher and com.oru.MainActivity resolve to the
+      normal RN activity again (inherited unmodified from the main manifest); SpikeActivity
+      and SpikeReceiver stay reachable by explicit component name for the adb-driven flows in
+      docs/phase0-android-spike-hooks.md.
     -->
     <application>
-        <!-- Debug builds have no useful RN screen yet. The real MainActivity is
-             removed and an alias with its exact component name points at the
-             spike panel instead, so every entry point — the launcher icon AND
-             stale home-screen shortcuts that target com.oru/.MainActivity
-             explicitly — lands in the spike UI. Release builds are untouched. -->
-        <activity
-            android:name="com.oru.MainActivity"
-            tools:node="remove" />
-
         <activity
             android:name="com.oru.radio.SpikeActivity"
             android:label="Oru Spike"
             android:exported="true" />
-
-        <activity-alias
-            android:name="com.oru.MainActivity"
-            android:targetActivity="com.oru.radio.SpikeActivity"
-            android:label="Oru Spike"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
 
         <receiver
             android:name="com.oru.radio.SpikeReceiver"
