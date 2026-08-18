@@ -13,6 +13,7 @@ const REQUIRED_PERMISSIONS = [
   'android.permission.BLUETOOTH_ADVERTISE',
   'android.permission.NEARBY_WIFI_DEVICES',
   'android.permission.ACCESS_FINE_LOCATION',
+  'android.permission.ACCESS_BACKGROUND_LOCATION',
   'android.permission.POST_NOTIFICATIONS',
   'android.permission.FOREGROUND_SERVICE',
   'android.permission.FOREGROUND_SERVICE_MICROPHONE',
@@ -24,12 +25,19 @@ describe('AndroidManifest permissions (spec section 11)', () => {
     expect(manifest).toContain(`android:name="${permission}"`);
   });
 
-  it('bounds ACCESS_FINE_LOCATION to pre-Android-13', () => {
+  // Nearby Connections' BLE medium needs ACCESS_FINE_LOCATION on EVERY API
+  // level, `NEARBY_WIFI_DEVICES` notwithstanding: with the permission capped at
+  // `maxSdkVersion="32"`, discovery on API 36 died with Nearby status 8034 (see
+  // Bug found #3 in docs/superpowers/specs/2026-08-13-phase0-spike-report.md,
+  // and spec section 11, which now says "all versions, unconditionally"). The
+  // cap must therefore never come back.
+  it('requests ACCESS_FINE_LOCATION unconditionally, on every API level', () => {
     const line = manifest
       .split('\n')
       .find(candidate =>
         candidate.includes('android.permission.ACCESS_FINE_LOCATION'),
       );
-    expect(line).toContain('android:maxSdkVersion="32"');
+    expect(line).toBeDefined();
+    expect(line).not.toContain('android:maxSdkVersion');
   });
 });

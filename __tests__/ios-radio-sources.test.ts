@@ -21,6 +21,33 @@ function swiftFiles(): string[] {
     : [];
 }
 
+/// Every `AVAudioSession.setActive` call in `swift` that is not inside a
+/// `#if DEBUG` region, as trimmed source lines. Conditional-compilation blocks
+/// nest, so the scan tracks the depth of the innermost `#if DEBUG` rather than
+/// a boolean.
+function unguardedSetActiveLines(swift: string): string[] {
+  const offenders: string[] = [];
+  let depth = 0;
+  let debugDepth = 0;
+  for (const raw of swift.split('\n')) {
+    const line = raw.trim();
+    if (line.startsWith('#if')) {
+      depth += 1;
+      if (debugDepth === 0 && line.startsWith('#if DEBUG')) {
+        debugDepth = depth;
+      }
+    } else if (line.startsWith('#endif')) {
+      if (debugDepth === depth) {
+        debugDepth = 0;
+      }
+      depth = Math.max(0, depth - 1);
+    } else if (line.includes('setActive(') && debugDepth === 0) {
+      offenders.push(line);
+    }
+  }
+  return offenders;
+}
+
 describe('domain types (spec section 6.1)', () => {
   const state = source('RadioState.swift');
 
@@ -133,10 +160,26 @@ describe('engine ports', () => {
 });
 
 describe('layering (spec section 6)', () => {
-  it('never imports React or UIKit anywhere in the engine', () => {
+  // Spec section 6 draws the line at React Native / JS: the engine is a plain
+  // Swift package that knows nothing about the bridge. UIKit is a different
+  // question -- it is platform, not JS -- so it is allowed, but only where it
+  // cannot leak into a release build of the engine proper: behind `#if DEBUG`
+  // (the spike control panel) or behind `#if canImport(UIKit)` (the heartbeat
+  // logger's app-state read, which must still compile off-device).
+  it('never imports React anywhere in the engine', () => {
+    const offenders = swiftFiles().filter(name =>
+      source(name).includes('import React'),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it('imports UIKit only behind a DEBUG or canImport guard', () => {
     const offenders = swiftFiles().filter(name => {
       const text = source(name);
-      return text.includes('import React') || text.includes('import UIKit');
+      if (!text.includes('import UIKit')) {
+        return false;
+      }
+      return !text.includes('#if DEBUG') && !text.includes('#if canImport(UIKit)');
     });
     expect(offenders).toEqual([]);
   });
@@ -332,8 +375,14 @@ describe('AudioEngine (spec section 8)', () => {
     expect(audio).toContain('.voiceChat');
   });
 
-  it('leaves audio-session activation to PushToTalk', () => {
-    expect(audio).not.toContain('setActive(true');
+  // Audio-session activation belongs to the `BackgroundSession` port -- today
+  // `AlwaysHotBackgroundManager`, which activates once and keeps the session
+  // hot -- because only it knows the route-detection order that activation
+  // depends on. `AudioEngine` may activate in local-test builds (nothing else
+  // does there), and nowhere else: an un-guarded `setActive` from here
+  // re-activates mid-session and collapses the resolved route.
+  it('leaves audio-session activation to the background session', () => {
+    expect(unguardedSetActiveLines(audio)).toEqual([]);
   });
 });
 
