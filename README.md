@@ -60,10 +60,10 @@ Then, from `ios/`, every time native dependencies change:
 cd ios && bundle exec pod install
 ```
 
-Then, from the repo root:
+Then, back in the repo root:
 
 ```bash
-pnpm ios
+cd .. && pnpm ios
 ```
 
 Two open native-side notes:
@@ -102,9 +102,16 @@ against unconditionally. Under `__DEV__`, the Dev Menu carries one entry per moc
 is the opt-in:
 
 ```bash
-RADIO_BACKEND=mock pnpm android
-RADIO_BACKEND=mock pnpm ios
+RADIO_BACKEND=mock pnpm start --reset-cache
+RADIO_BACKEND=mock pnpm android   # or: RADIO_BACKEND=mock pnpm ios
 ```
+
+`RADIO_BACKEND` is inlined at transform time by `babel-plugin-transform-inline-environment-variables`
+(`babel.config.js`), and Metro's transform cache key does not include `process.env` — the same
+gotcha `jest.config.js` documents for `babel-jest`. Switching backends on a machine with an
+existing Metro cache can silently reuse a transform compiled under the old value, so clear the
+cache on the Metro side — `pnpm start --reset-cache` — and set `RADIO_BACKEND` the same way for
+both the Metro shell and the build shell.
 
 ## Locales
 
