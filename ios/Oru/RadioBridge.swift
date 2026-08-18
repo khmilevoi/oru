@@ -26,9 +26,62 @@ public final class RadioBridge: NSObject {
 
     @objc public static let shared = RadioBridge()
 
+    @objc(setHandlersWithOwner:onStateChanged:onError:)
+    public func setHandlers(
+        owner: AnyObject,
+        onStateChanged: @escaping (NSDictionary) -> Void,
+        onError: @escaping (NSDictionary) -> Void
+    ) {
+        lock.lock()
+        handlerOwner = owner
+        self.onStateChanged = onStateChanged
+        self.onError = onError
+        lock.unlock()
+    }
+
+    /// Clears the handlers only if `owner` still owns them, and reports whether
+    /// it did. A module torn down after a newer one attached must not mute it.
+    @objc(clearHandlersWithOwner:)
+    public func clearHandlers(owner: AnyObject) -> Bool {
+        lock.lock()
+        let owns = handlerOwner === owner
+        if owns {
+            handlerOwner = nil
+            onStateChanged = nil
+            onError = nil
+        }
+        lock.unlock()
+        return owns
+    }
+
+    /// Copies the handler under the lock and calls it outside -- the same
+    /// discipline `failPairing` uses.
+    private func emit(state: NSDictionary) {
+        lock.lock()
+        let handler = onStateChanged
+        lock.unlock()
+        handler?(state)
+    }
+
+    private func emit(error payload: NSDictionary) {
+        lock.lock()
+        let handler = onError
+        lock.unlock()
+        handler?(payload)
+    }
+
     /// Set by the Turbo Module once React Native can carry events.
-    @objc public var onStateChanged: ((NSDictionary) -> Void)?
-    @objc public var onError: ((NSDictionary) -> Void)?
+    /// Guarded by `lock`: written from the JS thread, read from the engine
+    /// queue. An unsynchronised closure property is an ARC race, and the window
+    /// is teardown -- which is exactly when it happens.
+    ///
+    /// `owner` makes the handoff safe across a React Native reload. A stale
+    /// module's `invalidate` must not silently mute the handlers a newer module
+    /// has already installed on this singleton, which would leave JavaScript
+    /// deaf until the app restarts.
+    private var onStateChanged: ((NSDictionary) -> Void)?
+    private var onError: ((NSDictionary) -> Void)?
+    private weak var handlerOwner: AnyObject?
 
     private let engine = RadioAssembly.shared.engine
     private let observerId = "bridge"
@@ -89,7 +142,7 @@ public final class RadioBridge: NSObject {
 
         // Published before the promise resolves: `radio.model.ts` never writes
         // its mirror from a call's return value.
-        onStateChanged?(state)
+        emit(state: state)
         engine.startRadio()
         // Same reason as Android: startRadioLocked() no-ops while already
         // started and failLocked() does not clear `isStarted`, so a section 13
@@ -109,7 +162,7 @@ public final class RadioBridge: NSObject {
         lock.unlock()
 
         failPairing(code: "pairing_cancelled", message: "Pairing cancelled: the radio stopped")
-        onStateChanged?(state)
+        emit(state: state)
         engine.stopRadio()
     }
 
@@ -199,11 +252,11 @@ public final class RadioBridge: NSObject {
         let projected = projectLocked()
         lock.unlock()
 
-        onStateChanged?(projected)
+        emit(state: projected)
     }
 
     private func handle(error: RadioError) {
-        onError?(["code": error.code, "message": error.message] as NSDictionary)
+        emit(error: ["code": error.code, "message": error.message] as NSDictionary)
         // Section 13's error stream is the only failure channel the contract
         // has, and a pairing session cannot outlive the radio that hosts it.
         failPairing(code: error.code, message: error.message)

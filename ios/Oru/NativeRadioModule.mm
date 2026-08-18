@@ -30,21 +30,25 @@ RCT_EXPORT_MODULE(NativeRadio)
 
   ORURadioBridge *bridge = ORURadioBridge.shared;
   __weak NativeRadioModule *weakSelf = self;
-  bridge.onStateChanged = ^(NSDictionary *state) {
-    [weakSelf emitOnStateChanged:state];
-  };
-  bridge.onError = ^(NSDictionary *payload) {
-    [weakSelf emitOnError:payload];
-  };
+  [bridge setHandlersWithOwner:self
+                onStateChanged:^(NSDictionary *state) {
+                  [weakSelf emitOnStateChanged:state];
+                }
+                       onError:^(NSDictionary *payload) {
+                         [weakSelf emitOnError:payload];
+                       }];
   [bridge attach];
 }
 
 - (void)invalidate
 {
-  if (_attached) {
-    _attached = NO;
-    ORURadioBridge.shared.onStateChanged = nil;
-    ORURadioBridge.shared.onError = nil;
+  if (!_attached) {
+    return;
+  }
+  _attached = NO;
+  // Only tear down if a newer module has not already taken ownership: a stale
+  // invalidate must not mute the live module's event stream.
+  if ([ORURadioBridge.shared clearHandlersWithOwner:self]) {
     [ORURadioBridge.shared detach];
   }
 }

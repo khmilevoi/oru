@@ -184,4 +184,14 @@ describe('the iOS Turbo Module (spec section 6.1)', () => {
     expect(swift()).toMatch(/guard claimed else \{ return \}/);
     expect(swift()).toMatch(/pairing_superseded/);
   });
+
+  it('hands the event stream over safely across a reload', () => {
+    // A stale module's invalidate must not mute the handlers a newer module
+    // already installed on the shared bridge, and the closures are read from
+    // the engine queue while written from the JS thread.
+    expect(swift()).toMatch(/private weak var handlerOwner: AnyObject\?/);
+    expect(swift()).toMatch(/@objc\(clearHandlersWithOwner:\)/);
+    expect(swift()).not.toMatch(/@objc public var onStateChanged/);
+    expect(objcpp()).toMatch(/clearHandlersWithOwner:self\]/);
+  });
 });
