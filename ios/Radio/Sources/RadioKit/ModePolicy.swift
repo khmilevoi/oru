@@ -91,6 +91,16 @@ public final class ModePolicy {
 
     // MARK: - State
 
+    /// Where the PTT half of §7 stands. Task 5 adds the linger states.
+    private enum PttState {
+        case idle
+        /// A raise was requested; `deadlineMs` is when §7's 4 s grant timeout fires.
+        case awaitingLink(deadlineMs: Int64)
+        /// Capture is running. `linkRaised` is false when this transmission fell back to
+        /// the phone mic, which is why it has nothing to linger on afterwards.
+        case talking(linkRaised: Bool)
+    }
+
     private var audioMode: AudioMode = .auto
     private var routeRequiresVoiceLink = false
     private var radioActive = false
@@ -105,6 +115,8 @@ public final class ModePolicy {
     /// When the last policy-driven switch was applied, for the 10 s rate limit. The
     /// PTT raise/drop of §7 neither consults nor stamps it.
     private var lastSwitchMs: Int64?
+
+    private var pttState: PttState = .idle
 
     public init() {}
 
@@ -148,19 +160,29 @@ public final class ModePolicy {
     }
 
     public func pttPressed(nowMs: Int64) -> Decision {
-        step(nowMs) { [] }
+        step(nowMs) { self.press(nowMs) }
     }
 
     public func pttReleased(nowMs: Int64) -> Decision {
-        step(nowMs) { [] }
+        step(nowMs) { self.release(nowMs) }
     }
 
+    /// The headset mic path is confirmed (SCO connected / the comm device applied).
     public func voiceLinkEstablished(nowMs: Int64) -> Decision {
-        step(nowMs) { [] }
+        step(nowMs) {
+            guard case .awaitingLink = self.pttState else { return [] }
+            self.pttState = .talking(linkRaised: true)
+            return [.playGrantTone, .startCapture(.routeDefault)]
+        }
     }
 
+    /// The raise failed outright (`setCommunicationDevice` returned false, an SCO error).
+    /// Same answer as the 4 s timeout, without waiting for it.
     public func voiceLinkFailed(nowMs: Int64) -> Decision {
-        step(nowMs) { [] }
+        step(nowMs) {
+            guard case .awaitingLink = self.pttState else { return [] }
+            return self.abandonRaise()
+        }
     }
 
     /// Called when the previous decision's `nextWakeupMs` says to.
@@ -174,7 +196,8 @@ public final class ModePolicy {
     /// apply the input, then let the profile catch up with what the policy wants.
     private func step(_ nowMs: Int64, _ input: () -> [Action]) -> Decision {
         updateDwell(nowMs)
-        let actions = input()
+        var actions = input()
+        actions += settleLink(nowMs)
         applyBaseIfAllowed(nowMs)
         return Decision(
             profile: requestedProfile,
@@ -196,8 +219,81 @@ public final class ModePolicy {
         }
     }
 
+    /// True while this policy is holding a headset voice link up on the platform.
+    private var holdsVoiceLink: Bool {
+        switch pttState {
+        case .idle:
+            return false
+        case .talking(let linkRaised):
+            return linkRaised
+        case .awaitingLink:
+            return true
+        }
+    }
+
     private var requestedProfile: Profile {
-        appliedProfile
+        holdsVoiceLink ? .voice : appliedProfile
+    }
+
+    /// §7: "press → tone → talk", in every mode. The tone is immediate wherever the mic
+    /// is already live — in VOICE, and on any route with no profile conflict — and waits
+    /// for the raise otherwise.
+    private func press(_ nowMs: Int64) -> [Action] {
+        switch pttState {
+        case .awaitingLink, .talking:
+            return []
+        case .idle:
+            if appliedProfile == .voice || !routeRequiresVoiceLink {
+                pttState = .talking(linkRaised: false)
+                return [.playGrantTone, .startCapture(.routeDefault)]
+            }
+            pttState = .awaitingLink(
+                deadlineMs: nowMs + Constants.voiceLinkGrantTimeoutMs
+            )
+            return [.raiseVoiceLink]
+        }
+    }
+
+    private func release(_ nowMs: Int64) -> [Action] {
+        switch pttState {
+        case .talking:
+            pttState = .idle
+            return []
+        case .awaitingLink:
+            // Released before the mic ever went live: no tone, nothing to capture.
+            return abandonRaise(startCapture: false)
+        case .idle:
+            return []
+        }
+    }
+
+    /// Gives up a raise that timed out or failed (§7's 4 s timeout, D2's SCO failure).
+    /// The pending raise is undone *before* the tone, so capture starts with the base
+    /// profile already restored — D2 rejects swapping the mic mid-transmission, so a link
+    /// that arrives late is not used for this transmission. Restoring the base profile
+    /// here is part of the raise/drop mechanism and so is exempt from the rate limit: it
+    /// neither consults nor stamps `lastSwitchMs`.
+    private func abandonRaise(startCapture: Bool = true) -> [Action] {
+        pttState = startCapture ? .talking(linkRaised: false) : .idle
+        let base = baseProfile
+        appliedProfile = base
+        var actions: [Action] = base == .voice ? [] : [.dropVoiceLink]
+        if startCapture {
+            actions.append(.playGrantTone)
+            actions.append(.startCapture(.phoneFallback))
+        }
+        return actions
+    }
+
+    /// Fires the PTT deadlines that have come due. Runs after the input, so an input that
+    /// resolves a deadline (a link arriving at 4.1 s, a release) wins over it.
+    private func settleLink(_ nowMs: Int64) -> [Action] {
+        switch pttState {
+        case .awaitingLink(let deadlineMs) where nowMs >= deadlineMs:
+            return abandonRaise()
+        default:
+            return []
+        }
     }
 
     /// §7's two gates on a VOICE↔MEDIA switch: it never runs during receive or transmit
@@ -205,6 +301,9 @@ public final class ModePolicy {
     /// is a switch like any other — applying one mid-transmission would break the same
     /// audio a policy switch would.
     private func applyBaseIfAllowed(_ nowMs: Int64) {
+        // While a press is in flight the profile belongs to the PTT machine; a policy
+        // switch would fight it.
+        guard case .idle = pttState else { return }
         let base = baseProfile
         guard base != appliedProfile, !radioActive else { return }
         if let last = lastSwitchMs, nowMs - last < Constants.switchRateLimitMs { return }
@@ -239,10 +338,13 @@ public final class ModePolicy {
                 deadlines.append(since + Constants.otherAudioToVoiceMs)
             }
         }
+        if case .awaitingLink(let deadlineMs) = pttState {
+            deadlines.append(deadlineMs)
+        }
         // A switch the rate limit is holding back will need a tick when the window
         // closes. One the *radio* is holding back does not: the radio going idle is an
         // input, and it runs the gate itself.
-        if baseProfile != appliedProfile, !radioActive,
+        if case .idle = pttState, baseProfile != appliedProfile, !radioActive,
            let last = lastSwitchMs, nowMs - last < Constants.switchRateLimitMs {
             deadlines.append(last + Constants.switchRateLimitMs)
         }

@@ -297,4 +297,89 @@ final class ModePolicyTests: XCTestCase {
             Step(21_000, .radioActive(false), .voice, [], .noTimer),
         ])
     }
+
+    // MARK: - PTT, the grant tone and the raise
+
+    func testPttInVoiceIsImmediate() {
+        assertRow("PTT in VOICE plays the grant tone and starts capture at once", [
+            Step(0, .pttPressed, .voice, [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
+            Step(500, .radioActive(true), .voice, [], .noTimer),
+            Step(3_000, .pttReleased, .voice, [], .noTimer),
+        ])
+    }
+
+    func testPttOnAnInertRouteIsImmediate() {
+        assertRow("PTT on a route with no voice link is immediate even in MEDIA", [
+            Step(0, .audioMode(.media), .media, [], .noTimer),
+            Step(1_000, .pttPressed, .media, [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
+            Step(3_000, .pttReleased, .media, [], .noTimer),
+        ])
+    }
+
+    func testPttInMediaRaisesTheLink() {
+        assertRow("PTT in MEDIA on a voice link route raises the link and waits", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
+            Step(4_000, .tick, .voice, [], .at(7_000)),
+        ])
+    }
+
+    func testTheToneFollowsTheEstablishedLink() {
+        assertRow("the grant tone follows the established link and capture uses the route mic", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
+            Step(3_500, .voiceLinkEstablished, .voice,
+                 [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
+        ])
+    }
+
+    func testALinkThatNeverComesUpTimesOut() {
+        assertRow("a link that never comes up times out after four seconds into the phone mic", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
+            Step(6_999, .tick, .voice, [], .at(7_000)),
+            Step(7_000, .tick, .media,
+                 [.dropVoiceLink, .playGrantTone, .startCapture(.phoneFallback)], .noTimer),
+            Step(10_000, .pttReleased, .media, [], .noTimer),
+        ])
+    }
+
+    func testAnImmediateFailureFallsBackAtOnce() {
+        assertRow("an immediate link failure falls back to the phone mic without waiting", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
+            Step(3_100, .voiceLinkFailed, .media,
+                 [.dropVoiceLink, .playGrantTone, .startCapture(.phoneFallback)], .noTimer),
+        ])
+    }
+
+    func testReleasingBeforeTheLinkCancelsIt() {
+        // The tone means "you may talk" and the user already let go, so there is none.
+        assertRow("releasing before the link comes up abandons the raise with no tone", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
+            Step(3_500, .pttReleased, .media, [.dropVoiceLink], .noTimer),
+            Step(7_000, .tick, .media, [], .noTimer),
+        ])
+    }
+
+    func testASecondPressWhileRaisingIsIgnored() {
+        assertRow("a second press while the link is being raised is ignored", [
+            Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
+            Step(0, .otherAudio(true), .voice, [], .at(2_000)),
+            Step(2_000, .tick, .media, [], .noTimer),
+            Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
+            Step(3_100, .pttPressed, .voice, [], .at(7_000)),
+        ])
+    }
 }

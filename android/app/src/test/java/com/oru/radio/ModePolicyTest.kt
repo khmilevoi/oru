@@ -298,4 +298,103 @@ class ModePolicyTest {
     }
 
     // endregion
+
+    // region PTT, the grant tone and the raise
+
+    @Test
+    fun `PTT in VOICE plays the grant tone and starts capture at once`() {
+        assertRow("PTT in VOICE plays the grant tone and starts capture at once", listOf(
+            Step(0L, Input.PttPressed, Profile.VOICE,
+                listOf(Action.PlayGrantTone, Action.StartCapture(MicSource.ROUTE_DEFAULT)), Wakeup.NoTimer),
+            Step(500L, Input.RadioActive(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.PttReleased, Profile.VOICE, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `PTT on a route with no voice link is immediate even in MEDIA`() {
+        assertRow("PTT on a route with no voice link is immediate even in MEDIA", listOf(
+            Step(0L, Input.SetAudioMode(AudioMode.MEDIA), Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(1_000L, Input.PttPressed, Profile.MEDIA,
+                listOf(Action.PlayGrantTone, Action.StartCapture(MicSource.ROUTE_DEFAULT)), Wakeup.NoTimer),
+            Step(3_000L, Input.PttReleased, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `PTT in MEDIA on a voice link route raises the link and waits`() {
+        assertRow("PTT in MEDIA on a voice link route raises the link and waits", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.PttPressed, Profile.VOICE, listOf(Action.RaiseVoiceLink), Wakeup.At(7_000L)),
+            Step(4_000L, Input.Tick, Profile.VOICE, emptyList(), Wakeup.At(7_000L)),
+        ))
+    }
+
+    @Test
+    fun `the grant tone follows the established link and capture uses the route mic`() {
+        assertRow("the grant tone follows the established link and capture uses the route mic", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.PttPressed, Profile.VOICE, listOf(Action.RaiseVoiceLink), Wakeup.At(7_000L)),
+            Step(3_500L, Input.VoiceLinkEstablished, Profile.VOICE,
+                listOf(Action.PlayGrantTone, Action.StartCapture(MicSource.ROUTE_DEFAULT)), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `a link that never comes up times out after four seconds into the phone mic`() {
+        assertRow("a link that never comes up times out after four seconds into the phone mic", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.PttPressed, Profile.VOICE, listOf(Action.RaiseVoiceLink), Wakeup.At(7_000L)),
+            Step(6_999L, Input.Tick, Profile.VOICE, emptyList(), Wakeup.At(7_000L)),
+            Step(7_000L, Input.Tick, Profile.MEDIA,
+                listOf(Action.DropVoiceLink, Action.PlayGrantTone, Action.StartCapture(MicSource.PHONE_FALLBACK)),
+                Wakeup.NoTimer),
+            Step(10_000L, Input.PttReleased, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `an immediate link failure falls back to the phone mic without waiting`() {
+        assertRow("an immediate link failure falls back to the phone mic without waiting", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.PttPressed, Profile.VOICE, listOf(Action.RaiseVoiceLink), Wakeup.At(7_000L)),
+            Step(3_100L, Input.VoiceLinkFailed, Profile.MEDIA,
+                listOf(Action.DropVoiceLink, Action.PlayGrantTone, Action.StartCapture(MicSource.PHONE_FALLBACK)),
+                Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `releasing before the link comes up abandons the raise with no tone`() {
+        // The tone means "you may talk" and the user already let go, so there is none.
+        assertRow("releasing before the link comes up abandons the raise with no tone", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.PttPressed, Profile.VOICE, listOf(Action.RaiseVoiceLink), Wakeup.At(7_000L)),
+            Step(3_500L, Input.PttReleased, Profile.MEDIA, listOf(Action.DropVoiceLink), Wakeup.NoTimer),
+            Step(7_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+        ))
+    }
+
+    @Test
+    fun `a second press while the link is being raised is ignored`() {
+        assertRow("a second press while the link is being raised is ignored", listOf(
+            Step(0L, Input.RouteRequiresVoiceLink(true), Profile.VOICE, emptyList(), Wakeup.NoTimer),
+            Step(0L, Input.OtherAudio(true), Profile.VOICE, emptyList(), Wakeup.At(2_000L)),
+            Step(2_000L, Input.Tick, Profile.MEDIA, emptyList(), Wakeup.NoTimer),
+            Step(3_000L, Input.PttPressed, Profile.VOICE, listOf(Action.RaiseVoiceLink), Wakeup.At(7_000L)),
+            Step(3_100L, Input.PttPressed, Profile.VOICE, emptyList(), Wakeup.At(7_000L)),
+        ))
+    }
+
+    // endregion
 }
