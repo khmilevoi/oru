@@ -3,7 +3,7 @@ import {context} from '@reatom/core';
 
 import {OnboardingFlow} from '../src/screens/OnboardingFlow';
 import {mockPermissions} from '../src/permissions/permissions.mock';
-import {testIds} from '../src/ui/theme';
+import {colors, testIds} from '../src/ui/theme';
 import {renderScreen} from '../jest/renderScreen';
 
 jest.useFakeTimers({doNotFake: ['queueMicrotask']});
@@ -104,6 +104,29 @@ describe('onboarding — spec sections 11 and 12.1', () => {
 
     expect(screen.hasText('Разрешение отклонено')).toBe(true);
     expect(screen.hasText('Попробовать снова')).toBe(true);
+
+    screen.unmount();
+  });
+});
+
+describe('OnboardingFlow — design/04 Onboarding.dc.html', () => {
+  it('shows three progress dots and a mark for each permission', async () => {
+    const screen = await renderScreen(<OnboardingFlow onDone={jest.fn()} />);
+
+    expect(screen.findAll('step-dot')).toHaveLength(3);
+    expect(screen.findAll('permission-mark')).toHaveLength(1);
+
+    screen.unmount();
+  });
+
+  it('marks passed steps as done', async () => {
+    const screen = await renderScreen(<OnboardingFlow onDone={jest.fn()} />);
+    await screen.press(testIds.onboardingAllow);
+
+    const dots = screen.findAll('step-dot');
+    expect(JSON.stringify(dots[0].props.style)).toContain(
+      colors.rx.slice(1),
+    );
 
     screen.unmount();
   });

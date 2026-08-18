@@ -5,7 +5,9 @@ import {reatomComponent} from '@reatom/react';
 import {wrap} from '@reatom/core';
 
 import {ActionButton} from '../ui/ActionButton';
+import {PermissionMark} from '../ui/PermissionMark';
 import {ScreenFrame} from '../ui/ScreenFrame';
+import {StepDots} from '../ui/StepDots';
 import {colors, spacing, testIds, type} from '../ui/theme';
 import {APP_PERMISSIONS} from '../permissions/permissions.types';
 import {
@@ -25,19 +27,25 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
     if (onboardingFinished()) {
       return (
         <ScreenFrame testID={testIds.onboardingScreen}>
-          <View style={styles.centre}>
-            <Text style={[type.hero, styles.headline]}>
+          <StepDots total={APP_PERMISSIONS.length} current={APP_PERMISSIONS.length} />
+          <View style={styles.mark}>
+            <PermissionMark kind="done" />
+          </View>
+          <View style={styles.foot}>
+            <Text style={[type.hero, styles.title]}>
               <Trans>Ready</Trans>
             </Text>
             <Text style={[type.body, styles.body]}>
               <Trans>Turn the radio on and hold anywhere to talk.</Trans>
             </Text>
-            <ActionButton
-              label={t`Start`}
-              tone="primary"
-              onPress={onDone}
-              testID={testIds.onboardingStart}
-            />
+            <View style={styles.actions}>
+              <ActionButton
+                label={t`Start`}
+                tone="primary"
+                onPress={onDone}
+                testID={testIds.onboardingStart}
+              />
+            </View>
           </View>
         </ScreenFrame>
       );
@@ -77,13 +85,17 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
 
     return (
       <ScreenFrame testID={testIds.onboardingScreen}>
-        <View style={styles.centre}>
-          <Text style={[type.caption, styles.counter]}>
+        <StepDots total={APP_PERMISSIONS.length} current={step - 1} />
+        <View style={styles.mark}>
+          <PermissionMark kind={permission ?? 'microphone'} />
+        </View>
+        <View style={styles.foot}>
+          <Text style={[type.label, styles.step]}>
             <Trans>
-              Step {step} of {APP_PERMISSIONS.length}
+              STEP {step} OF {APP_PERMISSIONS.length}
             </Trans>
           </Text>
-          <Text style={[type.hero, styles.headline]}>{copy.title}</Text>
+          <Text style={[type.hero, styles.title]}>{copy.title}</Text>
           <Text style={[type.body, styles.body]}>{copy.body}</Text>
 
           {status === 'denied' ? (
@@ -143,16 +155,11 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
 );
 
 const styles = StyleSheet.create({
-  centre: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.lg,
-    padding: spacing.lg,
-  },
-  counter: {color: colors.textMuted},
-  headline: {color: colors.text, textAlign: 'center'},
-  body: {color: colors.textMuted, textAlign: 'center'},
-  warning: {color: colors.learning, textAlign: 'center'},
+  mark: {flex: 1, alignItems: 'center', justifyContent: 'center'},
+  foot: {paddingHorizontal: 26, paddingBottom: 30, gap: 18},
+  step: {color: colors.textFaint},
+  title: {color: colors.text},
+  body: {color: colors.textMuted, maxWidth: 320},
+  warning: {color: colors.learning},
   actions: {gap: spacing.md, alignSelf: 'stretch'},
 });
