@@ -5,9 +5,11 @@ import {reatomComponent} from '@reatom/react';
 import {wrap} from '@reatom/core';
 
 import {ActionButton} from '../ui/ActionButton';
+import {PingRings} from '../ui/PingRings';
 import {PulseDot} from '../ui/PulseDot';
 import {ScreenFrame} from '../ui/ScreenFrame';
-import {colors, radii, spacing, testIds, type} from '../ui/theme';
+import {StateRing} from '../ui/StateRing';
+import {colors, glows, radii, sizes, spacing, testIds, type} from '../ui/theme';
 import {radio} from '../radio/radio.model';
 import {
   pairingCandidates,
@@ -55,18 +57,29 @@ export const PairingFlow = reatomComponent<{onClose: () => void}>(
         backTestID={testIds.pairingCancel}
         onBack={close}>
         {step === 'scanning' ? (
-          <View style={styles.centre}>
-            <PulseDot active color={colors.learning} size={12} />
-            <Text style={[type.title, styles.headline]}>
-              <Trans>Searching for Bluetooth buttons...</Trans>
+          <View style={styles.stage}>
+            <PingRings size="small" testID="pairing-pings" />
+            <Text style={[type.scan, styles.scanText]}>
+              <Trans>SCANNING FOR BLE DEVICES...</Trans>
+            </Text>
+            <Text style={[type.caption, styles.scanHint]}>
+              <Trans>
+                Make sure the button is turned on and close to the phone.
+              </Trans>
             </Text>
           </View>
         ) : null}
 
         {step === 'picking' ? (
-          <View style={styles.list}>
-            <Text style={[type.label, styles.label]}>
-              <Trans>Select your button</Trans>
+          <View>
+            <View style={styles.scanRow}>
+              <PulseDot active color={colors.learning} size={8} />
+              <Text style={[type.label, styles.scanRowLabel]}>
+                <Trans>still scanning</Trans>
+              </Text>
+            </View>
+            <Text style={[type.label, styles.sectionLabel]}>
+              <Trans>Found</Trans>
             </Text>
             {candidates.map(candidate => (
               <Pressable
@@ -78,37 +91,49 @@ export const PairingFlow = reatomComponent<{onClose: () => void}>(
                   void pickPttCandidate(candidate.deviceId);
                 })}
                 style={styles.row}>
-                <Text style={[type.body, styles.rowName]}>
-                  {candidate.name}
-                </Text>
-                <Text style={[type.caption, styles.rowMeta]}>
-                  <Trans>{candidate.rssi} dBm</Trans>
-                </Text>
+                <View>
+                  <Text style={[type.devName, styles.rowName]}>
+                    {candidate.name}
+                  </Text>
+                  <Text style={[type.caption, styles.rowMeta]}>
+                    <Trans>BLE · {candidate.rssi} dBm</Trans>
+                  </Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
               </Pressable>
             ))}
           </View>
         ) : null}
 
         {step === 'learning' ? (
-          <View style={styles.centre}>
-            <PulseDot active color={colors.learning} size={16} />
-            <Text style={[type.title, styles.headline, styles.learning]}>
-              <Trans>Press the PTT button</Trans>
-            </Text>
-            <Text style={[type.body, styles.hint]}>
-              <Trans>Hold it down until it is recognised</Trans>
+          <View style={styles.stage}>
+            <StateRing tone="learning" testID="pairing-ring">
+              <Text style={[type.state, styles.learning]}>
+                <Trans>PRESS THE PTT BUTTON</Trans>
+              </Text>
+            </StateRing>
+            <Text style={[type.caption, styles.learnSub]}>
+              <Trans>Listening for a signal from {buttonName}...</Trans>
             </Text>
           </View>
         ) : null}
 
         {step === 'saved' ? (
-          <View style={styles.centre}>
-            <Text style={[type.title, styles.headline, styles.saved]}>
-              <Trans>Button saved</Trans>
+          <View style={styles.stage}>
+            <View testID="pairing-tick" style={styles.tick}>
+              <View style={styles.tickMark} />
+            </View>
+            <Text style={[type.state, styles.saved]}>
+              <Trans>BUTTON CONNECTED</Trans>
             </Text>
-            <Text style={[type.body, styles.hint]}>
-              <Trans>{buttonName} is ready to use</Trans>
-            </Text>
+            <View style={styles.bindCard}>
+              <View style={styles.bindRow}>
+                <Text style={[type.caption, styles.bindKey]}>
+                  <Trans>device</Trans>
+                </Text>
+                <Text style={[type.caption, styles.bindValue]}>{buttonName}</Text>
+              </View>
+            </View>
             <ActionButton
               label={t`Done`}
               tone="primary"
@@ -170,20 +195,76 @@ const styles = StyleSheet.create({
   },
   headline: {color: colors.text, textAlign: 'center'},
   hint: {color: colors.textMuted, textAlign: 'center'},
-  learning: {color: colors.learning},
-  saved: {color: colors.rx},
-  label: {color: colors.textMuted},
-  list: {gap: spacing.sm},
+  tick: {
+    width: sizes.tick,
+    height: sizes.tick,
+    borderRadius: sizes.tick / 2,
+    borderWidth: 2,
+    borderColor: colors.rx,
+    boxShadow: glows.ok,
+  },
+  tickMark: {
+    position: 'absolute',
+    left: 26,
+    top: 30,
+    width: 40,
+    height: 20,
+    borderLeftWidth: 3,
+    borderBottomWidth: 3,
+    borderColor: colors.rx,
+    transform: [{rotate: '-45deg'}],
+  },
+  stage: {flex: 1, alignItems: 'center', justifyContent: 'center', gap: 30},
+  scanText: {color: colors.textMuted, textAlign: 'center'},
+  scanHint: {color: colors.textFaint, textAlign: 'center', paddingHorizontal: 40},
+  scanRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingTop: 30,
+    paddingHorizontal: 28,
+  },
+  scanRowLabel: {color: colors.textFaint},
+  sectionLabel: {
+    paddingTop: 34,
+    paddingHorizontal: 28,
+    paddingBottom: 12,
+    color: colors.textFaint,
+  },
   row: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.md,
+    marginHorizontal: spacing.gutter,
+    marginBottom: 12,
+    paddingVertical: 20,
+    paddingHorizontal: spacing.gutter,
     borderWidth: 1,
     borderColor: colors.hairline,
-    padding: spacing.md,
+    borderRadius: radii.row,
+    backgroundColor: colors.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   rowName: {color: colors.text},
-  rowMeta: {color: colors.textMuted},
+  rowMeta: {color: colors.textFaint},
+  chevron: {fontSize: 20, color: colors.textFaint},
+  learning: {color: colors.learning, textAlign: 'center'},
+  learnSub: {color: colors.textMuted, textAlign: 'center', maxWidth: 300},
+  saved: {color: colors.text, textAlign: 'center'},
+  bindCard: {
+    width: sizes.ring,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    borderRadius: radii.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.gutter,
+  },
+  bindRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+  },
+  bindKey: {color: colors.textFaint},
+  bindValue: {color: colors.text},
 });
