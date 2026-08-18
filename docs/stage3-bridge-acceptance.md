@@ -34,6 +34,11 @@ violation and is reported as one.
   `radio_off`; the merged pairing screen renders that as a pairing failure. On iOS `PttManager`
   outlives `startRadio()`/`stopRadio()`, so pairing works in either power state. Pair with the
   radio **on** when running this checklist.
+- **A pairing timeout reports a different code on each platform**, and this is an
+  engine difference reported rather than normalised: Android's `PttManager` emits
+  `pairing_timeout`, iOS's `RadioEngine` emits `pairing_failed`. Nothing in JS
+  switches on the code today, so it is latent — but §6.1 wants the same JS values
+  from the same situation, and closing it belongs to P2/P3, not to the bridge.
 
 ## Checklist
 
@@ -54,9 +59,11 @@ Record pass/fail and the device for each row.
 | 11 | Cancel or let a pairing scan time out | an `error` event arrives and `configurePtt()` rejects with the same code; `status` does **not** become `error` — a failed pairing leaves the radio healthy (§13) |
 | 12 | Forget the button with the radio on, then off | `pttButton.configured` becomes `false` in both power states |
 | 13 | Force an engine failure (deny the microphone permission, then power on, on Android) | an `error` event **and** `status: 'error'`; the error screen's restart action returns the UI to `starting` |
-| 14 | Throughout | **no screen file was edited to make any of the above work.** `git diff --name-only <merge-base>..HEAD -- src/screens src/ui` is empty |
+| 14 | Power the radio on, force-stop the app from Settings, reopen it, and read `getState()` before pressing anything | the radio is still running and the notification still shows it, so the state must **not** be `off`: `status` reflects the live engine and `nearbyCount` is real. Reporting `off` here is the START_STICKY desync |
+| 15 | From the error state of row 13, use the error screen's restart action | the UI leaves `starting` within a few seconds — either reaching `ready` or returning to `error`. It must **never** sit on `starting` indefinitely: the engines no-op a restart while already started, and the bridge re-reads them for exactly this reason |
+| 16 | Throughout | **no screen file was edited to make any of the above work.** `git diff --name-only <merge-base>..HEAD -- src/screens src/ui` is empty |
 
-## If row 14 is not empty
+## If row 16 is not empty
 
 Stop. That is a §6.4 violation and is reported as one rather than absorbed: the design-first
 order's whole claim is that swapping the mock for the real module is a one-line binding change.
