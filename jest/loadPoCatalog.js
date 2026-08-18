@@ -8,9 +8,21 @@
  * `i18n.loadAndActivate` as plain strings; @lingui/core installs
  * `compileMessage` as its runtime compiler, so an uncompiled catalog behaves
  * exactly like a Metro-compiled one.
+ *
+ * A `.po` file's own `msgid` is the human-readable source text (see
+ * `@lingui/format-po`'s `isGeneratedId`), but `Trans`/`t` compile to a lookup
+ * by `generateMessageId(message, context)` -- a short hash -- whenever no
+ * explicit id was written in the source, which is every message in this repo.
+ * A catalog keyed by raw `msgid` text therefore never matches what the
+ * compiled screen looks up, and every locale but the one whose source text
+ * happens to equal its own translation would silently render the English
+ * fallback. Keying by the same hash the macro embeds is what makes this a
+ * faithful stand-in for a Metro-compiled catalog.
  */
 const {readFileSync} = require('fs');
 const {join} = require('path');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const {generateMessageId} = require('@lingui/message-utils/generateMessageId');
 
 const unquote = line => line.replace(/^"|"$/g, '').replace(/\\"/g, '"');
 
@@ -26,7 +38,7 @@ function loadPoCatalog(locale) {
   let field = null;
 
   const flush = () => {
-    if (id && value) messages[id] = value;
+    if (id && value) messages[generateMessageId(id)] = value;
     id = null;
     value = null;
     field = null;
