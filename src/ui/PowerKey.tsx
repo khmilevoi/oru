@@ -108,6 +108,7 @@ export const PowerKey = reatomComponent<PowerKeyProps>(
         hitSlop={variant === 'corner' ? (sizes.cornerControl - SIZES.corner.box) / 2 : 0}
         style={[styles.hit, {width: size.box, height: size.box}]}>
         <View
+          testID="power-key-ring"
           style={[
             styles.ring,
             {

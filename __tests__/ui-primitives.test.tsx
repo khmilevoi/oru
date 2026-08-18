@@ -125,7 +125,7 @@ describe('PowerKey — design/01 Radio.dc.html', () => {
       />,
     );
 
-    const flat = JSON.stringify(screen.find('power-key').props.style);
+    const flat = JSON.stringify(screen.find('power-key-ring').props.style);
     expect(flat).toContain(String(sizes.powerKeyHero));
     expect(flat).toContain(colors.textFaint.slice(1));
 
