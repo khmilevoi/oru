@@ -6,7 +6,7 @@ import {ActionButton} from '../src/ui/ActionButton';
 import {PowerKey} from '../src/ui/PowerKey';
 import {PulseDot} from '../src/ui/PulseDot';
 import {ScreenFrame} from '../src/ui/ScreenFrame';
-import {colors, motion} from '../src/ui/theme';
+import {colors, motion, sizes} from '../src/ui/theme';
 import {reducedMotion} from '../src/ui/reducedMotion';
 import {renderScreen} from '../jest/renderScreen';
 import {loadPoCatalog} from '../jest/loadPoCatalog';
@@ -109,6 +109,43 @@ describe('PowerKey', () => {
 
     expect(typeof progressWidth).toBe('number');
     expect(progressWidth).toBe(boxWidth);
+
+    screen.unmount();
+  });
+});
+
+describe('PowerKey — design/01 Radio.dc.html', () => {
+  it('draws the hero key at the canvas size in the faint chassis colour', async () => {
+    const screen = await renderScreen(
+      <PowerKey
+        variant="hero"
+        onActivate={jest.fn()}
+        accessibilityLabel="Turn the radio on"
+        testID="power-key"
+      />,
+    );
+
+    const flat = JSON.stringify(screen.find('power-key').props.style);
+    expect(flat).toContain(String(sizes.powerKeyHero));
+    expect(flat).toContain(colors.textFaint.slice(1));
+
+    screen.unmount();
+  });
+
+  it('paints the notch in the background it is told it sits on', async () => {
+    const screen = await renderScreen(
+      <PowerKey
+        variant="hero"
+        notchColor={colors.backgroundOff}
+        onActivate={jest.fn()}
+        accessibilityLabel="Turn the radio on"
+        testID="power-key"
+      />,
+    );
+
+    expect(JSON.stringify(screen.find('power-key-notch').props.style)).toContain(
+      colors.backgroundOff.slice(1),
+    );
 
     screen.unmount();
   });
