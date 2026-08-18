@@ -18,20 +18,25 @@ msgstr ""
 msgid "{0} dBm"
 msgstr "{0} dBm"
 
+#. placeholder {0}: radio().nearbyCount
+#: src/screens/RadioScreen.tsx:159
+msgid "{0} nearby"
+msgstr "{0} nearby"
+
 #: src/screens/PairingFlow.tsx:110
 msgid "{buttonName} is ready to use"
 msgstr "{buttonName} is ready to use"
 
 #. placeholder {0}: radio().nearbyCount
 #: src/screens/RadioScreen.tsx:148
-msgid "● {0} nearby"
-msgstr "● {0} nearby"
+#~ msgid "● {0} nearby"
+#~ msgstr "● {0} nearby"
 
 #: src/screens/RadioScreen.tsx:106
 #~ msgid "● {nearbyCount} nearby"
 #~ msgstr "● {nearbyCount} nearby"
 
-#: src/screens/BackgroundStep.tsx:72
+#: src/screens/BackgroundStep.tsx:83
 #: src/screens/OnboardingFlow.tsx:115
 msgid "Allow"
 msgstr "Allow"
@@ -80,7 +85,7 @@ msgstr "Done"
 msgid "Hold it down until it is recognised"
 msgstr "Hold it down until it is recognised"
 
-#: src/screens/RadioScreen.tsx:151
+#: src/screens/RadioScreen.tsx:181
 msgid "HOLD TO TALK"
 msgstr "HOLD TO TALK"
 
@@ -88,7 +93,7 @@ msgstr "HOLD TO TALK"
 msgid "Hold to transmit"
 msgstr "Hold to transmit"
 
-#: src/screens/RadioScreen.tsx:189
+#: src/screens/RadioScreen.tsx:230
 msgid "Hold to turn the radio off"
 msgstr "Hold to turn the radio off"
 
@@ -116,7 +121,7 @@ msgstr "No buttons found"
 msgid "Not connected"
 msgstr "Not connected"
 
-#: src/screens/BackgroundStep.tsx:82
+#: src/screens/BackgroundStep.tsx:92
 msgid "Not now"
 msgstr "Not now"
 
@@ -161,15 +166,15 @@ msgstr "Press the PTT button"
 msgid "PTT BUTTON"
 msgstr "PTT BUTTON"
 
-#: src/screens/RadioScreen.tsx:123
+#: src/screens/RadioScreen.tsx:147
 msgid "Push to talk"
 msgstr "Push to talk"
 
-#: src/screens/RadioScreen.tsx:28
+#: src/screens/RadioScreen.tsx:32
 msgid "RADIO ERROR"
 msgstr "RADIO ERROR"
 
-#: src/screens/RadioScreen.tsx:92
+#: src/screens/RadioScreen.tsx:115
 msgid "RADIO OFF"
 msgstr "RADIO OFF"
 
@@ -177,11 +182,11 @@ msgstr "RADIO OFF"
 msgid "Ready"
 msgstr "Ready"
 
-#: src/screens/RadioScreen.tsx:173
+#: src/screens/RadioScreen.tsx:207
 msgid "RECEIVING..."
 msgstr "RECEIVING..."
 
-#: src/screens/RadioScreen.tsx:164
+#: src/screens/RadioScreen.tsx:197
 msgid "RELEASE TO FINISH"
 msgstr "RELEASE TO FINISH"
 
@@ -189,7 +194,7 @@ msgstr "RELEASE TO FINISH"
 msgid "Replace"
 msgstr "Replace"
 
-#: src/screens/RadioScreen.tsx:34
+#: src/screens/RadioScreen.tsx:38
 msgid "RESTART RADIO"
 msgstr "RESTART RADIO"
 
@@ -201,7 +206,7 @@ msgstr "Retry"
 msgid "Searching for Bluetooth buttons..."
 msgstr "Searching for Bluetooth buttons..."
 
-#: src/screens/RadioScreen.tsx:138
+#: src/screens/RadioScreen.tsx:171
 msgid "SEARCHING FOR DEVICES..."
 msgstr "SEARCHING FOR DEVICES..."
 
@@ -209,8 +214,8 @@ msgstr "SEARCHING FOR DEVICES..."
 msgid "Select your button"
 msgstr "Select your button"
 
-#: src/screens/RadioScreen.tsx:102
-#: src/screens/RadioScreen.tsx:194
+#: src/screens/RadioScreen.tsx:126
+#: src/screens/RadioScreen.tsx:221
 msgid "Settings"
 msgstr "Settings"
 
@@ -231,7 +236,7 @@ msgstr "Start"
 msgid "Step {step} of {0}"
 msgstr "Step {step} of {0}"
 
-#: src/screens/RadioScreen.tsx:95
+#: src/screens/RadioScreen.tsx:118
 msgid "TAP TO TURN ON"
 msgstr "TAP TO TURN ON"
 
@@ -239,7 +244,7 @@ msgstr "TAP TO TURN ON"
 msgid "Test"
 msgstr "Test"
 
-#: src/screens/RadioScreen.tsx:161
+#: src/screens/RadioScreen.tsx:192
 msgid "TRANSMITTING..."
 msgstr "TRANSMITTING..."
 
@@ -247,12 +252,12 @@ msgstr "TRANSMITTING..."
 msgid "Try again"
 msgstr "Try again"
 
-#: src/screens/RadioScreen.tsx:42
+#: src/screens/RadioScreen.tsx:46
 msgid "TURN OFF"
 msgstr "TURN OFF"
 
-#: src/screens/RadioScreen.tsx:79
-#: src/screens/RadioScreen.tsx:86
+#: src/screens/RadioScreen.tsx:99
+#: src/screens/RadioScreen.tsx:108
 msgid "Turn the radio on"
 msgstr "Turn the radio on"
 
