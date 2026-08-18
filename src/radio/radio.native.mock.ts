@@ -67,6 +67,14 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
   const errorListeners = new Set<(error: NativeRadioErrorPayload) => void>();
 
   let cancels: Array<() => void> = [];
+  // Pairing-session timers (configurePtt()'s scanMs/failAtMs,
+  // selectPttCandidate()'s learnMs) live in their own list, separate from the
+  // timeline's. A pairing session that gets superseded before its timers fire
+  // must never leave them scheduled: an orphaned callback would act on
+  // whatever session is live when it eventually fires, corrupting or
+  // resolving/rejecting a session it has nothing to do with. Cleared at the
+  // top of configurePtt() and selectPttCandidate(), and by cancelTimers().
+  let pairingCancels: Array<() => void> = [];
   let rejectPairing: ((reason: Error) => void) | null = null;
   let resolvePairing: ((value: NativePttConfiguration) => void) | null = null;
 
@@ -96,9 +104,15 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
     };
   };
 
+  const cancelPairingTimers = () => {
+    pairingCancels.forEach(cancel => cancel());
+    pairingCancels = [];
+  };
+
   const cancelTimers = () => {
     cancels.forEach(cancel => cancel());
     cancels = [];
+    cancelPairingTimers();
   };
 
   const abortPairing = (reason: Error) => {
@@ -168,6 +182,11 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
     },
 
     async pressPtt() {
+      // The `|| state.transmitting` half of this guard is not required by the
+      // brief's literal rule ("no-op unless status === 'ready'") — it is a
+      // deliberate de-duplication so a repeated press while already
+      // transmitting does not re-apply the same patch and re-emit a state
+      // that has not changed.
       if (state.status !== 'ready' || state.transmitting) return;
       apply({transmitting: true});
       publishState();
@@ -184,6 +203,10 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
     },
 
     configurePtt() {
+      // A previous session's scanMs/failAtMs timers must never survive into
+      // this one — see the comment on `pairingCancels`'s declaration.
+      cancelPairingTimers();
+
       const script = MOCK_SCRIPTS[scenario].pairing;
 
       abortPairing(new Error('Pairing cancelled: a new session started'));
@@ -196,7 +219,7 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
         rejectPairing = reject;
       });
 
-      cancels.push(
+      pairingCancels.push(
         clock.schedule(script.scanMs, () => {
           state = {
             ...state,
@@ -211,7 +234,7 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
 
       if (script.failAtMs !== undefined && script.failure) {
         const {code, message} = script.failure;
-        cancels.push(
+        pairingCancels.push(
           clock.schedule(script.failAtMs, () => {
             publishError(code, message);
             abortPairing(new Error(`${code}: ${message}`));
@@ -224,10 +247,20 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
     },
 
     async selectPttCandidate(deviceId: string) {
+      // A previous session's leftover learnMs timer — or this session's own,
+      // if called twice — must never survive into what follows here. See the
+      // comment on `pairingCancels`'s declaration.
+      cancelPairingTimers();
+
       const script = MOCK_SCRIPTS[scenario].pairing;
       const chosen = script.candidates.find(
         candidate => candidate.deviceId === deviceId,
       );
+      // Intentional no-op for out-of-contract misuse (an unknown `deviceId`,
+      // or a script with no `configuration`): the `configurePtt()` promise is
+      // left unresolved rather than resolved or rejected. The seven scripts
+      // never produce this — every candidate they offer resolves to a
+      // configuration.
       if (!chosen || !script.configuration) return;
 
       state = {
@@ -237,7 +270,7 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
       publishState();
 
       const configuration = script.configuration;
-      cancels.push(
+      pairingCancels.push(
         clock.schedule(script.learnMs, () => {
           state = {
             ...state,
