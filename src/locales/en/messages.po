@@ -13,52 +13,69 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/screens/RadioScreen.tsx:106
-msgid "● {nearbyCount} nearby"
-msgstr "● {nearbyCount} nearby"
+#. placeholder {0}: radio().nearbyCount
+#: src/screens/RadioScreen.tsx:150
+msgid "● {0} nearby"
+msgstr "● {0} nearby"
 
-#: src/screens/RadioScreen.tsx:109
+#: src/screens/RadioScreen.tsx:106
+#~ msgid "● {nearbyCount} nearby"
+#~ msgstr "● {nearbyCount} nearby"
+
+#: src/screens/RadioScreen.tsx:153
 msgid "HOLD TO TALK"
 msgstr "HOLD TO TALK"
 
-#: src/screens/RadioScreen.tsx:147
+#: src/screens/RadioScreen.tsx:191
 msgid "Hold to turn the radio off"
 msgstr "Hold to turn the radio off"
 
-#: src/screens/RadioScreen.tsx:81
+#: src/screens/RadioScreen.tsx:125
 msgid "Push to talk"
 msgstr "Push to talk"
 
-#: src/screens/RadioScreen.tsx:50
+#: src/screens/RadioScreen.tsx:30
+msgid "RADIO ERROR"
+msgstr "RADIO ERROR"
+
+#: src/screens/RadioScreen.tsx:94
 msgid "RADIO OFF"
 msgstr "RADIO OFF"
 
-#: src/screens/RadioScreen.tsx:131
+#: src/screens/RadioScreen.tsx:175
 msgid "RECEIVING..."
 msgstr "RECEIVING..."
 
-#: src/screens/RadioScreen.tsx:122
+#: src/screens/RadioScreen.tsx:166
 msgid "RELEASE TO FINISH"
 msgstr "RELEASE TO FINISH"
 
-#: src/screens/RadioScreen.tsx:96
+#: src/screens/RadioScreen.tsx:36
+msgid "RESTART RADIO"
+msgstr "RESTART RADIO"
+
+#: src/screens/RadioScreen.tsx:140
 msgid "SEARCHING FOR DEVICES..."
 msgstr "SEARCHING FOR DEVICES..."
 
-#: src/screens/RadioScreen.tsx:60
-#: src/screens/RadioScreen.tsx:152
+#: src/screens/RadioScreen.tsx:104
+#: src/screens/RadioScreen.tsx:196
 msgid "Settings"
 msgstr "Settings"
 
-#: src/screens/RadioScreen.tsx:53
+#: src/screens/RadioScreen.tsx:97
 msgid "TAP TO TURN ON"
 msgstr "TAP TO TURN ON"
 
-#: src/screens/RadioScreen.tsx:119
+#: src/screens/RadioScreen.tsx:163
 msgid "TRANSMITTING..."
 msgstr "TRANSMITTING..."
 
-#: src/screens/RadioScreen.tsx:33
 #: src/screens/RadioScreen.tsx:44
+msgid "TURN OFF"
+msgstr "TURN OFF"
+
+#: src/screens/RadioScreen.tsx:81
+#: src/screens/RadioScreen.tsx:88
 msgid "Turn the radio on"
 msgstr "Turn the radio on"

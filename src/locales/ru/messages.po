@@ -13,52 +13,69 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/screens/RadioScreen.tsx:106
-msgid "● {nearbyCount} nearby"
-msgstr "● {nearbyCount} рядом"
+#. placeholder {0}: radio().nearbyCount
+#: src/screens/RadioScreen.tsx:150
+msgid "● {0} nearby"
+msgstr "● {0} рядом"
 
-#: src/screens/RadioScreen.tsx:109
+#: src/screens/RadioScreen.tsx:106
+#~ msgid "● {nearbyCount} nearby"
+#~ msgstr "● {nearbyCount} рядом"
+
+#: src/screens/RadioScreen.tsx:153
 msgid "HOLD TO TALK"
 msgstr "УДЕРЖИВАЙТЕ ЧТОБЫ ГОВОРИТЬ"
 
-#: src/screens/RadioScreen.tsx:147
+#: src/screens/RadioScreen.tsx:191
 msgid "Hold to turn the radio off"
 msgstr "Удерживайте, чтобы выключить рацию"
 
-#: src/screens/RadioScreen.tsx:81
+#: src/screens/RadioScreen.tsx:125
 msgid "Push to talk"
 msgstr "Нажмите и говорите"
 
-#: src/screens/RadioScreen.tsx:50
+#: src/screens/RadioScreen.tsx:30
+msgid "RADIO ERROR"
+msgstr "ОШИБКА РАЦИИ"
+
+#: src/screens/RadioScreen.tsx:94
 msgid "RADIO OFF"
 msgstr "РАЦИЯ ВЫКЛЮЧЕНА"
 
-#: src/screens/RadioScreen.tsx:131
+#: src/screens/RadioScreen.tsx:175
 msgid "RECEIVING..."
 msgstr "ПРИЁМ..."
 
-#: src/screens/RadioScreen.tsx:122
+#: src/screens/RadioScreen.tsx:166
 msgid "RELEASE TO FINISH"
 msgstr "ОТПУСТИТЕ ЧТОБЫ ЗАКОНЧИТЬ"
 
-#: src/screens/RadioScreen.tsx:96
+#: src/screens/RadioScreen.tsx:36
+msgid "RESTART RADIO"
+msgstr "ПЕРЕЗАПУСТИТЬ"
+
+#: src/screens/RadioScreen.tsx:140
 msgid "SEARCHING FOR DEVICES..."
 msgstr "ИЩЕМ УСТРОЙСТВА..."
 
-#: src/screens/RadioScreen.tsx:60
-#: src/screens/RadioScreen.tsx:152
+#: src/screens/RadioScreen.tsx:104
+#: src/screens/RadioScreen.tsx:196
 msgid "Settings"
 msgstr "Настройки"
 
-#: src/screens/RadioScreen.tsx:53
+#: src/screens/RadioScreen.tsx:97
 msgid "TAP TO TURN ON"
 msgstr "НАЖМИТЕ ЧТОБЫ ВКЛЮЧИТЬ"
 
-#: src/screens/RadioScreen.tsx:119
+#: src/screens/RadioScreen.tsx:163
 msgid "TRANSMITTING..."
 msgstr "ПЕРЕДАЧА..."
 
-#: src/screens/RadioScreen.tsx:33
 #: src/screens/RadioScreen.tsx:44
+msgid "TURN OFF"
+msgstr "ВЫКЛЮЧИТЬ"
+
+#: src/screens/RadioScreen.tsx:81
+#: src/screens/RadioScreen.tsx:88
 msgid "Turn the radio on"
 msgstr "Включить рацию"

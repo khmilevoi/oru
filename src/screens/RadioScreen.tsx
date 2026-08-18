@@ -4,11 +4,51 @@ import {Trans, useLingui} from '@lingui/react/macro';
 import {reatomComponent} from '@reatom/react';
 import {wrap} from '@reatom/core';
 
+import {ActionButton} from '../ui/ActionButton';
 import {GearButton} from '../ui/GearButton';
 import {PowerKey} from '../ui/PowerKey';
 import {PulseDot} from '../ui/PulseDot';
 import {chassis, colors, motion, spacing, testIds, type} from '../ui/theme';
-import {radio, screenState} from '../radio/radio.model';
+import {lastRadioError, radio, screenState} from '../radio/radio.model';
+
+/**
+ * Spec section 13. Selected by `status: 'error'` rather than by `screenState`,
+ * which publishes the five states of section 12 and no error among them. The
+ * engine's own `message` arrives from native code and is shown verbatim: it is
+ * a diagnostic, not app copy, and translating it would be a lie.
+ */
+const RadioErrorState = reatomComponent(() => {
+  const {t} = useLingui();
+  const failure = lastRadioError();
+
+  return (
+    <View testID={testIds.errorState} style={[chassis.screen, styles.errorWash]}>
+      <View style={styles.centre}>
+        <Text style={[type.hero, styles.headline, styles.errorText]}>
+          <Trans>RADIO ERROR</Trans>
+        </Text>
+        {failure ? (
+          <Text style={[type.body, styles.hint]}>{failure.message}</Text>
+        ) : null}
+        <ActionButton
+          label={t`RESTART RADIO`}
+          tone="primary"
+          onPress={wrap(() => {
+            void radio.start();
+          })}
+          testID={testIds.errorRestart}
+        />
+        <ActionButton
+          label={t`TURN OFF`}
+          onPress={wrap(() => {
+            void radio.stop();
+          })}
+          testID="error-power-off"
+        />
+      </View>
+    </View>
+  );
+}, 'RadioErrorState');
 
 /**
  * Spec sections 12 and 12.1. The whole screen is one giant PTT touch area with
@@ -21,6 +61,9 @@ import {radio, screenState} from '../radio/radio.model';
 export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
   ({onSettingsPress}) => {
     const {t} = useLingui();
+
+    if (radio().status === 'error') return <RadioErrorState />;
+
     const state = screenState();
 
     if (state === 'off') {
@@ -174,6 +217,8 @@ const styles = StyleSheet.create({
   rxWash: {backgroundColor: colors.rxWash, borderWidth: 3, borderColor: colors.rx},
   txText: {color: colors.tx},
   rxText: {color: colors.rx},
+  errorWash: {borderWidth: 3, borderColor: colors.danger},
+  errorText: {color: colors.danger},
   corners: {
     position: 'absolute',
     top: spacing.xxl,
