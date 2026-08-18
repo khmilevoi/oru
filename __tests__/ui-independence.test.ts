@@ -5,12 +5,20 @@ const REPO_ROOT = join(__dirname, '..');
 
 function sourcesUnder(relative: string): Array<[string, string]> {
   const absolute = join(REPO_ROOT, relative);
-  return readdirSync(absolute, {withFileTypes: true})
-    .filter(entry => entry.isFile() && /\.tsx?$/.test(entry.name))
-    .map(entry => [
-      `${relative}/${entry.name}`,
-      readFileSync(join(absolute, entry.name), 'utf8'),
-    ]);
+  return readdirSync(absolute, {withFileTypes: true}).flatMap<[string, string]>(
+    entry => {
+      const child = `${relative}/${entry.name}`;
+      // Recursive on purpose: a non-recursive walk drops every file in a
+      // subdirectory silently, with no failing test to signal the lost
+      // coverage, the moment src/ui or src/screens grows one.
+      if (entry.isDirectory()) {
+        return sourcesUnder(child);
+      }
+      return entry.isFile() && /\.tsx?$/.test(entry.name)
+        ? [[child, readFileSync(join(absolute, entry.name), 'utf8')]]
+        : [];
+    },
+  );
 }
 
 /**
