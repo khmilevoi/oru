@@ -121,7 +121,7 @@ environment by default):
 
 ### P1 `mode-policy` — wave 1, track A
 - [x] planned   → docs/superpowers/plans/2026-08-18-p1-mode-policy.md
-- [ ] executed  → branch plan/p1-mode-policy · worktree .claude/worktrees/p1-mode-policy
+- [x] executed  → branch plan/p1-mode-policy · worktree .claude/worktrees/p1-mode-policy
 - [ ] merged    → sync 1
 
 **Owns:** the §7 mode-policy state machine as pure, I/O-free logic implemented **twice with
