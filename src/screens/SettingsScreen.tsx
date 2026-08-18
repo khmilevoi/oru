@@ -30,7 +30,7 @@ export const SettingsScreen = reatomComponent<{
       backTestID={testIds.settingsBack}
       onBack={onBack}>
       <Text style={[type.label, styles.sectionLabel]}>
-        <Trans>PTT BUTTON</Trans>
+        <Trans>PTT button</Trans>
       </Text>
 
       <View testID="settings-card" style={styles.card}>

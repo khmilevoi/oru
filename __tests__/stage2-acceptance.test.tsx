@@ -28,7 +28,7 @@ const COPY = {
     pairingSaved: 'BUTTON CONNECTED',
     pairingEmpty: 'No buttons found',
     onboardingDenied: 'Permission denied',
-    onboardingReady: 'Ready',
+    onboardingReady: 'All set',
   },
   ru: {
     off: 'РАЦИЯ ВЫКЛЮЧЕНА',
@@ -41,7 +41,7 @@ const COPY = {
     pairingSaved: 'КНОПКА ПОДКЛЮЧЕНА',
     pairingEmpty: 'Кнопки не найдены',
     onboardingDenied: 'Разрешение отклонено',
-    onboardingReady: 'Готово',
+    onboardingReady: 'Всё готово',
   },
 } as const;
 

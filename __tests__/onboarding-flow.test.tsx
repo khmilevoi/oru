@@ -42,7 +42,7 @@ describe('onboarding — spec sections 11 and 12.1', () => {
     await screen.press(testIds.onboardingSkip);
 
     // Step 4 — done.
-    expect(screen.hasText('Ready')).toBe(true);
+    expect(screen.hasText('All set')).toBe(true);
     await screen.press(testIds.onboardingStart);
     expect(onDone).toHaveBeenCalledTimes(1);
 
@@ -59,7 +59,7 @@ describe('onboarding — spec sections 11 and 12.1', () => {
     await screen.press(testIds.onboardingAllow);
     await screen.press(testIds.onboardingAllow);
 
-    expect(screen.hasText('Ready')).toBe(true);
+    expect(screen.hasText('All set')).toBe(true);
     screen.unmount();
   });
 

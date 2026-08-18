@@ -33,14 +33,17 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
           </View>
           <View style={styles.foot}>
             <Text style={[type.hero, styles.title]}>
-              <Trans>Ready</Trans>
+              <Trans>All set</Trans>
             </Text>
             <Text style={[type.body, styles.body]}>
-              <Trans>Turn the radio on and hold anywhere to talk.</Trans>
+              <Trans>
+                Whoever is nearby is connected — and hears you. Lock the
+                phone and put it in your pocket.
+              </Trans>
             </Text>
             <View style={styles.actions}>
               <ActionButton
-                label={t`Start`}
+                label={t`Go on air`}
                 tone="primary"
                 onPress={onDone}
                 testID={testIds.onboardingStart}
@@ -60,7 +63,8 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
         title: <Trans>Microphone</Trans>,
         body: (
           <Trans>
-            Oru uses the microphone to transmit your voice to nearby devices.
+            Your voice is transmitted only while the button is held. Nothing
+            is recorded — the air is never stored.
           </Trans>
         ),
       },
@@ -68,8 +72,8 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
         title: <Trans>Bluetooth</Trans>,
         body: (
           <Trans>
-            Oru connects to your push-to-talk button over Bluetooth, including
-            while the screen is locked.
+            Connects nearby phones and pairs the external PTT button. No
+            internet involved.
           </Trans>
         ),
       },
@@ -77,7 +81,8 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
         title: <Trans>Nearby devices</Trans>,
         body: (
           <Trans>
-            Oru finds other radios around you without using the internet.
+            Phones find each other and connect directly — no servers, no
+            accounts. On iOS this is the “Local Network” permission.
           </Trans>
         ),
       },

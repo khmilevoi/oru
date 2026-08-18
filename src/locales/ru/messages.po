@@ -36,8 +36,12 @@ msgstr "{0} рядом"
 #~ msgid "● {nearbyCount} nearby"
 #~ msgstr "● {nearbyCount} рядом"
 
+#: src/screens/OnboardingFlow.tsx:36
+msgid "All set"
+msgstr "Всё готово"
+
 #: src/screens/BackgroundStep.tsx:87
-#: src/screens/OnboardingFlow.tsx:127
+#: src/screens/OnboardingFlow.tsx:132
 msgid "Allow"
 msgstr "Разрешить"
 
@@ -58,7 +62,7 @@ msgstr "Назад"
 msgid "BLE · {0} dBm"
 msgstr "BLE · {0} dBm"
 
-#: src/screens/OnboardingFlow.tsx:68
+#: src/screens/OnboardingFlow.tsx:72
 msgid "Bluetooth"
 msgstr "Bluetooth"
 
@@ -86,6 +90,10 @@ msgstr "ПОДКЛЮЧЕНИЕ КНОПКИ"
 msgid "Connected"
 msgstr "Подключена"
 
+#: src/screens/OnboardingFlow.tsx:74
+msgid "Connects nearby phones and pairs the external PTT button. No internet involved."
+msgstr "Соединяет телефоны рядом и подключает внешнюю PTT-кнопку. Интернет не используется."
+
 #: src/screens/PairingFlow.tsx:132
 msgid "device"
 msgstr "устройство"
@@ -101,6 +109,10 @@ msgstr "Готово"
 #: src/screens/PairingFlow.tsx:82
 msgid "Found"
 msgstr "Найдено"
+
+#: src/screens/OnboardingFlow.tsx:46
+msgid "Go on air"
+msgstr "В эфир"
 
 #: src/screens/PairingFlow.tsx:99
 #~ msgid "Hold it down until it is recognised"
@@ -134,11 +146,11 @@ msgstr "Убедитесь, что кнопка включена и находи
 msgid "Make sure the button is turned on and close to the phone."
 msgstr "Убедитесь, что кнопка включена и находится рядом с телефоном."
 
-#: src/screens/OnboardingFlow.tsx:60
+#: src/screens/OnboardingFlow.tsx:63
 msgid "Microphone"
 msgstr "Микрофон"
 
-#: src/screens/OnboardingFlow.tsx:77
+#: src/screens/OnboardingFlow.tsx:81
 msgid "Nearby devices"
 msgstr "Устройства рядом"
 
@@ -155,37 +167,41 @@ msgid "Not now"
 msgstr "Не сейчас"
 
 #: src/screens/BackgroundStep.tsx:67
-#: src/screens/OnboardingFlow.tsx:118
+#: src/screens/OnboardingFlow.tsx:123
 msgid "Open settings"
 msgstr "Открыть настройки"
 
 #: src/screens/OnboardingFlow.tsx:70
-msgid "Oru connects to your push-to-talk button over Bluetooth, including while the screen is locked."
-msgstr "Oru подключается к вашей кнопке PTT по Bluetooth, в том числе при заблокированном экране."
+#~ msgid "Oru connects to your push-to-talk button over Bluetooth, including while the screen is locked."
+#~ msgstr "Oru подключается к вашей кнопке PTT по Bluetooth, в том числе при заблокированном экране."
 
 #: src/screens/OnboardingFlow.tsx:79
-msgid "Oru finds other radios around you without using the internet."
-msgstr "Oru находит другие рации вокруг вас без интернета."
+#~ msgid "Oru finds other radios around you without using the internet."
+#~ msgstr "Oru находит другие рации вокруг вас без интернета."
 
 #: src/screens/BackgroundStep.tsx:49
 msgid "Oru needs background location to keep finding nearby radios while your phone is locked and in a pocket."
 msgstr "Oru нужен доступ к геолокации в фоне, чтобы находить рации рядом, пока телефон заблокирован и лежит в кармане."
 
 #: src/screens/OnboardingFlow.tsx:62
-msgid "Oru uses the microphone to transmit your voice to nearby devices."
-msgstr "Oru использует микрофон, чтобы передавать ваш голос на устройства рядом."
+#~ msgid "Oru uses the microphone to transmit your voice to nearby devices."
+#~ msgstr "Oru использует микрофон, чтобы передавать ваш голос на устройства рядом."
 
 #: src/screens/PairingFlow.tsx:162
 msgid "Pairing failed"
 msgstr "Сопряжение не удалось"
 
-#: src/screens/OnboardingFlow.tsx:103
+#: src/screens/OnboardingFlow.tsx:108
 msgid "Permission denied. Oru cannot work without it."
 msgstr "Разрешение отклонено. Без него Oru не сможет работать."
 
-#: src/screens/OnboardingFlow.tsx:109
+#: src/screens/OnboardingFlow.tsx:114
 msgid "Permission is blocked. Grant it in the system settings."
 msgstr "Разрешение заблокировано. Выдайте его в системных настройках."
+
+#: src/screens/OnboardingFlow.tsx:83
+msgid "Phones find each other and connect directly — no servers, no accounts. On iOS this is the “Local Network” permission."
+msgstr "Телефоны находят друг друга и соединяются напрямую — без серверов и аккаунтов. На iOS это разрешение «Локальная сеть»."
 
 #: src/screens/PairingFlow.tsx:96
 #~ msgid "Press the PTT button"
@@ -196,8 +212,12 @@ msgid "PRESS THE PTT BUTTON"
 msgstr "НАЖМИТЕ КНОПКУ PTT"
 
 #: src/screens/SettingsScreen.tsx:33
-msgid "PTT BUTTON"
-msgstr "КНОПКА PTT"
+msgid "PTT button"
+msgstr "PTT-кнопка"
+
+#: src/screens/SettingsScreen.tsx:33
+#~ msgid "PTT BUTTON"
+#~ msgstr "КНОПКА PTT"
 
 #: src/screens/RadioScreen.tsx:147
 msgid "Push to talk"
@@ -212,8 +232,8 @@ msgid "RADIO OFF"
 msgstr "РАЦИЯ ВЫКЛЮЧЕНА"
 
 #: src/screens/OnboardingFlow.tsx:36
-msgid "Ready"
-msgstr "Готово"
+#~ msgid "Ready"
+#~ msgstr "Готово"
 
 #: src/screens/RadioScreen.tsx:207
 msgid "RECEIVING..."
@@ -260,13 +280,13 @@ msgstr "Настройки"
 msgid "SETTINGS"
 msgstr "НАСТРОЙКИ"
 
-#: src/screens/OnboardingFlow.tsx:142
+#: src/screens/OnboardingFlow.tsx:147
 msgid "Skip"
 msgstr "Пропустить"
 
 #: src/screens/OnboardingFlow.tsx:43
-msgid "Start"
-msgstr "Начать"
+#~ msgid "Start"
+#~ msgstr "Начать"
 
 #. placeholder {0}: APP_PERMISSIONS.length
 #: src/screens/OnboardingFlow.tsx:82
@@ -274,7 +294,7 @@ msgstr "Начать"
 #~ msgstr "Шаг {step} из {0}"
 
 #. placeholder {0}: APP_PERMISSIONS.length
-#: src/screens/OnboardingFlow.tsx:94
+#: src/screens/OnboardingFlow.tsx:99
 msgid "STEP {step} OF {0}"
 msgstr "ШАГ {step} ИЗ {0}"
 
@@ -294,7 +314,7 @@ msgstr "Проверить"
 msgid "TRANSMITTING..."
 msgstr "ПЕРЕДАЧА..."
 
-#: src/screens/OnboardingFlow.tsx:127
+#: src/screens/OnboardingFlow.tsx:132
 msgid "Try again"
 msgstr "Попробовать снова"
 
@@ -308,5 +328,13 @@ msgid "Turn the radio on"
 msgstr "Включить рацию"
 
 #: src/screens/OnboardingFlow.tsx:39
-msgid "Turn the radio on and hold anywhere to talk."
-msgstr "Включите рацию и удерживайте экран, чтобы говорить."
+#~ msgid "Turn the radio on and hold anywhere to talk."
+#~ msgstr "Включите рацию и удерживайте экран, чтобы говорить."
+
+#: src/screens/OnboardingFlow.tsx:39
+msgid "Whoever is nearby is connected — and hears you. Lock the phone and put it in your pocket."
+msgstr "Кто рядом — тот подключён — тот слышит. Телефон можно заблокировать и убрать в карман."
+
+#: src/screens/OnboardingFlow.tsx:65
+msgid "Your voice is transmitted only while the button is held. Nothing is recorded — the air is never stored."
+msgstr "Голос передаётся, только пока удержана кнопка. Запись не ведётся — эфир нигде не сохраняется."
