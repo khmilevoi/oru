@@ -1,5 +1,11 @@
 #import <OruSpecs/OruSpecs.h>
 #import <React/RCTInvalidating.h>
+// `Oru-Swift.h` declares every `@objc`-visible class in the app module, which
+// includes `AppDelegate.swift`'s `ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate`.
+// The generated header only `@import`s that superclass's module behind
+// `__has_feature(objc_modules)`, which is off in this Objective-C++ translation
+// unit, so the superclass has to be imported by hand before it.
+#import <React_RCTAppDelegate/RCTDefaultReactNativeFactoryDelegate.h>
 #import "Oru-Swift.h"
 
 /**
