@@ -192,7 +192,7 @@ describe.each(LOCALES)('spec section 15 Stage 2 — locale %s', locale => {
   it('honours reduced motion everywhere the design animates', async () => {
     const screen = await renderScreen(
       <RadioScreen onSettingsPress={jest.fn()} />,
-      {scenario: 'happy', locale, reducedMotion: true},
+      {scenario: 'solo', locale, reducedMotion: true},
     );
 
     await screen.press(testIds.powerOnArea);
