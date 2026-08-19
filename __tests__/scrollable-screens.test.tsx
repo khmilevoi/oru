@@ -57,6 +57,29 @@ const contentContainer = (screen: RenderedScreen) =>
     theScrollView(screen).props.contentContainerStyle,
   ) as {flexGrow?: number; paddingBottom?: number};
 
+/**
+ * The last *element* the screen handed to the scroll container, read off the
+ * `ScrollView`'s own `children` prop rather than the rendered host tree: the
+ * question "is this the last thing in the content" is about the order the
+ * screen declared, and the host tree wraps each child in layers of its own.
+ */
+const lastScrollChild = (screen: RenderedScreen) => {
+  const kids = React.Children.toArray(
+    theScrollView(screen).props.children,
+  ).filter(React.isValidElement) as React.ReactElement<{testID?: string}>[];
+  const last = kids[kids.length - 1];
+  if (!last) throw new Error('the scroll container has no element children');
+  return last;
+};
+
+const versionStyle = (screen: RenderedScreen) =>
+  StyleSheet.flatten(screen.find(testIds.settingsVersion).props.style) as {
+    marginTop?: number | string;
+    marginBottom?: number;
+    position?: string;
+    bottom?: number;
+  };
+
 /** The frame's own outer padding -- the padding that would shorten the viewport. */
 const framePaddingBottom = (screen: RenderedScreen, testID: string) => {
   const styled = screen.root
@@ -98,22 +121,50 @@ describe('the settings screen scrolls', () => {
     screen.unmount();
   });
 
-  it('leaves the version footer pinned against the frame', async () => {
+  it('ends the scrolled content with the version nameplate', async () => {
     const screen = await open();
 
-    expect(inScroll(screen, testIds.settingsVersion)).toBe(false);
+    // Was pinned *outside* the scroll container as a `ScreenFrame` overlay.
+    // The owner rejected that treatment -- it hovered over the list -- so the
+    // nameplate is now an ordinary element, the last one, inside the content.
+    expect(inScroll(screen, testIds.settingsVersion)).toBe(true);
+    expect(lastScrollChild(screen).props.testID).toBe(testIds.settingsVersion);
 
     screen.unmount();
   });
 
-  it('pads the scroll content clear of the pinned version footer', async () => {
+  it('lets the nameplate rest at the bottom without pinning it', async () => {
+    const screen = await open();
+
+    const style = versionStyle(screen);
+    // `marginTop: 'auto'` against the content container's `flexGrow: 1` is what
+    // "nailed to the bottom" means for an element that is still in flow: the
+    // auto margin eats the free space of a short screen and collapses to
+    // nothing once the content overflows, so the nameplate sits at the foot of
+    // the viewport when there is room and follows the content when there is
+    // not. Neither of those is true of an absolutely positioned row.
+    expect(style.marginTop).toBe('auto');
+    expect(style.position).toBeUndefined();
+    expect(style.bottom).toBeUndefined();
+
+    screen.unmount();
+  });
+
+  it('hands the bottom inset to the content the nameplate now ends', async () => {
     const screen = await open(INSETS);
 
-    // `.vers` occupies `insets.bottom + 24` to `insets.bottom + 24 + 14` off
-    // the frame's bottom edge and contributes no flow height, so without this
-    // padding the last card scrolls *underneath* it and is unreadable at the
-    // end of the list.
+    // Nothing is pinned at the foot any more, so this screen takes the same
+    // branch the pairing list does: the frame pads 0 (padding there would
+    // shorten the viewport) and the inset rides the content container, where
+    // it lands under the nameplate that closes it.
+    expect(framePaddingBottom(screen, testIds.settingsScreen)).toBe(0);
     expect(contentContainer(screen).paddingBottom ?? 0).toBeGreaterThanOrEqual(
+      INSETS.bottom,
+    );
+    // ...and no trace of the clearance the overlay used to need on top of it.
+    // That padding paid for a row of zero flow height hovering over the list;
+    // an in-flow nameplate occupies its own height and needs none of it.
+    expect(contentContainer(screen).paddingBottom ?? 0).toBeLessThan(
       INSETS.bottom + spacing.lg + type.version.lineHeight,
     );
 

@@ -79,6 +79,32 @@ DesignSync tool of its own). The remote was read first and still matched the ear
 so nothing was clobbered; the write was verified by re-fetching `01 Radio.dc.html` and
 confirming it carries the reserved `.hintslot` and the geometry note.
 
+**2026-08-19 — the settings version nameplate rides the content instead of being pinned
+over it.** Scrolling had just been added to Settings, and the `.vers` nameplate was ported
+from this canvas the way the canvas draws it: absolutely positioned against the frame at
+`bottom: 24`, floating above the scroll region, always visible, with the list padded to
+keep its last card from sliding underneath. The product owner rejected that on sight — a
+permanent row hovering over moving content reads as a defect. The nameplate is now the
+**last element of the settings content, in flow**: an auto top margin inside a content box
+that is at least a viewport tall, so it rests on the bottom edge while the content is short
+and scrolls away with the content once it is long. Both halves of the owner's sentence, out
+of one declaration.
+
+The frames themselves are unchanged and remain correct as drawn — at these content lengths
+the pinned and in-flow treatments render identically, and a `.phone` is a fixed 390×844 box
+with `overflow: hidden` that can never scroll, so absolute positioning is the only way a
+still image can show a row resting at the foot of a screen. The divergence is therefore
+recorded rather than redrawn: a new `.canvasnote vers` under the two frames in
+`02 Settings.dc.html` carries the rule, why the CSS still says `position: absolute`, how to
+build it, the 24 below it and where the gesture-bar inset goes, and the history; `theme.css`
+annotates `.vers` with the same in short. Nothing else in either file changed, and no token
+moved.
+
+`02 Settings.dc.html` and `theme.css` are **owed a DesignSync push** — the branch that made
+this change has no DesignSync tool, so the main session pushes them. Read the remote first:
+the last write was the 2026-08-19 talk-ring correction, and anything on the remote newer
+than that is someone else's and must not be clobbered.
+
 Spec §12.1 (`docs/superpowers/specs/2026-08-13-offline-nearby-ptt-design.md`) points at this
 canvas as the source of the visual design, but until now it was never exported — the P6 UI
 plan states this outright and records reconciling the app's tokens against the canvas as an

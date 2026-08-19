@@ -54,10 +54,10 @@ export function ScreenFrame({
   backTestID?: string;
   testID?: string;
   /**
-   * Which safe-area edges the frame pads, all four by default. A screen that
-   * anchors something absolutely against one edge (the settings version
-   * footer) excludes that edge and states the inset itself, so the inset is
-   * never applied twice.
+   * Which safe-area edges the frame pads, all four by default -- which is what
+   * every screen currently takes. The escape hatch is for a screen that anchors
+   * something absolutely against one edge and adds that inset to its own offset:
+   * it excludes the edge here so the inset is never applied twice.
    */
   edges?: readonly Edge[];
   /**
@@ -79,10 +79,14 @@ export function ScreenFrame({
   footer?: React.ReactNode;
   /**
    * Chrome pinned *over* the frame, absolutely positioned and contributing no
-   * flow height -- the settings version row, the pairing scan hint. Rendered
-   * last so it paints above the body. A screen passing this owes its scroll
-   * content enough bottom padding to keep the last row from sliding underneath
-   * it.
+   * flow height -- the pairing scan hint, which the canvas draws against the
+   * frame's foot rather than as a row of the stage. Rendered last so it paints
+   * above the body. A screen passing this owes its scroll content enough bottom
+   * padding to keep the last row from sliding underneath it.
+   *
+   * Reach for it only when the canvas really does anchor something to the frame.
+   * The settings version nameplate was built this way and read as hovering over
+   * the list; it is an ordinary last element of the content now.
    */
   overlay?: React.ReactNode;
   children: React.ReactNode;
