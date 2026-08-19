@@ -18,14 +18,10 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
     public weak var delegate: BackgroundSessionDelegate?
 
     private var isActive = false
-    /// The profile the latest detection pass decided; diagnostic — device
-    /// add/remove always re-runs the full two-phase detection, because whether
-    /// a new device is HFP can only be learned under the permissive category.
-    private var currentProfile: AudioSessionProfile?
-    /// Recursion guard: our own setCategory/setPreferredInput calls emit route
-    /// change notifications; while this is set they must not trigger another
-    /// re-apply.
-    private var isApplyingProfile = false
+    /// The configuration currently in force. §5's mode switches are a re-apply
+    /// of the other one; the merged §7 policy is what asks for a change (wired
+    /// in Task 5). Until then activation applies VOICE and nothing changes it.
+    private var appliedProfile: ModePolicy.Profile = .voice
     private let log = Logger(
         subsystem: RadioConfig.Logging.subsystem,
         category: "background"
@@ -42,12 +38,11 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
         do {
             // Category first, then active — activating under the platform
             // default category leaves AVAudioEngine with no real input/output
-            // route once the category does switch (the exact crash documented
-            // in AudioEngine.prepareEngineOnMainThread). The detection flow
-            // owns activation itself, because phase 2 of the profile decision
-            // can only be read AFTER activating; AudioEngine's startPlayback()
-            // deliberately skips its own setCategory in this mode.
-            try detectAndApplyProfile(on: session)
+            // route once the category does switch (the crash documented in
+            // AudioEngine.prepareEngineOnMainThread). There is no detection
+            // phase any more (§11): the configuration is stated, not discovered.
+            try apply(AudioSessionConfiguration.of(appliedProfile), to: session)
+            try session.setActive(true)
         } catch {
             delegate?.backgroundSession(
                 self,
@@ -58,6 +53,7 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
 
         isActive = true
         maximizeInputGain(session)
+        syncSpeakerOverride(on: session)
         observeInterruptions()
         observeRouteChanges()
         HeartbeatLogger.shared.sessionActive = true
@@ -74,7 +70,7 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
         HeartbeatLogger.shared.sessionActive = false
         HeartbeatLogger.shared.stop()
         isActive = false
-        currentProfile = nil
+        appliedProfile = .voice
         do {
             try AVAudioSession.sharedInstance().setActive(
                 false,
@@ -143,87 +139,44 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
         }
     }
 
-    // MARK: - Session profile (two-phase detection fix, 2026-08-17)
+    // MARK: - Session configuration (§5)
 
-    /// Runs the two-step state machine from `AudioSessionProfile` against the
-    /// live session — DETECTION BEFORE NARROWING, because iOS only exposes
-    /// Bluetooth ports in `availableInputs`/`currentRoute` when the current
-    /// category options allow them (the first single-shot version read them
-    /// under narrow options and a connected headset stayed invisible forever).
-    /// Ends with the session ACTIVE under the decided profile, the speaker
-    /// override synced, and the decision in heartbeat.log.
-    private func detectAndApplyProfile(on session: AVAudioSession) throws {
-        isApplyingProfile = true
-        defer { isApplyingProfile = false }
-
-        // Phase 1: permissive category so HFP inputs become visible at all.
-        try session.setCategory(
-            .playAndRecord,
-            mode: .voiceChat,
-            options: AudioSessionProfile.permissiveDetectionOptions
-        )
-        let inputs = session.availableInputs ?? []
-        if let profile = AudioSessionProfile.afterPermissiveDetection(
-            availableInputs: inputs.map(\.portType)
-        ) {
-            // HFP found: the permissive options already equal the HFP
-            // profile's options, so no second setCategory — pin the input so
-            // the route survives iOS's mid-session second-guessing, activate.
-            if let hfp = inputs.first(where: { $0.portType == .bluetoothHFP }) {
-                try session.setPreferredInput(hfp)
-            }
-            try session.setActive(true)
-            finishProfile(profile, on: session)
+    /// §5's "applied whole (diff-only: skip if already applied)". The diff is
+    /// what replaced the `isApplyingProfile` recursion guard: our own
+    /// `setCategory` emits a `.categoryChange`, and re-applying on that would
+    /// loop — but after the apply the live configuration already satisfies the
+    /// target, so nothing is applied a second time.
+    private func apply(
+        _ configuration: AudioSessionConfiguration,
+        to session: AVAudioSession
+    ) throws {
+        guard
+            !configuration.matches(
+                category: session.category,
+                mode: session.mode,
+                options: session.categoryOptions
+            )
+        else {
             return
         }
-
-        // Phase 2: no HFP input exists — narrow to A2DP and activate; with
-        // A2DP allowed and headphones connected, activation routes to them
-        // automatically, so only the post-activation route tells built-in
-        // from A2DP.
-        try session.setPreferredInput(nil)
         try session.setCategory(
-            .playAndRecord,
-            mode: .voiceChat,
-            options: AudioSessionProfile.bluetoothA2DP.categoryOptions
+            configuration.category,
+            mode: configuration.mode,
+            options: configuration.options
         )
-        try session.setActive(true)
-        let profile = AudioSessionProfile.afterA2DPActivation(
-            currentOutputs: session.currentRoute.outputs.map(\.portType)
-        )
-        finishProfile(profile, on: session)
+        HeartbeatLogger.shared.record("session config \(configuration.logName)")
     }
 
-    /// Shared tail of both phases: record the profile, sync the speaker
-    /// override, and log the decision with the resolved route so the next
-    /// hardware run is attributable.
-    private func finishProfile(
-        _ profile: AudioSessionProfile,
-        on session: AVAudioSession
-    ) {
-        currentProfile = profile
-        syncSpeakerOverride(for: profile, on: session)
+    /// §5's on-demand speaker: `.speaker` only when the outputs are solely the
+    /// built-in receiver, `.none` the moment any external output is present.
+    /// Failure is logged, not fatal — audio still flows out of the receiver.
+    private func syncSpeakerOverride(on session: AVAudioSession) {
         let route = session.currentRoute
-        HeartbeatLogger.shared.record(
-            "session profile \(profile.logName) "
-                + "inputs=\(AudioRouteFormatter.portTypes(route.inputs)) "
-                + "outputs=\(AudioRouteFormatter.portTypes(route.outputs))"
+        let override = AudioSessionConfiguration.speakerOverride(
+            forOutputs: AudioPort.ports(from: route.outputs)
         )
-    }
-
-    /// The on-demand replacement for `.defaultToSpeaker`: `.speaker` for the
-    /// built-in profile, and — just as important — `.none` for the Bluetooth
-    /// profiles, so a re-detection that lands on BT clears a speaker override
-    /// left by an earlier built-in pass instead of stomping the headset.
-    /// Failure is logged, not fatal: audio still flows out of the receiver.
-    private func syncSpeakerOverride(
-        for profile: AudioSessionProfile,
-        on session: AVAudioSession
-    ) {
         do {
-            try session.overrideOutputAudioPort(
-                profile.wantsSpeakerOverride ? .speaker : .none
-            )
+            try session.overrideOutputAudioPort(override)
         } catch {
             HeartbeatLogger.shared.record("speaker override FAILED: \(error)")
         }
@@ -240,16 +193,12 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
         )
     }
 
-    /// Every change lands in heartbeat.log. Only a device appearing or
-    /// disappearing re-runs the DETECTION SEQUENCE — a deliberate exception
-    /// to "never re-setCategory mid-session". There is no cheap "would the
-    /// profile change?" pre-check: knowing whether the new device is HFP
-    /// requires the permissive phase-1 category first (a headset connecting
-    /// mid-session is invisible until then — the original hardware bug), so
-    /// the whole two-phase flow runs again. `.override` and `.categoryChange`
-    /// never re-apply: those are the echoes of our own calls, and reacting to
-    /// them would loop; `isApplyingProfile` additionally guards against
-    /// re-entry from the notifications our own detection emits.
+    /// Every change lands in heartbeat.log; a device appearing or disappearing
+    /// recomputes the speaker override, which is all the routing §5 asks for on
+    /// iOS — "iOS routing is last-in wins and automatic once category options
+    /// are right" (§4), so nothing here chases devices. Publishing the route,
+    /// feeding the §7 policy and re-applying our configuration on a foreign
+    /// `.categoryChange` arrive with the reaction table (Task 4).
     @objc private func handleRouteChange(_ notification: Notification) {
         let session = AVAudioSession.sharedInstance()
         let route = session.currentRoute
@@ -265,13 +214,8 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
         guard reason == .oldDeviceUnavailable || reason == .newDeviceAvailable else {
             return
         }
-        guard isActive, !isApplyingProfile else { return }
-
-        do {
-            try detectAndApplyProfile(on: session)
-        } catch {
-            HeartbeatLogger.shared.record("route profile re-detect FAILED: \(error)")
-        }
+        guard isActive else { return }
+        syncSpeakerOverride(on: session)
     }
 
     // MARK: - Interruptions

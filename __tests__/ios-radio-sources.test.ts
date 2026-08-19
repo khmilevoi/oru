@@ -403,8 +403,13 @@ describe('AlwaysHotBackgroundManager (spec section 10.2)', () => {
   });
 
   it('configures a voice-chat session for play and record', () => {
-    expect(background).toContain('.playAndRecord');
-    expect(background).toContain('.voiceChat');
+    // §5 (Task 1) moved the session-configuration table out of this file and
+    // into AudioSessionConfiguration.swift's static `.voice` configuration;
+    // this file only applies it, via `AudioSessionConfiguration.of(...)`.
+    const configuration = source('AudioSessionConfiguration.swift');
+    expect(configuration).toContain('.playAndRecord');
+    expect(configuration).toContain('.voiceChat');
+    expect(background).toContain('AudioSessionConfiguration.of(appliedProfile)');
   });
 
   it('activates the session itself and tells the engine', () => {
