@@ -592,9 +592,13 @@ class AudioRouteController(
                 "attempt=$count/$MAX_ESTABLISH_ATTEMPTS reason=$reason",
         )
         if (count >= MAX_ESTABLISH_ATTEMPTS) demote(device, reason)
-        // apply() re-enters reevaluate(); since this runs from inside the loop, that sets
+        // apply() re-enters reevaluate(). Called from inside reevaluate()'s own loop (the
+        // routeCommunicationTo path, when setCommunicationDevice is refused), that sets
         // reevaluateAgain instead of recursing, which is what re-drives the retry (or, once
-        // demoted, the fallback) without a bare `reevaluateAgain = true` here.
+        // demoted, the fallback) without a bare `reevaluateAgain = true` here. Called from
+        // onEstablishTimeout's raw scheduler.schedule callback, reevaluating is false there, so
+        // this reevaluate() runs a fresh pass instead -- harmless, since onEstablishTimeout
+        // already calls reevaluate() again immediately after this returns.
         apply(policy.voiceLinkFailed(clock()))
     }
 
