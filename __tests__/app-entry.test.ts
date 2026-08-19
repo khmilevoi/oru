@@ -3,6 +3,7 @@ import {i18n} from '@lingui/core';
 
 import {bootstrapApp, toAppLifecycle} from '../src/app/appEntry';
 import {initialRadioState} from '../src/radio/radio.types';
+import {localeOverride} from '../src/app/locale.model';
 import {mockRadio} from '../src/radio/radio.native.mock';
 import {radio} from '../src/radio/radio.model';
 import {MOCK_SCENARIOS, setMockScenario} from '../src/mock/mock.scenario';
@@ -55,6 +56,35 @@ describe('app entry — spec sections 6.2 and 12.2', () => {
     expect(other.locale).toBe('en');
     expect(i18n.locale).toBe('en');
     other.teardown();
+  });
+
+  it('lets a natively stored override beat the system locale (amended 12.2)', async () => {
+    await mockRadio.setAppLocale('ru');
+
+    const boot = bootstrapApp({
+      systemLocale: 'de-DE',
+      appState: fakeAppState().host,
+    });
+    // The bridge read is async, so the synchronous activation is still the
+    // system fallback; the override lands within the bootstrap microtasks.
+    expect(boot.locale).toBe('en');
+    await flushMicrotasks();
+
+    expect(i18n.locale).toBe('ru');
+    expect(localeOverride()).toBe('ru');
+    boot.teardown();
+  });
+
+  it('stays on the system choice when no override is stored', async () => {
+    const boot = bootstrapApp({
+      systemLocale: 'ru-RU',
+      appState: fakeAppState().host,
+    });
+    await flushMicrotasks();
+
+    expect(i18n.locale).toBe('ru');
+    expect(localeOverride()).toBe(null);
+    boot.teardown();
   });
 
   it('takes the section 6.2 boot snapshot instead of starting the radio', async () => {

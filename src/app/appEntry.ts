@@ -3,6 +3,7 @@ import {bind} from '@reatom/core';
 
 import {initI18n} from '../i18n';
 import {lastRadioError, radio, radioEventListener} from '../radio/radio.model';
+import {localeOverride} from './locale.model';
 import {registerMockScenarioDevMenu} from '../dev/mockScenarioDevMenu';
 import {RadioNative} from '../radio/radio.native';
 import {applyAppLifecycle} from './app.model';
@@ -80,7 +81,9 @@ export function toAppLifecycle(state: string): AppLifecycle {
 /**
  * The whole of app entry, in the order section 6.2 and section 12.2 require:
  *
- * 1. activate a catalog, so the first frame is already localized;
+ * 1. activate a catalog, so the first frame is already localized — the system
+ *    locale synchronously, then the stored amended-12.2 override on top the
+ *    moment the bridge answers;
  * 2. register the section 6.5 dev-menu scenarios (a no-op outside `__DEV__`);
  * 3. subscribe the engine's event stream into the mirror -- without this
  *    nothing but `start()`/`sync()` ever writes `radio()`, because
@@ -94,6 +97,14 @@ export function toAppLifecycle(state: string): AppLifecycle {
  */
 export function bootstrapApp(host: BootstrapHost = {}): Bootstrapped {
   const locale = initI18n(host.systemLocale ?? readSystemLocale());
+
+  // Amended section 12.2: a natively stored override beats the system locale.
+  // The bridge read is async, so the synchronous activation above is the
+  // system fallback the first frame would use, and the override — when one is
+  // stored — re-activates the catalog in place within the bootstrap
+  // microtasks. Fire-and-forget on purpose: `restore()` returns absence and
+  // failure as values, and either one simply leaves the system choice standing.
+  void localeOverride.restore();
 
   registerMockScenarioDevMenu(host.devMenu ?? DevSettings);
 

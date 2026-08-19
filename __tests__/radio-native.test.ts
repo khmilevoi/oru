@@ -67,6 +67,8 @@ function fakeModule(overrides: Partial<Spec> = {}): Spec {
     selectPttCandidate: jest.fn(async () => undefined),
     forgetPtt: jest.fn(async () => undefined),
     setAudioMode: jest.fn(async () => undefined),
+    getAppLocale: jest.fn(async () => null),
+    setAppLocale: jest.fn(async () => undefined),
     onStateChanged: jest.fn(() => fakeSubscription().subscription),
     onError: jest.fn(() => fakeSubscription().subscription),
     ...overrides,

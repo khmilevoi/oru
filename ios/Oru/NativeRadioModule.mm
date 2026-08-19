@@ -129,6 +129,21 @@ RCT_EXPORT_MODULE(NativeRadio)
   resolve(nil);
 }
 
+- (void)getAppLocale:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject
+{
+  [self attachIfNeeded];
+  resolve([ORURadioBridge.shared appLocale]);
+}
+
+- (void)setAppLocale:(NSString *)locale
+             resolve:(RCTPromiseResolveBlock)resolve
+              reject:(RCTPromiseRejectBlock)reject
+{
+  [self attachIfNeeded];
+  [ORURadioBridge.shared setAppLocale:locale];
+  resolve(nil);
+}
+
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
     (const facebook::react::ObjCTurboModule::InitParams &)params
 {

@@ -2,6 +2,8 @@ import React from 'react';
 import {context} from '@reatom/core';
 
 import {SettingsScreen} from '../src/screens/SettingsScreen';
+import {localeOverride} from '../src/app/locale.model';
+import {mockRadio} from '../src/radio/radio.native.mock';
 import {radio} from '../src/radio/radio.model';
 import {testIds} from '../src/ui/theme';
 import {renderScreen} from '../jest/renderScreen';
@@ -200,6 +202,86 @@ describe('the section 8 audio mode setting', () => {
     expect(screen.hasText('Авто')).toBe(true);
     expect(screen.hasText('Рация')).toBe(true);
     expect(screen.hasText('Музыка')).toBe(true);
+
+    screen.unmount();
+  });
+});
+
+describe('the amended section 12.2 language setting', () => {
+  const openSettings = (locale?: 'en' | 'ru') =>
+    renderScreen(
+      <SettingsScreen onBack={jest.fn()} onConnectPress={jest.fn()} />,
+      locale ? {scenario: 'happy', locale} : {scenario: 'happy'},
+    );
+
+  it('offers both languages with the effective locale selected', async () => {
+    const screen = await openSettings();
+
+    expect(screen.hasText('Language')).toBe(true);
+    expect(screen.hasText('English')).toBe(true);
+    expect(screen.hasText('Русский')).toBe(true);
+    expect(
+      screen.find(`${testIds.appLocale}-en`).props.accessibilityState,
+    ).toEqual({selected: true});
+    expect(
+      screen.find(`${testIds.appLocale}-ru`).props.accessibilityState,
+    ).toEqual({selected: false});
+
+    screen.unmount();
+  });
+
+  it('reflects an active Russian locale in the selection', async () => {
+    const screen = await openSettings('ru');
+
+    expect(
+      screen.find(`${testIds.appLocale}-ru`).props.accessibilityState,
+    ).toEqual({selected: true});
+    expect(
+      screen.find(`${testIds.appLocale}-en`).props.accessibilityState,
+    ).toEqual({selected: false});
+
+    screen.unmount();
+  });
+
+  it('switches every visible string in place — no reload, same tree', async () => {
+    const screen = await openSettings();
+
+    expect(screen.hasText('SETTINGS')).toBe(true);
+    expect(screen.hasText('НАСТРОЙКИ')).toBe(false);
+
+    await screen.press(`${testIds.appLocale}-ru`);
+
+    expect(screen.hasText('НАСТРОЙКИ')).toBe(true);
+    expect(screen.hasText('Язык')).toBe(true);
+    expect(
+      screen.find(`${testIds.appLocale}-ru`).props.accessibilityState,
+    ).toEqual({selected: true});
+    expect(
+      screen.find(`${testIds.appLocale}-en`).props.accessibilityState,
+    ).toEqual({selected: false});
+
+    screen.unmount();
+  });
+
+  it('keeps the endonym labels literal in both locales', async () => {
+    // Each option must read in its own language, so neither label ever goes
+    // through the catalog: a Russian screen still says "English", and vice
+    // versa.
+    const screen = await openSettings('ru');
+
+    expect(screen.hasText('English')).toBe(true);
+    expect(screen.hasText('Русский')).toBe(true);
+
+    screen.unmount();
+  });
+
+  it('persists the choice through the native bridge', async () => {
+    const screen = await openSettings();
+
+    await screen.press(`${testIds.appLocale}-ru`);
+
+    expect(localeOverride()).toBe('ru');
+    await expect(mockRadio.getAppLocale()).resolves.toBe('ru');
 
     screen.unmount();
   });

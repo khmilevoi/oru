@@ -262,6 +262,23 @@ public final class RadioBridge: NSObject {
     /// snapshot agrees. Guarded by `lock` like every other mutable field here.
     private var pendingAudioMode: AudioModeSetting?
 
+    // MARK: - Amended §12.2 (2026-08-19): the in-app language override
+
+    /// A plain store, unlike `setAudioMode` above: there is no engine to apply
+    /// a locale to and no `onStateChanged` echo — JavaScript owns activating
+    /// the catalog. Stored here rather than in RadioKit because the locale is
+    /// an app concern with no engine counterpart. Nil means no override was
+    /// ever chosen: the app follows the system locale.
+    private static let appLocaleKey = "com.oru.appLocale"
+
+    @objc public func appLocale() -> NSString? {
+        UserDefaults.standard.string(forKey: Self.appLocaleKey) as NSString?
+    }
+
+    @objc public func setAppLocale(_ locale: String) {
+        UserDefaults.standard.set(locale, forKey: Self.appLocaleKey)
+    }
+
     // MARK: - Engine events
 
     private var pendingReject: ((NSString, NSString) -> Void)?

@@ -144,6 +144,21 @@ export interface Spec extends TurboModule {
   setAudioMode(mode: string): Promise<void>;
 
   /**
+   * Amended section 12.2 (2026-08-19): the in-app language override. Stored
+   * natively (UserDefaults `com.oru.appLocale` / SharedPreferences — the
+   * `setAudioMode` persistence pattern, because no JS storage layer exists)
+   * and read back at bootstrap, where a stored value beats the system locale.
+   *
+   * Purely a store: unlike `setAudioMode` there is no engine to apply this to
+   * and no `onStateChanged` echo — JavaScript owns activating the catalog.
+   * `null` means no override was ever stored: the app follows the system
+   * locale. Typed `string`, not the `AppLocale` union, for the same Codegen
+   * reason as `setAudioMode`; `src/app/locale.model.ts` narrows on the way in.
+   */
+  getAppLocale(): Promise<string | null>;
+  setAppLocale(locale: string): Promise<void>;
+
+  /**
    * Section 6.1's `RadioNativeEvent` union, split in two: Codegen generates a
    * union of object types as an untyped map, which would erase every field.
    * `radio.native.ts` re-tags these back into the single union. There is no

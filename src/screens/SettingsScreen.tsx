@@ -8,7 +8,10 @@ import {ActionButton} from '../ui/ActionButton';
 import {ScreenFrame} from '../ui/ScreenFrame';
 import {SegmentedControl} from '../ui/SegmentedControl';
 import {chrome, colors, glows, radii, spacing, testIds, type} from '../ui/theme';
+import {localeOverride} from '../app/locale.model';
 import {radio} from '../radio/radio.model';
+import {resolveLocale} from '../i18n';
+import type {AppLocale} from '../i18n';
 import type {AudioMode} from '../radio/radio.types';
 
 /**
@@ -21,13 +24,20 @@ export const SettingsScreen = reatomComponent<{
   onBack: () => void;
   onConnectPress: () => void;
 }>(({onBack, onConnectPress}) => {
-  const {t} = useLingui();
+  const {t, i18n} = useLingui();
   const button = radio().pttButton;
 
   const audioModes: ReadonlyArray<{value: AudioMode; label: string}> = [
     {value: 'auto', label: t`Auto`},
     {value: 'voice', label: t`Radio`},
     {value: 'media', label: t`Music`},
+  ];
+
+  // Endonyms on purpose, never through `t`/`Trans`: each option must read in
+  // its own language, whatever locale is active (amended section 12.2).
+  const appLocales: ReadonlyArray<{value: AppLocale; label: string}> = [
+    {value: 'en', label: 'English'},
+    {value: 'ru', label: 'Русский'},
   ];
 
   return (
@@ -131,6 +141,23 @@ export const SettingsScreen = reatomComponent<{
             something is. Radio and Music pin one behavior.
           </Trans>
         </Text>
+      </View>
+
+      <Text style={[type.label, styles.sectionLabel]}>
+        <Trans>Language</Trans>
+      </Text>
+
+      <View style={styles.card}>
+        <SegmentedControl
+          options={appLocales}
+          // The effective locale, not the override: with nothing stored the
+          // system choice is what the user is reading right now.
+          value={resolveLocale(i18n.locale)}
+          onChange={wrap((locale: AppLocale) => {
+            void localeOverride.select(locale);
+          })}
+          testID={testIds.appLocale}
+        />
       </View>
 
       <Text testID={testIds.settingsVersion} style={[type.version, styles.version]}>

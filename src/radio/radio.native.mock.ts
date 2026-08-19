@@ -68,6 +68,12 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
   const stateListeners = new Set<(state: NativeRadioState) => void>();
   const errorListeners = new Set<(error: NativeRadioErrorPayload) => void>();
 
+  // Amended section 12.2's stored language override — the mock's stand-in for
+  // UserDefaults / SharedPreferences. Kept apart from `state`: it is a plain
+  // store with no engine behind it, so nothing about it ever crosses
+  // `publishState()`.
+  let appLocale: string | null = null;
+
   let cancels: Array<() => void> = [];
   // Pairing-session timers (configurePtt()'s scanMs/failAtMs,
   // selectPttCandidate()'s learnMs) live in their own list, separate from the
@@ -345,6 +351,14 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
       publishState();
     },
 
+    async getAppLocale() {
+      return appLocale;
+    },
+
+    async setAppLocale(locale: string) {
+      appLocale = locale;
+    },
+
     onStateChanged(handler) {
       stateListeners.add(handler);
       return {
@@ -369,6 +383,7 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
 
       if (next.scenario !== undefined) scenario = next.scenario;
       if (next.clock !== undefined) clock = next.clock;
+      appLocale = null;
 
       state = {
         status: 'off',

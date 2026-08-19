@@ -15,8 +15,11 @@ const catalogs: Record<AppLocale, typeof enMessages> = {
 };
 
 /**
- * Spec section 12.2: the app language follows the system locale, and anything
- * other than Russian falls back to English. There is no in-app picker.
+ * Amended spec section 12.2 (2026-08-19): a stored in-app override wins; with
+ * no override the app language follows the system locale, and anything other
+ * than Russian falls back to English. This function is the system half of that
+ * rule — the override half lives in `src/app/locale.model.ts`, which calls
+ * `activateLocale` below directly.
  */
 export function resolveLocale(systemLocale: string | undefined): AppLocale {
   const tag = (systemLocale ?? '').toLowerCase();
@@ -26,13 +29,23 @@ export function resolveLocale(systemLocale: string | undefined): AppLocale {
 }
 
 /**
- * Activates a catalog and returns the locale that was activated. The caller
- * supplies the system locale; reading it is an app-entry concern (P7).
+ * Activates one catalog, in place. `I18nProvider` subscribes to `i18n`'s
+ * change event, so every `Trans`/`useLingui` consumer re-renders in the same
+ * tick — switching the language never reloads anything.
+ */
+export function activateLocale(locale: AppLocale): void {
+  i18n.loadAndActivate({locale, messages: catalogs[locale]});
+}
+
+/**
+ * Activates a catalog for the system locale and returns what was activated.
+ * The caller supplies the system locale; reading it is an app-entry concern
+ * (P7), and so is applying the stored override on top (amended section 12.2).
  */
 export function initI18n(systemLocale?: string): AppLocale {
   const locale = resolveLocale(systemLocale);
 
-  i18n.loadAndActivate({locale, messages: catalogs[locale]});
+  activateLocale(locale);
 
   return locale;
 }
