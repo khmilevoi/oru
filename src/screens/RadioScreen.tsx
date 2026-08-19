@@ -34,9 +34,15 @@ import {lastRadioError, radio, screenState} from '../radio/radio.model';
 const RadioErrorState = reatomComponent(() => {
   const {t} = useLingui();
   const failure = lastRadioError();
+  // Its own call, not a prop from `RadioScreen`: this component is a screen
+  // in its own right (it replaces the whole chassis), so it reads its own
+  // insets the same way the off and live chassis do.
+  const insets = useSafeAreaInsets();
 
   return (
-    <View testID={testIds.errorState} style={[chassis.screen, styles.errorWash]}>
+    <View
+      testID={testIds.errorState}
+      style={[chassis.screen, styles.errorWash, {paddingTop: insets.top}]}>
       <View style={styles.centre}>
         <Text style={[type.hero, styles.headline, styles.errorText]}>
           <Trans>RADIO ERROR</Trans>
@@ -85,7 +91,13 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
     // list the way `useState`/`useEffect` are, so this specific placement
     // was verified not to throw either way -- but nothing here should depend
     // on that implementation detail of one specific Hook.
+    // (`RadioErrorState` reads its own insets, so nothing computed here has
+    // to survive into the error branch.)
     const insets = useSafeAreaInsets();
+    // The off and live chassis are edge-to-edge on both platforms; the OS
+    // status bar and any cutout sit inside `insets.top`, and `PeerRow` at the
+    // top of the screen has no padding of its own to hide behind.
+    const topStyle = {paddingTop: insets.top};
     const cornerStyle = {
       bottom: insets.bottom + spacing.gutter,
       left: spacing.gutter,
@@ -108,7 +120,9 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
       });
 
       return (
-        <View testID={testIds.radioScreen} style={[chassis.screen, styles.offChassis]}>
+        <View
+          testID={testIds.radioScreen}
+          style={[chassis.screen, styles.offChassis, topStyle]}>
           <Pressable
             testID={testIds.powerOnArea}
             accessibilityRole="button"
@@ -159,7 +173,7 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
           : null;
 
     return (
-      <View testID={testIds.radioScreen} style={[chassis.screen, wash]}>
+      <View testID={testIds.radioScreen} style={[chassis.screen, wash, topStyle]}>
         <Pressable
           testID={testIds.pttArea}
           accessibilityRole="button"

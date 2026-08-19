@@ -3,6 +3,7 @@ import {StyleSheet, Text, View} from 'react-native';
 import {Trans, useLingui} from '@lingui/react/macro';
 import {reatomComponent} from '@reatom/react';
 import {wrap} from '@reatom/core';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import {ActionButton} from '../ui/ActionButton';
 import {ScreenFrame} from '../ui/ScreenFrame';
@@ -23,6 +24,7 @@ export const SettingsScreen = reatomComponent<{
 }>(({onBack, onConnectPress}) => {
   const {t} = useLingui();
   const button = radio().pttButton;
+  const insets = useSafeAreaInsets();
 
   const audioModes: ReadonlyArray<{value: AudioMode; label: string}> = [
     {value: 'auto', label: t`Auto`},
@@ -36,6 +38,11 @@ export const SettingsScreen = reatomComponent<{
       title={t`SETTINGS`}
       backLabel={t`Back`}
       backTestID={testIds.settingsBack}
+      // Not `bottom`: the version footer below is absolutely positioned
+      // against the frame and adds `insets.bottom` to its own `bottom`
+      // itself. Padding the frame's bottom edge as well would apply the
+      // inset twice to that one row.
+      edges={['top', 'left', 'right']}
       onBack={onBack}>
       <Text style={[type.label, styles.sectionLabel]}>
         <Trans>PTT button</Trans>
@@ -133,7 +140,12 @@ export const SettingsScreen = reatomComponent<{
         </Text>
       </View>
 
-      <Text testID={testIds.settingsVersion} style={[type.version, styles.version]}>
+      <Text
+        testID={testIds.settingsVersion}
+        // `.vers` sits 24pt off the canvas frame's bottom; on a device the
+        // frame's bottom is the physical screen edge, so the home indicator
+        // / gesture bar inset is added ahead of the canvas measurement.
+        style={[type.version, styles.version, {bottom: spacing.lg + insets.bottom}]}>
         OFFLINE NEARBY PTT · V0.1
       </Text>
     </ScreenFrame>
@@ -172,7 +184,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: spacing.lg,
+    // `bottom` is supplied inline at the call site: it depends on the
+    // safe-area insets, which only exist inside the component.
     textAlign: 'center',
     color: colors.textGhost,
   },

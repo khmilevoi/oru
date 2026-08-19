@@ -75,6 +75,18 @@ describe('Info.plist usage descriptions (spec section 11)', () => {
   });
 });
 
+describe('launch status bar', () => {
+  // `UIViewControllerBasedStatusBarAppearance` is false, so the bar's style
+  // comes from the plist until JS applies `barStyle="light-content"`
+  // (`App.tsx`). Without this key the launch screen and the first frames show
+  // dark glyphs on the dark chassis.
+  it('shows light glyphs from launch, before JS takes over', () => {
+    expect(stringValue(infoPlist, 'UIStatusBarStyle')).toBe(
+      'UIStatusBarStyleLightContent',
+    );
+  });
+});
+
 describe('app entitlements (spec section 11)', () => {
   it('no longer claims the push-to-talk entitlement', () => {
     expect(entitlements).not.toContain('com.apple.developer.push-to-talk');
