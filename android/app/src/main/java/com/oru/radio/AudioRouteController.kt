@@ -75,7 +75,8 @@ class AudioRouteController(
     private var modeSettleDeadlineMs: Long? = null
 
     /**
-     * The mode last handed to [AudioManagerFacade.setMode] while it had not yet landed.
+     * The mode handed to [AudioManagerFacade.setMode] that has not yet landed, or null when
+     * no request is in flight.
      *
      * Deviation from the plan's literal snippet (see task-3-brief.md "A known conflict"):
      * the brief's [applyProfile] as written re-issues `setMode` on every re-entrant pass
@@ -84,6 +85,11 @@ class AudioRouteController(
      * from "a new wanted mode showed up". Tracking the last *requested* mode separately
      * closes that gap: a wanted mode that has already been requested and has not landed
      * is not requested again, while a genuinely new wanted mode still is.
+     *
+     * Only ever set while a request is actually pending (see [applyProfile]): a mode that
+     * lands synchronously leaves this field alone, so it does not go on claiming a request
+     * is in flight once none is. [stop] resets it alongside the rest of the session state,
+     * so a stale value never survives into the next `start()`.
      */
     private var modeRequested: Int? = null
 
@@ -122,6 +128,7 @@ class AudioRouteController(
         establishing = null
         attempts.clear()
         demoted.clear()
+        modeRequested = null
         facade.setMode(AudioManager.MODE_NORMAL)
         facade.stop()
         listener = null
@@ -288,6 +295,9 @@ class AudioRouteController(
      * [modeRequested] (not just [modeSettleDeadlineMs]) is what tells a wanted mode that was
      * already requested and has not landed apart from a genuinely new wanted mode: see the
      * `modeRequested` doc comment by the field for why the deadline alone cannot do this.
+     * It is set only once the mode did *not* land synchronously — a mode that lands right
+     * inside this call leaves no request in flight, so [modeRequested] must be left alone
+     * (see the field's doc comment for what marking it "in flight" there would break).
      *
      * [modeRequested] is cleared as soon as the wanted mode is observed already in force
      * ([facade.mode] == wanted): the plan's original snippet re-requested `setMode` on every
@@ -302,8 +312,8 @@ class AudioRouteController(
         if (facade.mode() != wanted) {
             if (modeRequested != wanted) {
                 facade.setMode(wanted)
-                modeRequested = wanted
                 if (facade.mode() != wanted) {
+                    modeRequested = wanted
                     modeSettleDeadlineMs = clock() + MODE_SETTLE_TIMEOUT_MS
                     modeBackstop = scheduler.schedule(MODE_SETTLE_TIMEOUT_MS) {
                         modeBackstop = null
