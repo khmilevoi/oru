@@ -329,6 +329,10 @@ class AndroidAudioManagerFacade(
             Log.w(TAG, "route: no tone generator", error)
             return
         }
+        // A grant tone inside the previous one's release window supersedes it: release the
+        // outgoing generator here rather than leaving it to a delayed callback whose identity
+        // check will now skip it. Its tone is already done or being cut off by this one.
+        toneGenerator?.release()
         toneGenerator = generator
         generator.startTone(ToneGenerator.TONE_PROP_BEEP, TONE_MS)
         handler.postDelayed(
