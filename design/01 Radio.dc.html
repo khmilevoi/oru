@@ -24,6 +24,8 @@
           .scantext { font-size: 15px; letter-spacing: 0.16em; color: var(--dim); text-transform: uppercase; }
           .txhint { color: oklch(0.78 0.12 27); }
           .canvasnote { position: absolute; left: 48px; top: 968px; font: 500 11px/1.8 var(--mono); letter-spacing: 0.14em; color: #5a636b; text-transform: uppercase; white-space: nowrap; }
+          .canvasnote.hold { left: 3648px; width: 2140px; white-space: normal; }
+          .canvasnote.hold b { color: #7d868e; font-weight: 600; }
 
           /* ---- radio power control ---- */
           .phone.off { background: #070809; }
@@ -63,6 +65,39 @@
           .offstage { gap: 46px; }
           .offcopy { display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
           .offword { color: var(--dim); }
+
+          /* ---- power-off hold seal (frames 09–13) ----
+             Four rails inset from the screen edge. Both grow from the power
+             key's corner (bottom-right) and race in opposite directions; they
+             meet at the far corner at 100%. For ANY rectangle each path is
+             exactly (railW + railH) long, so the two arrive together on every
+             screen size without a per-device constant. */
+          .sealing { position: absolute; inset: 0; pointer-events: none; }
+          .sealwash { position: absolute; inset: 0; background: var(--seal-wash); }
+          .seal {
+            position: absolute;
+            background: var(--seal);
+            border-radius: 2px;
+            box-shadow: var(--seal-glow);
+          }
+          /* bottom + top rails are anchored RIGHT and grow left;
+             left + right rails are anchored BOTTOM and grow up. */
+          .seal.b { right: var(--seal-inset); bottom: var(--seal-inset); height: var(--seal-w); }
+          .seal.t { right: var(--seal-inset); top: var(--seal-inset); height: var(--seal-w); }
+          .seal.r { right: var(--seal-inset); bottom: var(--seal-inset); width: var(--seal-w); }
+          .seal.l { left: var(--seal-inset); bottom: var(--seal-inset); width: var(--seal-w); }
+          .sealing.abort .seal { opacity: 0.5; box-shadow: none; }
+          /* Canvas-only: the ground the rail has already given back, so a
+             still frame still reads as receding. Not an implementable layer.
+             Needs the `.sealing.abort` prefix to out-specify the rule above. */
+          .sealing.abort .seal.sealghost { opacity: 0.16; box-shadow: none; }
+          /* The armed corner key: `.pwrring` / `.pwrstem` both take currentColor. */
+          .pwr.arm { color: var(--amber); }
+          .pwr.arm .pwrmark { filter: drop-shadow(0 0 7px var(--amber-glow)); }
+          /* The stage recedes while the seal runs — it is not the live control. */
+          .ringhold { border-color: var(--line); }
+          .sealcopy { color: var(--amber); }
+          .holdword.sm { font-size: 27px; }
 
           /* ---- audio route readout (indicator only — never a picker) ---- */
           .routeline {
@@ -288,9 +323,136 @@
         </div>
       </div>
 
+      <div class="frame" style="left:3648px;top:56px" data-screen-label="Radio — Power-off hold, 15%">
+        <div class="flabel" data-drags-parent="1">radio · 09 power-off hold · 15% · 180ms</div>
+        <div class="phone">
+          <div class="sbar"><span>14:32</span><span class="batt"></span></div>
+          <div class="peer"><span class="pdot"></span><span>{{ t.nearby }}</span></div>
+          <div class="stage">
+            <div class="ring ringhold">
+              <div class="{{ t.holdOffCls }}">{{ t.holdOff }}</div>
+            </div>
+          </div>
+          <div class="sealing">
+            <div class="sealwash" style="opacity:0.15"></div>
+            <i class="seal b" style="width:176px"></i>
+            <i class="seal r" style="height:176px"></i>
+          </div>
+          <div class="gear">⚙&#xFE0E;</div>
+          <div class="pwr arm"><div class="pwrmark"><i class="pwrring"></i><i class="pwrstem"></i></div></div>
+          <div class="routeline route"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ t.routeBtVoice }}</span></div>
+        </div>
+      </div>
+
+      <div class="frame" style="left:4098px;top:56px" data-screen-label="Radio — Power-off hold, 55%">
+        <div class="flabel" data-drags-parent="1">radio · 10 power-off hold · 55% · 660ms</div>
+        <div class="phone">
+          <div class="sbar"><span>14:32</span><span class="batt"></span></div>
+          <div class="peer"><span class="pdot"></span><span>{{ t.nearby }}</span></div>
+          <div class="stage">
+            <div class="ring ringhold">
+              <div class="{{ t.holdOffCls }}">{{ t.holdOff }}</div>
+            </div>
+          </div>
+          <div class="sealing">
+            <div class="sealwash" style="opacity:0.55"></div>
+            <i class="seal b" style="width:358px"></i>
+            <i class="seal r" style="height:644px"></i>
+            <i class="seal l" style="height:286px"></i>
+          </div>
+          <div class="gear">⚙&#xFE0E;</div>
+          <div class="pwr arm"><div class="pwrmark"><i class="pwrring"></i><i class="pwrstem"></i></div></div>
+          <div class="routeline route"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ t.routeBtVoice }}</span></div>
+        </div>
+      </div>
+
+      <div class="frame" style="left:4548px;top:56px" data-screen-label="Radio — Power-off hold, 95%">
+        <div class="flabel" data-drags-parent="1">radio · 11 power-off hold · 95% · 1140ms · rails 59px apart</div>
+        <div class="phone">
+          <div class="sbar"><span>14:32</span><span class="batt"></span></div>
+          <div class="peer"><span class="pdot"></span><span>{{ t.nearby }}</span></div>
+          <div class="stage">
+            <div class="ring ringhold">
+              <div class="{{ t.holdOffCls }}">{{ t.holdOff }}</div>
+            </div>
+          </div>
+          <div class="sealing">
+            <div class="sealwash" style="opacity:0.95"></div>
+            <i class="seal b" style="width:358px"></i>
+            <i class="seal r" style="height:812px"></i>
+            <i class="seal l" style="height:754px"></i>
+            <i class="seal t" style="width:300px"></i>
+          </div>
+          <div class="gear">⚙&#xFE0E;</div>
+          <div class="pwr arm"><div class="pwrmark"><i class="pwrring"></i><i class="pwrstem"></i></div></div>
+          <div class="routeline route"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ t.routeBtVoice }}</span></div>
+        </div>
+      </div>
+
+      <div class="frame" style="left:4998px;top:56px" data-screen-label="Radio — Power-off hold aborted">
+        <div class="flabel" data-drags-parent="1">radio · 12 hold aborted · released at 55% · rails recede to the key</div>
+        <div class="phone">
+          <div class="sbar"><span>14:32</span><span class="batt"></span></div>
+          <div class="peer"><span class="pdot"></span><span>{{ t.nearby }}</span></div>
+          <div class="stage">
+            <div class="ring">
+              <div class="{{ t.holdCls }}" style="opacity:0.5">{{ t.hold }}</div>
+            </div>
+          </div>
+          <div class="sealing abort">
+            <div class="sealwash" style="opacity:0.22"></div>
+            <i class="seal sealghost b" style="right:273px;width:101px"></i>
+            <i class="seal sealghost r" style="bottom:273px;height:387px"></i>
+            <i class="seal sealghost l" style="height:286px"></i>
+            <i class="seal b" style="width:257px"></i>
+            <i class="seal r" style="height:257px"></i>
+          </div>
+          <div class="gear">⚙&#xFE0E;</div>
+          <div class="pwr"><div class="pwrmark"><i class="pwrring"></i><i class="pwrstem"></i></div></div>
+          <div class="routeline route"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ t.routeBtVoice }}</span></div>
+        </div>
+      </div>
+
+      <div class="frame" style="left:5448px;top:56px" data-screen-label="Radio — Power-off hold, 55% (other locale)">
+        <div class="flabel" data-drags-parent="1">radio · 13 power-off hold · 55% · {{ alt.name }} locale</div>
+        <div class="phone">
+          <div class="sbar"><span>14:32</span><span class="batt"></span></div>
+          <div class="peer"><span class="pdot"></span><span>{{ alt.nearby }}</span></div>
+          <div class="stage">
+            <div class="ring ringhold">
+              <div class="{{ alt.holdOffCls }}">{{ alt.holdOff }}</div>
+            </div>
+          </div>
+          <div class="sealing">
+            <div class="sealwash" style="opacity:0.55"></div>
+            <i class="seal b" style="width:358px"></i>
+            <i class="seal r" style="height:644px"></i>
+            <i class="seal l" style="height:286px"></i>
+          </div>
+          <div class="gear">⚙&#xFE0E;</div>
+          <div class="pwr arm"><div class="pwrmark"><i class="pwrring"></i><i class="pwrstem"></i></div></div>
+          <div class="routeline route"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ alt.routeBtVoice }}</span></div>
+        </div>
+      </div>
+
+      <div class="canvasnote hold">
+        <div><b>POWER-OFF HOLD SEAL · FRAMES 09–13 · RULES FOR THE IMPLEMENTER</b></div>
+        <div>WHERE · THE LIVE RADIO SCREEN ONLY, STATES SEARCHING AND READY, DRIVEN BY THE CORNER POWER KEY. THE OFF SCREEN'S HERO KEY IS A PLAIN TAP (“TAP TO TURN ON”) AND MUST NOT GROW A HOLD. THE KEY IS RECEDED AND UNTAPPABLE WHILE TRANSMITTING / RECEIVING, SO THE SEAL CAN NEVER RUN OVER THE RED OR GREEN WASH.</div>
+        <div>GEOMETRY · FOUR RAILS, 3PT, INSET 16PT, 2PT END RADIUS. BOTH START AT THE POWER KEY'S CORNER (BOTTOM-RIGHT): ONE RUNS ALONG THE BOTTOM THEN UP THE LEFT, THE OTHER UP THE RIGHT THEN ALONG THE TOP. EACH PATH IS EXACTLY (RAILW + RAILH) LONG FOR ANY RECTANGLE, SO BOTH CLOSE ON THE TOP-LEFT CORNER TOGETHER WITH NO PER-DEVICE CONSTANT. THE 32PT CORNER GAPS ARE DELIBERATE — ENGRAVED RAILS, NOT A CONTINUOUS STRIP, AND THEY KEEP THE SEAL CLEAR OF THE DEVICE CORNER RADIUS.</div>
+        <div>TIMING · ONE ANIMATED VALUE 0→1 OVER 1200MS (`--seal-ms`, THE EXISTING `motion.powerHoldMs`), LINEAR — A HOLD METER MUST NOT EASE OR IT LIES ABOUT HOW MUCH IS LEFT. BREAKPOINTS ARE DERIVED, NOT HARDCODED: KX = RAILW / (RAILW + RAILH) = 0.306, KY = RAILH / (RAILW + RAILH) = 0.694. BOTTOM WIDTH 0→RAILW OVER [0, KX]; LEFT HEIGHT 0→RAILH OVER [KX, 1]; RIGHT HEIGHT 0→RAILH OVER [0, KY]; TOP WIDTH 0→RAILW OVER [KY, 1]. ALL CLAMPED.</div>
+        <div>ABORT · RELEASING BEFORE 1200MS CANCELS THE COMMIT TIMER AND ANIMATES THE SAME VALUE BACK TO 0 OVER 260MS (`--seal-abort-ms`), EASE-OUT CUBIC. THE RAILS RETRACT ALONG THE PATH THEY CAME, BACK INTO THE KEY. NEVER SNAP THE VALUE TO 0 AND NEVER FLASH A COLOUR ON ABORT — A RECEDE IS THE ONLY THING THAT READS AS “NOTHING HAPPENED”. FRAME 12 SHOWS THE MOMENT; ITS FAINT TRAILING RAILS ARE A CANVAS DEVICE FOR A STILL IMAGE, NOT A LAYER TO BUILD.</div>
+        <div>ACCENT · AMBER, NEVER RED. RED IS TRANSMITTING AND OWNS A FULL-SCREEN WASH OF ITS OWN; A RED FULL-SCREEN EVENT HERE WOULD MAKE THE MOST DESTRUCTIVE ACTION LOOK LIKE THE MOST ROUTINE ONE. GREEN IS PEERS AND RECEIVING. AMBER IS THE ONLY UNSPENT ACCENT AND ALREADY MEANS “ARMED, FINISH THE ACTION” ON 03 PAIRING. THE FORMS ALSO DIFFER SO HUE IS NEVER LOAD-BEARING: TRANSMIT IS A CENTRE-WEIGHTED WASH PLUS A FILLED RING, THE SEAL IS A PERIMETER LINE.</div>
+        <div>LAYERS · (1) THE RAILS, WITH `--seal-glow` SO THEY BLOOM INTO PERIPHERAL VISION. (2) A WASH ANCHORED AT THE THUMB'S CORNER, `--seal-wash`, OPACITY TRACKING PROGRESS LINEARLY, PEAK ALPHA 0.20 — IT SITS UNDER THE GEAR, KEY AND ROUTE READOUT, WHICH ALL STAY LEGIBLE. (3) THE RING BORDER RECEDES TO `--line` AND ITS LABEL CROSS-FADES FROM “HOLD TO TALK” TO THE AMBER POWER-OFF LINE OVER THE FIRST 15%. (4) THE CORNER KEY GOES AMBER. THE OLD 3PT BAR INSIDE THE KEY (`power-key-progress`) IS DELETED — IT LIVED UNDER THE THUMB, WHICH IS THE WHOLE REASON FOR THIS REDESIGN.</div>
+        <div>COMPLETION · AT 100% HOLD THE CLOSED LOOP 90MS, TAKE THE WASH TO FULL, THEN THE STANDARD 220MS FADE TO THE OFF SCREEN. THE CLOSE IS ANNOUNCED BY THAT FLASH AND A HAPTIC, NOT BY A VISIBLE CORNER JOIN.</div>
+        <div>REDUCED MOTION · NO GROWTH. RENDER THE FULL PERIMETER AT 0.5 OPACITY WITH THE AMBER COPY FOR THE WHOLE HOLD, POWER OFF AT 1200MS, CLEAR INSTANTLY ON RELEASE — THE SAME BRANCH THE KEY ALREADY TAKES TODAY.</div>
+        <div>PRIMITIVES · WIDTH / HEIGHT INTERPOLATION, OPACITY, BORDERS, BOXSHADOW AND A BACKGROUNDIMAGE GRADIENT — ALL ALREADY USED IN THIS APP, NO NEW DEPENDENCY. WIDTH AND HEIGHT FORCE `useNativeDriver: false`, SO EVERY LAYER MUST HANG OFF THE ONE NON-NATIVE VALUE; DO NOT SPLIT SOME LAYERS ONTO A NATIVE-DRIVEN VALUE. AN SVG STROKE-DASHOFFSET RING WOULD BE SMOOTHER BUT NEEDS A NEW LIBRARY AND IS RULED OUT BY THE DEPENDENCY FREEZE.</div>
+        <div>COPY · “HOLD TO TURN THE RADIO OFF” / “УДЕРЖИВАЙТЕ, ЧТОБЫ ВЫКЛЮЧИТЬ РАЦИЮ” — THE CATALOG MESSAGE THAT IS ALREADY THE KEY'S ACCESSIBILITY LABEL, UPPERCASED BY STYLE, NOT RE-TRANSLATED.</div>
+      </div>
+
       <div class="canvasnote">
         <div>ALL COPY LOCALIZED EN / RU · ENGLISH DEFAULT · LANGUAGE FOLLOWS SYSTEM LOCALE UNLESS OVERRIDDEN — SETTINGS CARRIES AN IN-APP PICKER SINCE 2026-08-19 (SEE 02 SETTINGS) · USE THE “LANG” TWEAK TO SWITCH LOCALE</div>
-        <div>POWER KEY · FIRST-CLASS MAIN-SCREEN CONTROL, NEVER A SETTINGS ITEM · IN OFF THE WHOLE SCREEN IS THE ON-SWITCH · WHEN ON IT MIRRORS THE SETTINGS GEAR IN THE OPPOSITE CORNER, PRESS AND HOLD TO TURN OFF · RECEDES WHILE TRANSMITTING / RECEIVING</div>
+        <div>POWER KEY · FIRST-CLASS MAIN-SCREEN CONTROL, NEVER A SETTINGS ITEM · IN OFF THE WHOLE SCREEN IS THE ON-SWITCH, A PLAIN TAP — NO HOLD · WHEN ON IT MIRRORS THE SETTINGS GEAR IN THE OPPOSITE CORNER, PRESS AND HOLD TO TURN OFF · RECEDES WHILE TRANSMITTING / RECEIVING</div>
+        <div>THE POWER-OFF HOLD RUNS ACROSS THE WHOLE SCREEN AS AN AMBER PERIMETER SEAL, NOT AS A FILL ON THE KEY UNDER THE THUMB · FRAMES 09–13 AND THEIR NOTE</div>
         <div>AUDIO ROUTE READOUT · BOTTOM CENTRE BETWEEN GEAR AND POWER · ROUTE ICON + DEVICE + MODE · INDICATOR ONLY — NEVER A PICKER, NO TAP TARGET · HIDDEN WHILE OFF · STAYS PUT WHILE TRANSMITTING / RECEIVING — IT NAMES THE LIVE MIC · ALL STATES IN FRAME 08</div>
       </div>
     </x-dc>
@@ -309,6 +471,8 @@
               nearby: "2 nearby",
               hold: "HOLD TO TALK",
               holdCls: "display holden",
+              holdOff: "HOLD TO\nTURN THE\nRADIO OFF",
+              holdOffCls: "display holdword sealcopy",
               tx: "TRANSMITTING...",
               txHint: "RELEASE TO FINISH",
               rx: "RECEIVING...",
@@ -326,6 +490,8 @@
               nearby: "2 рядом",
               hold: "УДЕРЖИВАЙТЕ\nЧТОБЫ ГОВОРИТЬ",
               holdCls: "display holdword",
+              holdOff: "УДЕРЖИВАЙТЕ,\nЧТОБЫ ВЫКЛЮЧИТЬ\nРАЦИЮ",
+              holdOffCls: "display holdword sm sealcopy",
               tx: "ПЕРЕДАЧА...",
               txHint: "ОТПУСТИТЕ ЧТОБЫ ЗАКОНЧИТЬ",
               rx: "ПРИЁМ...",
