@@ -79,6 +79,82 @@ DesignSync tool of its own). The remote was read first and still matched the ear
 so nothing was clobbered; the write was verified by re-fetching `01 Radio.dc.html` and
 confirming it carries the reserved `.hintslot` and the geometry note.
 
+**2026-08-19 — icons over words.** The product owner: *"Instead of HOLD TO TALK I want
+an icon — it is more laconic and simpler. And in the design generally, try to use icons
+for readability and brevity."* All four screens and `theme.css` changed.
+
+The ring is the case that proves the ask. `HOLD TO TALK` is short; «УДЕРЖИВАЙТЕ ЧТОБЫ
+ГОВОРИТЬ» is not, and the design had already dropped the ring's type scale from 40pt to
+33pt and pre-broken the string across two lines to fit one locale. **A glyph is the same
+size in every language.** `01 Radio` frames 03 / 07 / 12 now carry a hand-built
+microphone — the first icon this canvas has ever put inside the talk ring — and the ring
+itself is untouched: same 302 diameter, same 2pt border box, same centre. The glyph is a
+*child* of a fixed box, and **no sibling of the ring was added to `.stage`**.
+
+**The hold caption stays, demoted.** A static glyph cannot say "hold", and tap-versus-hold
+is the one thing a user cannot discover by looking: a tap yields a sub-100ms transmission
+or nothing, indistinguishable from a broken app. So the ready state keeps one 13pt
+`.subhint` line — `HOLD` / «УДЕРЖИВАЙТЕ», the verb only, since the glyph supplies "talk" —
+in the `.hintslot` that the geometry fix already reserved and left *empty* in this state.
+It therefore costs **zero layout**, and spends about a quarter of the ink the 40pt headline
+did. The instruction was not removed, it was moved out of the headline slot and into chrome.
+
+The rest of the pass, each with the word relocated rather than deleted:
+
+- **`STEP n OF m` deleted** (`04 Onboarding`) — `.obdots` already rendered exactly that.
+  The strings survive as the dot row's `accessibilityLabel`. Because the dots are now the
+  only step indicator, they differ by **shape**, not only hue: pending is a hollow ring,
+  current an 18×6 `--ink` pill, done a filled `--green` dot.
+- **`BUTTON CONNECTED` deleted** (`03 Pairing`) — a 96pt green tick restating itself in
+  30pt display type directly underneath. The mark grew to the shared 132pt `.okbig`, which
+  moved to `theme.css`, so **both success moments in the product are now one glyph**.
+- **Route readout dropped the generic device word** — the glyph says speaker / wired /
+  bluetooth in every locale at once. Only a Bluetooth route adds text of its own: the
+  headset name exactly as the OS reports it. The **mode stays a word** ("radio" / "music,
+  phone mic") — it is a policy statement about what the headset is for, not a state.
+  Frame 08 gained a nameless-headset row.
+- **`still scanning` became the pulsing amber dot**, moved onto the `Found` section label
+  so it has something to anchor to; a whole row of chrome deleted.
+- **`BLE ·` became four signal bars** (`.sig`, new). The dBm figure **stays** — four bars
+  cannot separate two similarly named buttons on the same shelf. RSSI→bars mapping is
+  stated so nobody invents one.
+- **The settings connection dot is state-coloured** (`.pdot.off`, new). Frame 02 had no dot
+  where frame 01 had a green one, which is how the app came to show green beside
+  "Not connected". Both frames now carry the same `.devrow`.
+- **The gear stopped being a codepoint.** The canvas drew it as `⚙` U+2699 with VS15 while
+  the app had already rebuilt it from Views, because U+2699 renders as a colour emoji
+  without the variation selector and VS15 is unreliable on Android. The canvas now draws
+  the same primitive gear (eight 3×6 teeth on wrappers rotated k×45°, hub ring inset 5 at
+  2pt), so reference and build agree.
+
+New in `theme.css`: eight `--icon-*` tokens, and the shared `.micmark` / `.gearmark` /
+`.sig` / `.okbig` / `.pdot.off` components. The microphone is **one glyph at two idioms** —
+every part is a fraction of its box, so only `--m` and `--ms` change between the ring's
+160/3.5 and onboarding's 176/2.5.
+
+`01 Radio` gained **frame 14, an icon-system glyph sheet** (each new glyph at size and at
+3×, with its full construction spec) and a `.canvasnote icons` carrying the contract: the
+four idioms and when each applies, why stroke belongs to the idiom and not the pixel count,
+primitives-only with the arc and rotation tricks named, never-an-emoji-codepoint, the
+colour discipline (a ready-state glyph in the talk ring is `--ink`, never an accent), the
+accessibility rule — **the word is not deleted, it moves to the accessible name**, and every
+decorative glyph is hidden from the tree — and the list of labels that **stay words** with
+the reason for each: `PRESS THE PTT BUTTON` (the target is a physical button in the user's
+other hand), `TRANSMITTING…` / `RECEIVING…` (icon-only would separate TX from RX by hue
+alone and delete the only announcement of the live state), `Auto / Radio / Music` (a
+speaker-vs-note glyph would read as "output device", the exact wrong model, and "Auto" has
+no glyph), permission-consent titles, every `.btn` label, `TAP TO TURN ON`, `RADIO OFF`.
+
+One accessibility fact shaped the ring change and is recorded in the note so nobody
+over-builds: the ready ring already sits inside a pressable declaring
+`accessibilityRole="button"` and the name "Push to talk" / «Нажмите и говорите», so no
+screen reader has ever announced `HOLD TO TALK`. **The glyph costs nothing in accessible
+name — and must not be given a redundant one of its own.**
+
+All five files (`theme.css`, `01 Radio`, `02 Settings`, `03 Pairing`, `04 Onboarding`) are
+**owed a DesignSync push**; the branch that made the change has no DesignSync tool, so the
+main session pushes and verifies, reading the remote first as on the earlier pushes.
+
 Spec §12.1 (`docs/superpowers/specs/2026-08-13-offline-nearby-ptt-design.md`) points at this
 canvas as the source of the visual design, but until now it was never exported — the P6 UI
 plan states this outright and records reconciling the app's tokens against the canvas as an
@@ -90,8 +166,8 @@ carries the values the plan invented from §12.1's one-sentence written directio
 
 | File | What it is |
 |---|---|
-| `theme.css` | Shared tokens (colours, fonts) and the component styles every screen reuses |
-| `01 Radio.dc.html` | Main screen — thirteen frames: off, searching, ready, transmitting, receiving, off/ready in the alternate locale, the audio-route-readout states sheet, and the power-off hold seal at 15/55/95%, aborted, and at 55% in the alternate locale |
+| `theme.css` | Shared tokens (colours, fonts, the `--icon-*` idiom scale) and the component styles every screen reuses, including the hand-built glyphs (`.micmark`, `.gearmark`, `.sig`, `.okbig`) |
+| `01 Radio.dc.html` | Main screen — fourteen frames: off, searching, ready, transmitting, receiving, off/ready in the alternate locale, the audio-route-readout states sheet, the power-off hold seal at 15/55/95%, aborted, and at 55% in the alternate locale, and the icon-system glyph sheet |
 | `02 Settings.dc.html` | Settings — button connected / not configured; both frames carry the Audio section (`audioMode`) |
 | `03 Pairing.dc.html` | Pairing — scan, select, learn, saved |
 | `04 Onboarding.dc.html` | Onboarding — microphone, Bluetooth, nearby devices, done |

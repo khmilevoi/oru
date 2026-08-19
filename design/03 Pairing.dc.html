@@ -16,14 +16,21 @@
         <style>
           .scantext { font-size: 14px; letter-spacing: 0.14em; color: var(--dim); text-transform: uppercase; }
           .scanhint { position: absolute; left: 40px; right: 40px; bottom: 40px; text-align: center; font-size: 12px; line-height: 1.7; color: var(--faint); }
-          .scanrow { display: flex; align-items: center; gap: 10px; padding: 30px 28px 0; font-size: 11px; letter-spacing: 0.14em; color: var(--faint); text-transform: uppercase; }
-          .scandot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); }
+          /* The "STILL SCANNING" row is gone (2026-08-19). The pulsing amber dot it
+             carried moved onto the FOUND section label, where it has something to
+             anchor to and means "this list is still filling" — a whole row of
+             chrome deleted, and the dot stops floating on its own. Amber because
+             this screen already spends amber on "armed, finish the action". */
+          .slabel.scanning { display: flex; align-items: center; gap: 10px; }
+          .scandot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); flex: none; }
           .learnring { width: 272px; height: 272px; border-radius: 50%; border: 2px solid var(--amber); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; text-align: center; color: var(--amber); }
           .learnword { font-size: 30px; line-height: 1.3; white-space: pre-line; }
           .learnsub { font-size: 13px; line-height: 1.7; color: var(--dim); text-align: center; max-width: 300px; }
-          .oktick { width: 96px; height: 96px; border-radius: 50%; border: 2px solid var(--green); position: relative; box-shadow: 0 0 60px oklch(0.72 0.17 152 / 0.22); }
-          .oktick::after { content: ""; position: absolute; left: 26px; top: 30px; width: 40px; height: 20px; border-left: 3px solid var(--green); border-bottom: 3px solid var(--green); transform: rotate(-45deg); }
-          .okword { font-size: 30px; line-height: 1.3; text-align: center; white-space: pre-line; }
+          /* `.oktick` (96 / 2 / 3) and `.okword` (the 30pt "BUTTON CONNECTED"
+             headline) were deleted on 2026-08-19. A 96 green tick with the words
+             restated directly under it said the same thing twice; the mark is now
+             the shared 132 `.okbig` from `theme.css` — the SAME success glyph
+             `04 Onboarding` ends on — and the words moved to the announcement. */
           .bindcard { width: 302px; padding: 16px 22px; }
           .brow { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; font-size: 12.5px; }
           .bk { color: var(--faint); }
@@ -56,19 +63,26 @@
         <div class="phone">
           <div class="sbar"><span>14:32</span><span class="batt"></span></div>
           <div class="shead"><span class="back">←</span><span class="stitle">{{ t.title }}</span></div>
-          <div class="scanrow"><span class="scandot pulse"></span><span>{{ t.still }}</span></div>
-          <div class="slabel">{{ t.found }}</div>
+          <div class="slabel scanning">
+            <span class="scandot pulse" role="img" aria-label="{{ t.still }}"></span><span>{{ t.found }}</span>
+          </div>
           <div class="dev">
             <div>
               <div class="devname">Zello PTT</div>
-              <div class="devmeta">BLE · −52 dBm</div>
+              <!-- −52 dBm → four bars. The number STAYS: four bars cannot separate
+                   two similarly named buttons lying on the same shelf. -->
+              <div class="devmeta">
+                <span class="sig" aria-hidden="true"><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i></span><span>−52 dBm</span>
+              </div>
             </div>
             <span class="chev">›</span>
           </div>
           <div class="dev">
             <div>
               <div class="devname">PTT-B01</div>
-              <div class="devmeta">BLE · −71 dBm</div>
+              <div class="devmeta">
+                <span class="sig" aria-hidden="true"><i class="f"></i><i class="f"></i><i></i><i></i></span><span>−71 dBm</span>
+              </div>
             </div>
             <span class="chev">›</span>
           </div>
@@ -98,8 +112,7 @@
           <div class="sbar"><span>14:32</span><span class="batt"></span></div>
           <div class="shead"><span class="back">←</span><span class="stitle">{{ t.title }}</span></div>
           <div class="stage pair">
-            <div class="oktick"></div>
-            <div class="display okword">{{ t.ok }}</div>
+            <div class="okbig" role="img" aria-label="{{ t.ok }}"></div>
             <div class="card bindcard">
               <div class="brow"><span class="bk">{{ t.kDevice }}</span><span class="bv">Zello PTT</span></div>
               <div class="brow"><span class="bk">service</span><span class="bv">0x1812</span></div>
@@ -123,12 +136,18 @@
               title: "Connect PTT button",
               scan: "SCANNING FOR BLE DEVICES...",
               hint: "Make sure the button is turned on and close to the phone.",
-              still: "still scanning",
+              // ACCESSIBILITY-ONLY since 2026-08-19 — the words moved out of the
+              // layout and onto the glyph that replaced them. Sentence case, not
+              // the display uppercase the visible versions carried literally.
+              still: "Still scanning",
               found: "Found",
+              // `learn` STAYS A WORD, deliberately: the user has to press a
+              // PHYSICAL button in their other hand, and no glyph separates that
+              // from "press this screen" — the screen is not the target.
               learn: "PRESS THE\nPTT BUTTON",
               learnSub: "Listening for a signal from “Zello PTT”...",
               cancel: "Cancel",
-              ok: "BUTTON\nCONNECTED",
+              ok: "Button connected",
               kDevice: "device",
               kPress: "press / release",
               done: "Done"
@@ -137,12 +156,13 @@
               title: "Подключение кнопки",
               scan: "ИЩЕМ BLE-УСТРОЙСТВА...",
               hint: "Убедитесь, что кнопка включена и находится рядом с телефоном.",
-              still: "поиск продолжается",
+              // accessibility-only, see the en table
+              still: "Поиск продолжается",
               found: "Найдено",
               learn: "НАЖМИТЕ\nКНОПКУ PTT",
               learnSub: "Слушаем сигнал от «Zello PTT»...",
               cancel: "Отмена",
-              ok: "КНОПКА\nПОДКЛЮЧЕНА",
+              ok: "Кнопка подключена",
               kDevice: "устройство",
               kPress: "нажатие / отпуск",
               done: "Готово"
