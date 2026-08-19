@@ -1,5 +1,7 @@
 package com.oru.bridge
 
+import com.oru.radio.AudioRoute
+import com.oru.radio.ModePolicy
 import com.oru.radio.PttBinding
 import com.oru.radio.PttButtonState
 import com.oru.radio.PttCandidate
@@ -45,7 +47,8 @@ class RadioBridgeCoreTest {
     private fun core(
         output: RadioBridgeOutput,
         configuration: () -> PttConfiguration? = { null },
-    ) = RadioBridgeCore(output, configuration)
+        audioMode: () -> ModePolicy.AudioMode = { ModePolicy.AudioMode.AUTO },
+    ) = RadioBridgeCore(output, configuration, audioMode)
 
     @Suppress("UNCHECKED_CAST")
     private fun Map<String, Any?>.button(): Map<String, Any?> =
@@ -72,7 +75,7 @@ class RadioBridgeCoreTest {
     @Test
     fun `off preserves the stored button and forces it disconnected`() {
         val output = RecordingOutput()
-        val snapshot = core(output) { bleConfiguration }.snapshot()
+        val snapshot = core(output, configuration = { bleConfiguration }).snapshot()
 
         assertEquals(true, snapshot.button()["configured"])
         assertEquals(false, snapshot.button()["connected"])
@@ -82,7 +85,7 @@ class RadioBridgeCoreTest {
     @Test
     fun `start publishes starting before the engine has said anything`() {
         val output = RecordingOutput()
-        val core = core(output) { bleConfiguration }
+        val core = core(output, configuration = { bleConfiguration })
 
         core.start()
 
@@ -142,7 +145,7 @@ class RadioBridgeCoreTest {
     @Test
     fun `stop publishes off and masks the engine's own teardown snapshot`() {
         val output = RecordingOutput()
-        val core = core(output) { bleConfiguration }
+        val core = core(output, configuration = { bleConfiguration })
         core.start()
         core.onEngineState(RadioState(status = RadioStatus.READY, nearbyCount = 3))
         output.states.clear()
@@ -165,7 +168,7 @@ class RadioBridgeCoreTest {
     fun `configurePtt resolves with the stored configuration once the session saves`() {
         val output = RecordingOutput()
         var stored: PttConfiguration? = null
-        val core = core(output) { stored }
+        val core = core(output, configuration = { stored })
         core.start()
 
         var saved: Map<String, Any?>? = null
@@ -202,7 +205,7 @@ class RadioBridgeCoreTest {
     fun `a hid configuration crosses as a flat keyCode binding`() {
         val output = RecordingOutput()
         val hid = PttConfiguration("Headset", PttBinding.Hid(keyCode = 79))
-        val core = core(output) { hid }
+        val core = core(output, configuration = { hid })
         core.start()
 
         var saved: Map<String, Any?>? = null
@@ -220,7 +223,7 @@ class RadioBridgeCoreTest {
     @Test
     fun `a leftover saved phase from an earlier session resolves nothing`() {
         val output = RecordingOutput()
-        val core = core(output) { bleConfiguration }
+        val core = core(output, configuration = { bleConfiguration })
         core.start()
         // PttManager leaves the previous session parked on `saved`.
         core.onEngineState(RadioState(pttPairing = PttPairingState(PttPairingPhase.SAVED)))
@@ -238,7 +241,7 @@ class RadioBridgeCoreTest {
         // PttManager.onLearned saves before publishing SAVED, so a null here is
         // the store failing to read back what was just written -- not the normal
         // path. The promise must fail rather than hang or resolve with nothing.
-        val core = core(output) { null }
+        val core = core(output, configuration = { null })
         core.start()
 
         var saved: Map<String, Any?>? = null
@@ -345,7 +348,7 @@ class RadioBridgeCoreTest {
     @Test
     fun `adopting a service that outlived the app reports the live radio, not off`() {
         val output = RecordingOutput()
-        val core = core(output) { bleConfiguration }
+        val core = core(output, configuration = { bleConfiguration })
 
         core.adopt(RadioState(status = RadioStatus.READY, nearbyCount = 2))
 
@@ -357,7 +360,7 @@ class RadioBridgeCoreTest {
     @Test
     fun `an adopted radio can pair, because its engine is available`() {
         val output = RecordingOutput()
-        val core = core(output) { bleConfiguration }
+        val core = core(output, configuration = { bleConfiguration })
         core.adopt(RadioState(status = RadioStatus.READY))
 
         val armed = core.beginPairing(true, onSaved = {}, onFailed = { _, _ -> })
@@ -369,7 +372,7 @@ class RadioBridgeCoreTest {
     fun `refresh re-publishes the current projection`() {
         val output = RecordingOutput()
         var stored: PttConfiguration? = bleConfiguration
-        val core = core(output) { stored }
+        val core = core(output, configuration = { stored })
 
         stored = null
         core.refresh()
@@ -396,33 +399,57 @@ class RadioBridgeCoreTest {
         this["audioRoute"] as Map<String, Any?>
 
     @Test
-    fun `every projection carries the placeholder audio route and mode`() {
+    fun `a running engine's real route and pin cross the bridge`() {
         val output = RecordingOutput()
         val core = core(output)
-
-        // Off, starting, running and failed: the four branches of project().
-        assertEquals("speaker", core.snapshot().route()["kind"])
-        assertEquals("voice", core.snapshot().route()["mode"])
-        assertEquals("auto", core.snapshot()["audioMode"])
-
         core.start()
-        assertEquals("speaker", output.last().route()["kind"])
-        assertEquals("auto", output.last()["audioMode"])
 
-        core.onEngineState(RadioState(status = RadioStatus.READY, nearbyCount = 2))
-        assertEquals("speaker", output.last().route()["kind"])
-        assertEquals("voice", output.last().route()["mode"])
-        assertEquals("auto", output.last()["audioMode"])
+        core.onEngineState(
+            RadioState(
+                status = RadioStatus.READY,
+                audioRoute = AudioRoute(
+                    AudioRoute.Kind.BLUETOOTH,
+                    "Buds Pro",
+                    ModePolicy.Profile.MEDIA,
+                ),
+                audioMode = ModePolicy.AudioMode.MEDIA,
+            ),
+        )
 
-        core.startFailed("boom", "the service would not start")
-        assertEquals("speaker", output.last().route()["kind"])
-        assertEquals("auto", output.last()["audioMode"])
+        assertEquals("bluetooth", output.last().route()["kind"])
+        assertEquals("Buds Pro", output.last().route()["label"])
+        assertEquals("media", output.last().route()["mode"])
+        assertEquals("media", output.last()["audioMode"])
     }
 
     @Test
-    fun `the placeholder route never carries a label`() {
-        // Section 8: `label` is optional and only Bluetooth routes have one.
-        // An absent key, never a null -- the same rule `pttButton.name` follows.
-        assertFalse(core(RecordingOutput()).snapshot().route().containsKey("label"))
+    fun `a route with no label omits the key, never sends null`() {
+        val output = RecordingOutput()
+        val core = core(output)
+        core.start()
+
+        core.onEngineState(RadioState(status = RadioStatus.READY))
+
+        assertEquals("speaker", output.last().route()["kind"])
+        assertEquals("voice", output.last().route()["mode"])
+        assertFalse(output.last().route().containsKey("label"))
+    }
+
+    @Test
+    fun `off, starting and error report the loudspeaker and the stored pin`() {
+        val output = RecordingOutput()
+        val stored = core(output, audioMode = { ModePolicy.AudioMode.VOICE })
+
+        // Off: no engine to ask, so the honest answer is the loudspeaker and the pin as saved.
+        assertEquals("speaker", stored.snapshot().route()["kind"])
+        assertEquals("voice", stored.snapshot()["audioMode"])
+
+        stored.start()
+        assertEquals("speaker", output.last().route()["kind"])
+        assertEquals("voice", output.last()["audioMode"])
+
+        stored.startFailed("boom", "the service would not start")
+        assertEquals("error", output.last()["status"])
+        assertEquals("voice", output.last()["audioMode"])
     }
 }
