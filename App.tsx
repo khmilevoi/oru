@@ -6,7 +6,10 @@ import React, {useEffect} from 'react';
 import {StatusBar, View} from 'react-native';
 import {I18nProvider} from '@lingui/react';
 import {i18n} from '@lingui/core';
-import {SafeAreaProvider} from 'react-native-safe-area-context';
+import {
+  initialWindowMetrics,
+  SafeAreaProvider,
+} from 'react-native-safe-area-context';
 
 import {AppRoot} from './src/app/AppRoot';
 import {resolveInitialRoute} from './src/permissions/sequencing.model';
@@ -30,7 +33,11 @@ function App() {
   }, []);
 
   return (
-    <SafeAreaProvider>
+    // `initialMetrics` seeds the provider with the insets the native side
+    // measured before JS loaded; without it every inset-aware screen renders
+    // one frame with zero insets and visibly jumps once the native
+    // `onInsetsChange` event lands.
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <I18nProvider i18n={i18n}>
         {/*
           react-native@0.87 dropped `StatusBar`'s `backgroundColor` prop

@@ -3,6 +3,7 @@ import ReactTestRenderer from 'react-test-renderer';
 import {I18nProvider} from '@lingui/react';
 import {i18n} from '@lingui/core';
 import {context} from '@reatom/core';
+import {SafeAreaProvider} from 'react-native-safe-area-context';
 import type {ReactTestInstance} from 'react-test-renderer';
 
 import {PairingFlow} from '../src/screens/PairingFlow';
@@ -157,9 +158,13 @@ describe('the pairing flow — spec sections 9.3 and 12.1', () => {
     let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
     await ReactTestRenderer.act(async () => {
       renderer = ReactTestRenderer.create(
-        <I18nProvider i18n={i18n}>
-          <PairingFlow onClose={jest.fn()} />
-        </I18nProvider>,
+        // Same ancestor `renderScreen` supplies: `ScreenFrame` reads
+        // `useSafeAreaInsets()`, which throws without a provider.
+        <SafeAreaProvider>
+          <I18nProvider i18n={i18n}>
+            <PairingFlow onClose={jest.fn()} />
+          </I18nProvider>
+        </SafeAreaProvider>,
       );
     });
     const tree = renderer as ReactTestRenderer.ReactTestRenderer;

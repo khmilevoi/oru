@@ -31,6 +31,14 @@ export type RenderOptions = {
   locale?: 'en' | 'ru';
   scenario?: MockScenarioName;
   reducedMotion?: boolean;
+  /**
+   * Safe-area insets the rendered tree sees, defaulting to the mock module's
+   * all-zero metrics. Zero insets are exactly the case that hid the
+   * status-bar overlap for so long -- every chassis assertion that cares
+   * about the notch or the home indicator must pass real-device numbers here
+   * (e.g. `{top: 59, bottom: 34, left: 0, right: 0}`), or it asserts nothing.
+   */
+  insets?: {top: number; right: number; bottom: number; left: number};
 };
 
 export type RenderedScreen = {
@@ -88,8 +96,17 @@ export async function renderScreen(
       // library has no silent zero-inset fallback. The mock module this
       // resolves to under Jest (`__mocks__/reactNativeSafeAreaContext.tsx`)
       // supplies synchronous zero insets, so every other screen's tree is
-      // unaffected by gaining this ancestor.
-      <SafeAreaProvider>
+      // unaffected by gaining this ancestor. `options.insets` overrides them
+      // through the same `initialMetrics` prop production uses.
+      <SafeAreaProvider
+        initialMetrics={
+          options.insets
+            ? {
+                frame: {x: 0, y: 0, width: 320, height: 640},
+                insets: options.insets,
+              }
+            : undefined
+        }>
         <I18nProvider i18n={i18n}>{element}</I18nProvider>
       </SafeAreaProvider>,
     );
