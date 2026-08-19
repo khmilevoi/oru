@@ -100,10 +100,15 @@ describe('the key controls — the ones that must buzz', () => {
     await screen.pressOut(testIds.powerKey);
     expect(effects(haptic)).toEqual([]);
 
-    // A full hold: `design/01 Radio.dc.html:446` — "THE CLOSE IS ANNOUNCED BY
-    // THAT FLASH AND A HAPTIC".
+    // A full hold: `design/01 Radio.dc.html`'s hold note — "THE CLOSE IS
+    // ANNOUNCED BY THAT FLASH AND A HAPTIC". The flash is the closed perimeter
+    // seal, held at 100% for `motion.sealCloseMs`; the buzz lands with the
+    // shut-off at the end of it, so both announce the same moment.
     await screen.pressIn(testIds.powerKey);
-    await screen.advance(motion.powerHoldMs + 1);
+    await screen.advance(motion.powerHoldMs);
+    expect(effects(haptic)).toEqual([]);
+
+    await screen.advance(motion.sealCloseMs + 1);
     expect(effects(haptic)).toEqual([HAPTIC_EFFECTS.powerOff]);
     expect(screen.hasText('RADIO OFF')).toBe(true);
 

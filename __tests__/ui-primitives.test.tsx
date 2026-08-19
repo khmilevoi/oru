@@ -1,10 +1,12 @@
 import React from 'react';
 import {StyleSheet, Text} from 'react-native';
 import {context} from '@reatom/core';
+import {reatomComponent} from '@reatom/react';
 
 import {ActionButton} from '../src/ui/ActionButton';
 import {GearButton} from '../src/ui/GearButton';
 import {PowerKey} from '../src/ui/PowerKey';
+import {useHoldToConfirm} from '../src/ui/useHoldToConfirm';
 import {PulseDot} from '../src/ui/PulseDot';
 import {ScreenFrame} from '../src/ui/ScreenFrame';
 import {colors, motion, sizes} from '../src/ui/theme';
@@ -17,6 +19,24 @@ jest.useFakeTimers({doNotFake: ['queueMicrotask']});
 beforeEach(() => {
   context.reset();
 });
+
+/**
+ * The corner key as its screen composes it: the press-and-hold is owned by the
+ * caller now, because its progress is painted across the whole screen rather
+ * than inside the key (`src/ui/HoldSeal.tsx`). A `reatomComponent`, like every
+ * real caller, so the hook's `reducedMotion()` read is a tracked one.
+ */
+const HeldKey = reatomComponent<{onConfirm: () => void}>(({onConfirm}) => {
+  const hold = useHoldToConfirm(onConfirm);
+  return (
+    <PowerKey
+      variant="corner"
+      hold={hold}
+      testID="power"
+      accessibilityLabel="Turn radio off"
+    />
+  );
+}, 'HeldKey');
 
 describe('PowerKey', () => {
   it('fires immediately when it is not a hold', async () => {
@@ -36,81 +56,71 @@ describe('PowerKey', () => {
     screen.unmount();
   });
 
-  it('only fires after the full hold when it guards a shut-off', async () => {
-    const onActivate = jest.fn();
-    const screen = await renderScreen(
-      <PowerKey
-        variant="corner"
-        holdToConfirm
-        onActivate={onActivate}
-        testID="power"
-        accessibilityLabel="Turn radio off"
-      />,
-    );
+  it('only fires after the full hold, and after its close, when it guards a shut-off', async () => {
+    const onConfirm = jest.fn();
+    const screen = await renderScreen(<HeldKey onConfirm={onConfirm} />);
 
     await screen.pressIn('power');
     await screen.advance(motion.powerHoldMs - 100);
-    expect(onActivate).not.toHaveBeenCalled();
+    expect(onConfirm).not.toHaveBeenCalled();
 
-    await screen.advance(200);
-    expect(onActivate).toHaveBeenCalledTimes(1);
+    // 100 to reach 100%, then the closed loop is held for `sealCloseMs` before
+    // the radio actually goes off -- the canvas's completion clause.
+    await screen.advance(100);
+    expect(onConfirm).not.toHaveBeenCalled();
+
+    await screen.advance(motion.sealCloseMs + 1);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
     screen.unmount();
   });
 
   it('cancels the hold when the finger leaves early', async () => {
-    const onActivate = jest.fn();
-    const screen = await renderScreen(
-      <PowerKey
-        variant="corner"
-        holdToConfirm
-        onActivate={onActivate}
-        testID="power"
-        accessibilityLabel="Turn radio off"
-      />,
-    );
+    const onConfirm = jest.fn();
+    const screen = await renderScreen(<HeldKey onConfirm={onConfirm} />);
 
     await screen.pressIn('power');
     await screen.advance(400);
     await screen.pressOut('power');
     await screen.advance(5000);
 
-    expect(onActivate).not.toHaveBeenCalled();
+    expect(onConfirm).not.toHaveBeenCalled();
     screen.unmount();
   });
 
-  it('freezes the hold-to-power-off progress bar at full width under reduced motion', async () => {
-    const onActivate = jest.fn();
-    const screen = await renderScreen(
-      <PowerKey
-        variant="corner"
-        holdToConfirm
-        onActivate={onActivate}
-        testID="power"
-        accessibilityLabel="Turn radio off"
-      />,
-      {reducedMotion: true},
-    );
+  it('draws no progress inside its own box any more', async () => {
+    // The hold's progress is the whole screen's amber perimeter seal now
+    // (`src/ui/HoldSeal.tsx`). The 3pt bar this key used to fill lived under
+    // the very thumb doing the holding, which is the entire reason for the
+    // redesign -- so nothing of it may survive here.
+    const onConfirm = jest.fn();
+    const screen = await renderScreen(<HeldKey onConfirm={onConfirm} />);
 
-    // No `screen.advance(...)` anywhere in this test: the whole point is that
-    // the bar is already full the instant the hold starts, not that it
-    // reaches full width -- reduced motion means it never animates there.
     await screen.pressIn('power');
+    await screen.advance(600);
 
-    const pressable = screen.root
-      .findAllByProps({testID: 'power'})
-      .find(node => typeof node.props.onPressIn === 'function');
-    if (!pressable) throw new Error('PowerKey Pressable not found');
-    const boxWidth = (StyleSheet.flatten(pressable.props.style) as {width: number})
-      .width;
+    expect(screen.findAll('power-key-progress')).toHaveLength(0);
+    screen.unmount();
+  });
 
-    const progress = screen.find('power-key-progress');
-    const progressWidth = (
-      StyleSheet.flatten(progress.props.style) as {width: number}
-    ).width;
+  it('arms in amber while the hold runs, and lets go the instant it ends', async () => {
+    const onConfirm = jest.fn();
+    const screen = await renderScreen(<HeldKey onConfirm={onConfirm} />);
+    const ringColor = () =>
+      (
+        StyleSheet.flatten(screen.find('power-key-ring').props.style) as {
+          borderColor: string;
+        }
+      ).borderColor;
 
-    expect(typeof progressWidth).toBe('number');
-    expect(progressWidth).toBe(boxWidth);
+    expect(ringColor()).toBe(colors.textFaint);
 
+    await screen.pressIn('power');
+    // `.pwr.arm` is amber. Red belongs to TRANSMITTING and to nothing else.
+    expect(ringColor()).toBe(colors.seal);
+    expect(ringColor()).not.toBe(colors.tx);
+
+    await screen.pressOut('power');
+    expect(ringColor()).toBe(colors.textFaint);
     screen.unmount();
   });
 });

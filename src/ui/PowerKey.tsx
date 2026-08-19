@@ -1,24 +1,37 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Animated, Pressable, StyleSheet, View} from 'react-native';
+import React from 'react';
+import {Pressable, StyleSheet, View} from 'react-native';
 import {reatomComponent} from '@reatom/react';
 
-import {colors, motion, radii, sizes} from './theme';
-import {reducedMotion} from './reducedMotion';
+import {colors, glows, sizes} from './theme';
+import type {HoldHandle} from './useHoldToConfirm';
 
 /**
  * The hardware-style IEC power key of spec section 12.1 -- a ring broken at the
  * top with a bar rising through the gap. Drawn from plain views rather than an
  * SVG, so it needs no dependency and scales with `variant`.
  *
- * `hero` is the whole-screen on-switch of the `off` state; `corner` is the
- * small key that mirrors the settings gear once the radio is on. Turning the
- * radio *off* is a press-and-hold (`holdToConfirm`), a guard against an
- * accidental shut-off on a screen that is one giant touch area.
+ * `hero` is the whole-screen on-switch of the `off` state, a plain TAP; `corner`
+ * is the small key that mirrors the settings gear once the radio is on, and
+ * turning the radio off is a press-and-hold -- a guard against an accidental
+ * shut-off on a screen that is one giant touch area.
+ *
+ * The key does not own that hold. It used to, along with a 3pt progress bar
+ * drawn inside its own 56pt box -- under the very thumb doing the holding,
+ * where it could not be seen. The canvas now runs that progress across the
+ * whole screen as an amber perimeter seal (`design/01 Radio.dc.html` frames
+ * 09-13), so the gesture belongs to the screen: it passes a `hold` handle from
+ * `useHoldToConfirm` and this key drives it and reports it. All that is left
+ * here is `.pwr.arm` -- the key goes amber while the hold runs.
  */
 export type PowerKeyProps = {
   variant: 'hero' | 'corner';
-  onActivate: () => void;
-  holdToConfirm?: boolean;
+  /** A tap key's action. Mutually exclusive with `hold` in practice. */
+  onActivate?: () => void;
+  /**
+   * A hold key's gesture, owned by the screen because its progress is painted
+   * across the screen. `undefined` makes this a tap key.
+   */
+  hold?: HoldHandle;
   disabled?: boolean;
   /**
    * The colour the ring's gap is painted in. The notch has to match whatever
@@ -49,50 +62,21 @@ const SIZES = {
 } as const;
 
 export const PowerKey = reatomComponent<PowerKeyProps>(
-  ({variant, onActivate, holdToConfirm = false, disabled = false, notchColor = colors.background, accessibilityLabel, testID}) => {
-    const still = reducedMotion();
+  ({variant, onActivate, hold, disabled = false, notchColor = colors.background, accessibilityLabel, testID}) => {
     const size = SIZES[variant];
-    const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const [holding, setHolding] = useState(false);
-    const progress = useRef(new Animated.Value(0)).current;
-
-    const clear = useCallback(() => {
-      if (timer.current !== null) {
-        clearTimeout(timer.current);
-        timer.current = null;
-      }
-      progress.stopAnimation();
-      progress.setValue(0);
-      setHolding(false);
-    }, [progress]);
-
-    useEffect(() => clear, [clear]);
-
-    const onPressIn = () => {
-      if (disabled || !holdToConfirm) return;
-
-      setHolding(true);
-      if (!still) {
-        Animated.timing(progress, {
-          toValue: 1,
-          duration: motion.powerHoldMs,
-          useNativeDriver: false,
-        }).start();
-      }
-      timer.current = setTimeout(() => {
-        clear();
-        onActivate();
-      }, motion.powerHoldMs);
-    };
-
-    const onPressOut = () => {
-      if (!holdToConfirm) return;
-      clear();
-    };
+    /**
+     * `.pwr.arm`: amber from the first instant of the hold until it commits,
+     * and released the moment the finger leaves -- frame 12 shows an aborted
+     * hold with the key already back to its resting colour, while the rails
+     * are still retracting. Amber, not the red this key used to take: red is
+     * TRANSMITTING and owns a full-screen wash of its own.
+     */
+    const armed = hold?.phase === 'holding' || hold?.phase === 'closing';
+    const mark = armed ? colors.seal : colors.textFaint;
 
     const onPress = () => {
-      if (disabled || holdToConfirm) return;
-      onActivate();
+      if (disabled || hold) return;
+      onActivate?.();
     };
 
     return (
@@ -103,8 +87,8 @@ export const PowerKey = reatomComponent<PowerKeyProps>(
         accessibilityLabel={accessibilityLabel}
         accessibilityState={{disabled}}
         onPress={onPress}
-        onPressIn={onPressIn}
-        onPressOut={onPressOut}
+        onPressIn={hold && !disabled ? hold.onPressIn : undefined}
+        onPressOut={hold ? hold.onPressOut : undefined}
         hitSlop={variant === 'corner' ? (sizes.cornerControl - SIZES.corner.box) / 2 : 0}
         style={[styles.hit, {width: size.box, height: size.box}]}>
         <View
@@ -116,9 +100,10 @@ export const PowerKey = reatomComponent<PowerKeyProps>(
               height: size.box,
               borderRadius: size.box / 2,
               borderWidth: size.border,
-              borderColor: holding ? colors.tx : colors.textFaint,
+              borderColor: mark,
               opacity: disabled ? 0.35 : 1,
             },
+            armed && styles.armed,
           ]}
         />
         {/* The gap the bar rises through: chassis-coloured, so it reads as a
@@ -142,29 +127,12 @@ export const PowerKey = reatomComponent<PowerKeyProps>(
               width: size.bar,
               height: size.barHeight,
               borderRadius: size.bar / 2,
-              backgroundColor: holding ? colors.tx : colors.textFaint,
+              backgroundColor: mark,
               top: size.box / 2 - size.barHeight + size.border,
               opacity: disabled ? 0.35 : 1,
             },
           ]}
         />
-        {holdToConfirm && holding ? (
-          <Animated.View
-            testID="power-key-progress"
-            style={[
-              styles.progress,
-              {
-                backgroundColor: colors.tx,
-                width: still
-                  ? size.box
-                  : progress.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, size.box],
-                    }),
-              },
-            ]}
-          />
-        ) : null}
       </Pressable>
     );
   },
@@ -176,11 +144,6 @@ const styles = StyleSheet.create({
   ring: {position: 'absolute'},
   notch: {position: 'absolute'},
   bar: {position: 'absolute'},
-  progress: {
-    position: 'absolute',
-    bottom: -6,
-    left: 0,
-    height: 3,
-    borderRadius: radii.sm,
-  },
+  /** `.pwr.arm .pwrmark`'s amber drop-shadow. */
+  armed: {boxShadow: glows.sealKey},
 });
