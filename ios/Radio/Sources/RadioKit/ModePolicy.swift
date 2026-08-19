@@ -90,7 +90,7 @@ public final class ModePolicy {
         public static let voiceLinkGrantTimeoutMs: Int64 = 4_000
         /// How long a raised link is held after PTT release, so the rest of the
         /// conversation is instant.
-        public static let voiceLinkLingerMs: Int64 = 15_000
+        public static let voiceLinkLingerMs: Int64 = 8_000
     }
 
     // MARK: - State

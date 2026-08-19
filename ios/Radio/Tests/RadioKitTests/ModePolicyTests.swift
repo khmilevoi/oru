@@ -125,7 +125,7 @@ final class ModePolicyTests: XCTestCase {
         XCTAssertEqual(ModePolicy.Constants.otherAudioToVoiceMs, 30_000)
         XCTAssertEqual(ModePolicy.Constants.switchRateLimitMs, 10_000)
         XCTAssertEqual(ModePolicy.Constants.voiceLinkGrantTimeoutMs, 4_000)
-        XCTAssertEqual(ModePolicy.Constants.voiceLinkLingerMs, 15_000)
+        XCTAssertEqual(ModePolicy.Constants.voiceLinkLingerMs, 8_000)
     }
 
     // MARK: - Defaults and the audioMode pin
@@ -402,15 +402,15 @@ final class ModePolicyTests: XCTestCase {
     // MARK: - The linger and the drop
 
     func testTheRaisedLinkLingers() {
-        assertRow("the raised link lingers fifteen seconds after release", [
+        assertRow("the raised link lingers eight seconds after release", [
             Step(0, .routeRequiresVoiceLink(true), .voice, [], .noTimer),
             Step(0, .otherAudio(true), .voice, [], .at(2_000)),
             Step(2_000, .tick, .media, [], .noTimer),
             Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
             Step(3_500, .voiceLinkEstablished, .voice,
                  [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
-            Step(5_000, .pttReleased, .voice, [], .at(20_000)),
-            Step(19_999, .tick, .voice, [], .at(20_000)),
+            Step(5_000, .pttReleased, .voice, [], .at(13_000)),
+            Step(12_999, .tick, .voice, [], .at(13_000)),
         ])
     }
 
@@ -422,7 +422,7 @@ final class ModePolicyTests: XCTestCase {
             Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
             Step(3_500, .voiceLinkEstablished, .voice,
                  [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
-            Step(5_000, .pttReleased, .voice, [], .at(20_000)),
+            Step(5_000, .pttReleased, .voice, [], .at(13_000)),
             Step(10_000, .pttPressed, .voice,
                  [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
         ])
@@ -436,10 +436,10 @@ final class ModePolicyTests: XCTestCase {
             Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
             Step(3_500, .voiceLinkEstablished, .voice,
                  [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
-            Step(5_000, .pttReleased, .voice, [], .at(20_000)),
+            Step(5_000, .pttReleased, .voice, [], .at(13_000)),
             Step(10_000, .pttPressed, .voice,
                  [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
-            Step(12_000, .pttReleased, .voice, [], .at(27_000)),
+            Step(12_000, .pttReleased, .voice, [], .at(20_000)),
         ])
     }
 
@@ -451,8 +451,8 @@ final class ModePolicyTests: XCTestCase {
             Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
             Step(3_500, .voiceLinkEstablished, .voice,
                  [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
-            Step(5_000, .pttReleased, .voice, [], .at(20_000)),
-            Step(20_000, .tick, .media, [.dropVoiceLink], .noTimer),
+            Step(5_000, .pttReleased, .voice, [], .at(13_000)),
+            Step(13_000, .tick, .media, [.dropVoiceLink], .noTimer),
         ])
     }
 
@@ -479,9 +479,9 @@ final class ModePolicyTests: XCTestCase {
             Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
             Step(3_500, .voiceLinkEstablished, .voice,
                  [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
-            Step(5_000, .pttReleased, .voice, [], .at(20_000)),
-            Step(10_000, .radioActive(true), .voice, [], .at(20_000)),
-            Step(20_000, .tick, .voice, [], .noTimer),
+            Step(5_000, .pttReleased, .voice, [], .at(13_000)),
+            Step(10_000, .radioActive(true), .voice, [], .at(13_000)),
+            Step(13_000, .tick, .voice, [], .noTimer),
             Step(25_000, .radioActive(false), .media, [.dropVoiceLink], .noTimer),
         ])
     }
@@ -497,9 +497,9 @@ final class ModePolicyTests: XCTestCase {
             Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
             Step(3_500, .voiceLinkEstablished, .voice,
                  [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
-            Step(5_000, .pttReleased, .voice, [], .at(20_000)),
-            Step(10_000, .radioActive(true), .voice, [], .at(20_000)),
-            Step(20_000, .tick, .voice, [], .noTimer),
+            Step(5_000, .pttReleased, .voice, [], .at(13_000)),
+            Step(10_000, .radioActive(true), .voice, [], .at(13_000)),
+            Step(13_000, .tick, .voice, [], .noTimer),
             Step(25_000, .pttPressed, .voice,
                  [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
         ])
@@ -516,9 +516,9 @@ final class ModePolicyTests: XCTestCase {
             Step(2_500, .pttPressed, .voice, [.raiseVoiceLink], .at(6_500)),
             Step(2_600, .voiceLinkEstablished, .voice,
                  [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
-            Step(2_700, .pttReleased, .voice, [], .at(17_700)),
-            Step(17_700, .tick, .media, [.dropVoiceLink], .noTimer),
-            Step(17_800, .audioMode(.voice), .voice, [], .noTimer),
+            Step(4_000, .pttReleased, .voice, [], .at(12_000)),
+            Step(12_000, .tick, .media, [.dropVoiceLink], .noTimer),
+            Step(12_100, .audioMode(.voice), .voice, [], .noTimer),
         ])
     }
 
@@ -531,10 +531,10 @@ final class ModePolicyTests: XCTestCase {
             Step(3_100, .voiceLinkEstablished, .voice,
                  [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
             Step(3_200, .otherAudio(false), .voice, [], .at(33_200)),
-            Step(4_000, .pttReleased, .voice, [], .at(19_000)),
-            Step(18_000, .pttPressed, .voice,
+            Step(4_000, .pttReleased, .voice, [], .at(12_000)),
+            Step(11_000, .pttPressed, .voice,
                  [.playGrantTone, .startCapture(.routeDefault)], .at(33_200)),
-            Step(19_000, .pttReleased, .voice, [], .at(33_200)),
+            Step(26_000, .pttReleased, .voice, [], .at(33_200)),
             Step(33_200, .tick, .voice, [], .at(34_000)),
             Step(34_000, .tick, .voice, [], .noTimer),
         ])
@@ -547,8 +547,8 @@ final class ModePolicyTests: XCTestCase {
             Step(1_000, .pttPressed, .voice, [.raiseVoiceLink], .at(5_000)),
             Step(1_500, .voiceLinkEstablished, .voice,
                  [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
-            Step(2_000, .pttReleased, .voice, [], .at(17_000)),
-            Step(17_000, .tick, .media, [.dropVoiceLink], .noTimer),
+            Step(2_000, .pttReleased, .voice, [], .at(10_000)),
+            Step(10_000, .tick, .media, [.dropVoiceLink], .noTimer),
         ])
     }
 
@@ -567,9 +567,9 @@ final class ModePolicyTests: XCTestCase {
             Step(21_500, .voiceLinkEstablished, .voice,
                  [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
             Step(21_500, .radioActive(true), .voice, [], .noTimer),
-            Step(25_000, .pttReleased, .voice, [], .at(40_000)),
-            Step(25_000, .radioActive(false), .voice, [], .at(40_000)),
-            Step(40_000, .tick, .media, [.dropVoiceLink], .noTimer),
+            Step(25_000, .pttReleased, .voice, [], .at(33_000)),
+            Step(25_000, .radioActive(false), .voice, [], .at(33_000)),
+            Step(33_000, .tick, .media, [.dropVoiceLink], .noTimer),
             Step(45_000, .otherAudio(false), .media, [], .at(75_000)),
             Step(75_000, .tick, .voice, [], .noTimer),
         ])
@@ -586,9 +586,9 @@ final class ModePolicyTests: XCTestCase {
             Step(3_000, .pttPressed, .voice, [.raiseVoiceLink], .at(7_000)),
             Step(3_500, .voiceLinkEstablished, .voice,
                  [.playGrantTone, .startCapture(.routeDefault)], .noTimer),
-            Step(5_000, .pttReleased, .voice, [], .at(20_000)),
-            Step(8_000, .routeRequiresVoiceLink(false), .voice, [], .at(20_000)),
-            Step(20_000, .tick, .voice, [], .noTimer),
+            Step(5_000, .pttReleased, .voice, [], .at(13_000)),
+            Step(8_000, .routeRequiresVoiceLink(false), .voice, [], .at(13_000)),
+            Step(13_000, .tick, .voice, [], .noTimer),
         ])
     }
 

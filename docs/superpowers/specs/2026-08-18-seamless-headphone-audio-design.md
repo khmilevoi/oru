@@ -220,7 +220,7 @@ transmitting), PTT press, timers. Output: requested profile.
 - `PTT press in MEDIA`: raise the headset voice link — Android: `setCommunicationDevice`/SCO;
   iOS: apply the VOICE session config — and play the grant tone once the headset mic path is
   confirmed (route/SCO connected), then start capture. Timeout **4 s** → grant tone + phone-mic
-  fallback for this transmission. After PTT release, hold the raised link for a **15 s linger**;
+  fallback for this transmission. After PTT release, hold the raised link for an **8 s linger**;
   further presses inside the window are instant. Linger expiry → drop the link (Android: clear
   comm device; iOS: re-apply the MEDIA config), the headset returns to A2DP and music resumes.
   This raise/drop is the same profile-apply mechanism as a §7 mode switch, driven by the PTT
@@ -256,7 +256,7 @@ Same hardware must produce the same behavior; this table is the acceptance oracl
 | BT headset connects, no music | HFP both ways within the platform's switch time; instant PTT |
 | BT headset connected, user starts music | ≤ ~2 s + rate limit: headset to A2DP, music at full quality, MEDIA |
 | Incoming voice during music | Voice plays into the A2DP stream; music ducks for the burst (Android: transient duck focus; iOS: `.duckOthers` re-applied onto MEDIA); no profile switch |
-| PTT press during music | SCO raised → grant tone (~1–3 s first press) → headset mic; linger 15 s; music paused by SCO, resumes after linger |
+| PTT press during music | SCO raised → grant tone (~1–3 s first press) → headset mic; linger 8 s; music paused by SCO, resumes after linger |
 | Music stops | After 30 s silence, back to VOICE (SCO held, instant PTT) |
 | Headset battery dies / walks out of range | Immediate loudspeaker + phone mic; no error state |
 | Headset returns | Automatic re-selection (retry budget refreshed) |

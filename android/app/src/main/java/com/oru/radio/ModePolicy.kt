@@ -114,7 +114,7 @@ class ModePolicy {
          * How long a raised link is held after PTT release, so the rest of the
          * conversation is instant.
          */
-        const val VOICE_LINK_LINGER_MS = 15_000L
+        const val VOICE_LINK_LINGER_MS = 8_000L
     }
 
     // endregion
