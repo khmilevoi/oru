@@ -13,6 +13,21 @@
   --red: oklch(0.63 0.21 27);
   --red-glow: oklch(0.63 0.21 27 / 0.45);
   --amber: oklch(0.78 0.14 75);
+  --amber-glow: oklch(0.78 0.14 75 / 0.55);
+
+  /* Power-off hold seal — the full-screen press-and-hold progress of
+     `01 Radio` frames 09–13. Amber deliberately: red is TRANSMITTING and
+     green is PEERS/RECEIVING, so neither may carry a destructive confirm.
+     Amber is the only accent this screen does not already spend, and it
+     already means "armed, waiting for you to finish" on `03 Pairing`. */
+  --seal: var(--amber);
+  --seal-w: 3px;
+  --seal-inset: 16px;
+  --seal-glow: 0 0 18px var(--amber-glow);
+  --seal-wash: radial-gradient(circle at 100% 100%, oklch(0.78 0.14 75 / 0.2) 0%, oklch(0.78 0.14 75 / 0) 62%);
+  /* Full hold, and the recede an early release runs. */
+  --seal-ms: 1200ms;
+  --seal-abort-ms: 260ms;
 
   --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
   --disp: "Oswald", "Arial Narrow", sans-serif;

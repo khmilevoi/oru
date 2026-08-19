@@ -19,9 +19,38 @@ the Audio section), so the canvas project and this export match again.
 `docs/superpowers/specs/2026-08-13-offline-nearby-ptt-design.md`): `02 Settings` gained a
 Language section in both frames — a segmented control with the endonym options
 English / Русский (labels literal, never translated; the selected side follows the frame's
-`lang`), and `01 Radio`'s canvas note no longer says "no in-app picker". **Local change
-only — not yet pushed back to the ORU project; needs a DesignSync push** before the canvas
-project and this export match again.
+`lang`), and `01 Radio`'s canvas note no longer says "no in-app picker".
+
+**2026-08-19 — the power-off hold moved off the key and onto the whole screen.**
+Holding the corner power key filled a 3pt bar inside the 56pt key — directly under the
+thumb doing the holding, so nobody ever saw it. `01 Radio` gains five frames (09–13) and
+`theme.css` seven `--seal-*` tokens for the replacement, an amber **perimeter seal**:
+
+- **09 / 10 / 11** — the hold at 15% / 55% / 95%. Four 3pt rails inset 16pt from the screen
+  edge. Both grow from the power key's own corner (bottom-right), one along the bottom then
+  up the left, the other up the right then along the top, closing together on the far corner
+  at 100%. Each path is exactly `railW + railH` long for any rectangle, so the two always
+  arrive together with no per-device constant. Under them a corner-anchored amber wash
+  (`--seal-wash`) tracks progress; the ring's border recedes and its label cross-fades to
+  the amber power-off line.
+- **12** — the abort. An early release cancels the commit and runs the same value back to 0
+  over 260ms, the rails retracting into the key they came from. The frame's faint trailing
+  rails are a canvas device for a still image, not a layer to build.
+- **13** — the 55% state in the alternate locale, matching the file's existing alt-locale
+  frames 06/07.
+
+Amber, deliberately: red is TRANSMITTING and already owns a full-screen wash, green is
+peers and receiving; amber is the only unspent accent and already means "armed, finish the
+action" on `03 Pairing`. The treatment is scoped to the **live** screen's corner key only —
+the off screen's hero key is a plain tap and must not grow a hold. New string pair
+`holdOff` / `holdOffCls` in both locale tables. A `.canvasnote hold` under frames 09–13
+carries the full implementer contract: geometry, derived breakpoints, timings, easing,
+abort, completion, reduced motion, and the RN primitives it is restricted to (no new
+dependency — an SVG dash-offset ring is noted as the ruled-out alternative).
+
+**Both 2026-08-19 changes are local only — not yet pushed back to the ORU project; they
+need a DesignSync push** (`02 Settings.dc.html`, `01 Radio.dc.html`, `theme.css`) before the
+canvas project and this export match again.
 
 Spec §12.1 (`docs/superpowers/specs/2026-08-13-offline-nearby-ptt-design.md`) points at this
 canvas as the source of the visual design, but until now it was never exported — the P6 UI
@@ -35,7 +64,7 @@ carries the values the plan invented from §12.1's one-sentence written directio
 | File | What it is |
 |---|---|
 | `theme.css` | Shared tokens (colours, fonts) and the component styles every screen reuses |
-| `01 Radio.dc.html` | Main screen — eight frames: off, searching, ready, transmitting, receiving, off/ready in the alternate locale, and the audio-route-readout states sheet |
+| `01 Radio.dc.html` | Main screen — thirteen frames: off, searching, ready, transmitting, receiving, off/ready in the alternate locale, the audio-route-readout states sheet, and the power-off hold seal at 15/55/95%, aborted, and at 55% in the alternate locale |
 | `02 Settings.dc.html` | Settings — button connected / not configured; both frames carry the Audio section (`audioMode`) |
 | `03 Pairing.dc.html` | Pairing — scan, select, learn, saved |
 | `04 Onboarding.dc.html` | Onboarding — microphone, Bluetooth, nearby devices, done |
