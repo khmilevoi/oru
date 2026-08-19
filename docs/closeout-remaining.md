@@ -24,7 +24,10 @@ Run on real Android + iPhone, internet off, screens locked. The scripted scenari
 - PTT-button loss + reconnect.
 - Peer loss + reconnect (brief signal loss must recover via the native backoff).
 - Incoming call during a session.
-- Bluetooth headphones connected; audio route switch mid-session.
+- Bluetooth headphones connected; audio route switch mid-session — superseded by the
+  `2026-08-18-seamless-headphone-audio` run's §9 behavior-contract oracle and §10 hardware
+  checklist (`docs/superpowers/execution/2026-08-18-seamless-headphone-audio.md`), which cover
+  this route switch and more; run it there, not here.
 
 ## Host / project notes (not blockers)
 

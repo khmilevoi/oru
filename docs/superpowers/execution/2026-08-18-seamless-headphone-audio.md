@@ -291,7 +291,7 @@ mode-policy test tables are still line-for-line mirrors.
 
 ## Closeout
 
-- [ ] Full merge gate on trunk from a clean checkout and a fresh `pnpm install`
+- [x] Full merge gate on trunk from a clean checkout and a fresh `pnpm install`
       (+ `cd ios && pod install`).
 - [ ] The §9 behavior-contract table executed as the acceptance oracle on physical hardware,
       both platforms, the same BT headset — every row, including the phone-call interruption
@@ -302,8 +302,8 @@ mode-policy test tables are still line-for-line mirrors.
       (Samsung or Xiaomi) for SCO timing.
 - [ ] Switch latency read from the merged instrumentation (device-event → audio-on-new-route
       timestamps in heartbeat/logcat), recorded — measured, not guessed.
-- [ ] `pnpm lingui:extract` reports no missing `ru` translations.
-- [ ] `docs/closeout-remaining.md` updated: the prior run's Stage 6 "Bluetooth headphones
+- [x] `pnpm lingui:extract` reports no missing `ru` translations.
+- [x] `docs/closeout-remaining.md` updated: the prior run's Stage 6 "Bluetooth headphones
       connected; audio route switch mid-session" item is superseded by this run's hardware
       checklist, per the spec's supersession note.
 
