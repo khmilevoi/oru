@@ -1949,7 +1949,7 @@ SPEC CHECKSUMS:
   FBLazyVector: ef7f5a8a8d3c7b3fb0b7c6f2bb810938c5fda9ea
   fmt: c7776a2a4b1d7ce88b809a1e4d1f7add0f2369df
   glog: b4427c3119645da795ff09985ba9da909c940c96
-  hermes-engine: a55f2e238444914d84d86bce7065f92fb9364c4d
+  hermes-engine: 6a26e94b4a974cbadc751eed9caa12624c38f226
   RCT-Folly: d173e541eeb78cad5c81011c1bbf62d5b86b9778
   RCTDeprecation: e12a993f8b27b25e9ed3617181ca87c20e6ab7ac
   RCTRequired: 3ba259676adfd0c6371e474db758470fdf97f06d
@@ -2024,7 +2024,7 @@ SPEC CHECKSUMS:
   React-viewtransitionnativemodule: 216e3d392406e58c3e0ae9f3a9afe72c23720b5f
   React-webperformancenativemodule: 4577ed49e8b74da3d5cce379de6cf1c65a67212a
   ReactAppDependencyProvider: 564644d20b4598060a0d24a9dfc029b5673b32f3
-  ReactCodegen: c0c88f8e6fbd74e72e8cd20343ac45d1d12dbc56
+  ReactCodegen: 25105aa2e02e1e8a7318a323926abeddbb4b6793
   ReactCommon: 31d05b76329c8b3c9ef37fff8212f830925a2535
   ReactNativeDependencies: ec5530432d8191b38e278117d498aaff05ea9d6f
   SocketRocket: d57b1af80c029e12a75cd9b218287c67381e4593

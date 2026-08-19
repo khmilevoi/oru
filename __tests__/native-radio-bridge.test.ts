@@ -148,7 +148,7 @@ describe('the iOS Turbo Module (spec section 6.1)', () => {
     expect(objcpp()).toMatch(/NativeRadioSpecJSI>\(params\)/);
   });
 
-  it('implements all eight amended section 6.1 selectors', () => {
+  it('implements all nine amended section 6.1 selectors', () => {
     [
       '- (void)start:(RCTPromiseResolveBlock)resolve',
       '- (void)stop:(RCTPromiseResolveBlock)resolve',
@@ -158,7 +158,19 @@ describe('the iOS Turbo Module (spec section 6.1)', () => {
       '- (void)configurePtt:(RCTPromiseResolveBlock)resolve',
       '- (void)selectPttCandidate:(NSString *)deviceId',
       '- (void)forgetPtt:(RCTPromiseResolveBlock)resolve',
+      '- (void)setAudioMode:(NSString *)mode',
     ].forEach(selector => expect(objcpp()).toContain(selector));
+  });
+
+  it('projects the section 8 placeholder route without touching RadioKit', () => {
+    const swift = read('ios/Oru/RadioBridge.swift');
+
+    expect(swift).toContain('placeholderAudioRoute');
+    expect(swift).toMatch(/"kind": "speaker"/);
+    expect(swift).toMatch(/"mode": "voice"/);
+    expect(swift).toMatch(/"audioMode": "auto"/);
+    // The real classification is P3's; the stub carries no routing logic.
+    expect(swift).not.toMatch(/AVAudioSession/);
   });
 
   it('drives both event emitters', () => {
