@@ -33,6 +33,14 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
     private var lastRouteSnapshot: AudioRouteSnapshot?
     private var lastOtherAudioActive: Bool?
     private var isObserving = false
+    /// Bumped by `activate()` and `deactivate()`. Every deferred continuation —
+    /// the activation retry's `asyncAfter` and each notification handler's
+    /// `queue.async` hop — captures the generation in force when it was
+    /// created and checks it again once it actually runs, so a retry armed (or
+    /// a notification already in flight) before a `deactivate()` cannot land on
+    /// a radio the user has since stopped, and a stale `.appDidBecomeActive`
+    /// from before an `activate()` cannot double-run recovery.
+    private var generation = 0
     private let log = Logger(
         subsystem: RadioConfig.Logging.subsystem,
         category: "background"
@@ -46,8 +54,9 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
     // MARK: - BackgroundSession
 
     public func activate() {
+        generation += 1
         observeNotifications()
-        HeartbeatLogger.shared.onTick = { [weak self] in
+        HeartbeatLogger.shared.setOnTick { [weak self] in
             self?.queue.async { self?.sampleOtherAudioLocked() }
         }
         HeartbeatLogger.shared.start()
@@ -60,9 +69,10 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
     }
 
     public func deactivate() {
+        generation += 1
         NotificationCenter.default.removeObserver(self)
         isObserving = false
-        HeartbeatLogger.shared.onTick = nil
+        HeartbeatLogger.shared.setOnTick(nil)
         HeartbeatLogger.shared.sessionActive = false
         HeartbeatLogger.shared.stop()
         lastRouteSnapshot = nil
@@ -107,8 +117,26 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
         let reaction = AudioSessionReactor.react(to: event, from: status)
         status = reaction.status
         HeartbeatLogger.shared.sessionActive = status.isActive
-        for action in reaction.actions {
-            perform(action)
+        performLocked(reaction.actions)
+    }
+
+    /// Performs actions in the order the table listed them. `.activate` is the
+    /// one action that may not resolve inline: when the session is busy the
+    /// activation is retried later, and everything after it in the list has to
+    /// wait for that outcome — the table puts the recovery rebuild after
+    /// `.activate` precisely because an engine cannot start against a session
+    /// that is not active yet. Caller is on `queue`.
+    private func performLocked(_ actions: [AudioSessionAction]) {
+        for (index, action) in actions.enumerated() {
+            guard case .activate = action else {
+                perform(action)
+                continue
+            }
+            activateLocked(
+                retriesLeft: RadioConfig.Session.activationRetryLimit,
+                then: Array(actions.dropFirst(index + 1))
+            )
+            return
         }
     }
 
@@ -119,7 +147,11 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
         case let .applyConfiguration(profile):
             applyConfigurationLocked(AudioSessionConfiguration.of(profile), on: session)
         case .activate:
-            activateLocked(retriesLeft: RadioConfig.Session.activationRetryLimit)
+            // Unreachable: `performLocked` intercepts `.activate` itself so it
+            // can carry the rest of the list across a retry. Kept in the
+            // switch (no `default:`) so a new table action stays a compile
+            // error here.
+            assertionFailure("`.activate` must be handled by performLocked, not perform")
         case .deactivate:
             do {
                 try session.setActive(false, options: .notifyOthersOnDeactivation)
@@ -177,25 +209,33 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
     }
 
     /// §5's `setActive` with retry on `.isBusy` (0.5 s × 3, Signal's pattern).
-    /// Never blocks the queue — the radio's own work runs on it.
-    private func activateLocked(retriesLeft: Int) {
+    /// Never blocks the queue — the radio's own work runs on it. `tail` is the
+    /// remainder of the reaction's action list that follows this `.activate`
+    /// in the table — see `performLocked`. Caller is on `queue`.
+    private func activateLocked(retriesLeft: Int, then tail: [AudioSessionAction]) {
         do {
             try AVAudioSession.sharedInstance().setActive(true)
             handleLocked(.activationSucceeded)
+            performLocked(tail)
         } catch let error as NSError
             where error.code == AVAudioSession.ErrorCode.isBusy.rawValue && retriesLeft > 0 {
             HeartbeatLogger.shared.record(
                 "session busy, retrying activation (\(retriesLeft) left)"
             )
+            let expectedGeneration = generation
             queue.asyncAfter(deadline: .now() + RadioConfig.Session.activationRetryDelay) {
                 [weak self] in
-                self?.activateLocked(retriesLeft: retriesLeft - 1)
+                guard let self, self.generation == expectedGeneration else { return }
+                self.activateLocked(retriesLeft: retriesLeft - 1, then: tail)
             }
         } catch {
             // Expected while backgrounded: iOS refuses activation from there.
-            // Wanted visible in the log, not swallowed.
+            // Wanted visible in the log, not swallowed. §2 goal 3: the rebuild
+            // fails too, loudly, and the next recovery retries — so the tail
+            // still runs here, inline, rather than being dropped.
             HeartbeatLogger.shared.record("session activation FAILED: \(error)")
             handleLocked(.activationFailed)
+            performLocked(tail)
         }
     }
 
@@ -299,13 +339,19 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
             self, selector: #selector(handleInterruption(_:)),
             name: AVAudioSession.interruptionNotification, object: session
         )
+        // `object: nil` on purpose: whether these two are actually posted with
+        // the shared session as their object is only provable on a device, and
+        // a missed `mediaServicesWereReset` is a permanently dead radio that
+        // needs an app restart. `object: nil` can at worst deliver an extra
+        // event, and both handlers only post onto the settled table, which is
+        // idempotent — the asymmetry decides it.
         center.addObserver(
             self, selector: #selector(handleMediaServicesReset(_:)),
-            name: AVAudioSession.mediaServicesWereResetNotification, object: session
+            name: AVAudioSession.mediaServicesWereResetNotification, object: nil
         )
         center.addObserver(
             self, selector: #selector(handleSilenceSecondaryAudioHint(_:)),
-            name: AVAudioSession.silenceSecondaryAudioHintNotification, object: session
+            name: AVAudioSession.silenceSecondaryAudioHintNotification, object: nil
         )
         // `object: nil` on purpose: the notification carries the AVAudioEngine
         // that changed, and `AudioIO` replaces that object outright after a
@@ -334,8 +380,10 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
                 + "in=\(AudioRouteFormatter.portTypes(route.inputs)) "
                 + "out=\(AudioRouteFormatter.portTypes(route.outputs))"
         )
+        let expectedGeneration = generation
         queue.async { [weak self] in
-            self?.handleLocked(.routeChanged(reason: reason))
+            guard let self, self.generation == expectedGeneration else { return }
+            self.handleLocked(.routeChanged(reason: reason))
         }
     }
 
@@ -345,8 +393,10 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
         // keep-alive tap dies with it — which is how a headset connecting while
         // the phone is locked used to suspend the whole radio.
         HeartbeatLogger.shared.record("engine configuration changed")
+        let expectedGeneration = generation
         queue.async { [weak self] in
-            self?.handleLocked(.engineConfigurationChanged)
+            guard let self, self.generation == expectedGeneration else { return }
+            self.handleLocked(.engineConfigurationChanged)
         }
     }
 
@@ -359,7 +409,11 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
         switch type {
         case .began:
             HeartbeatLogger.shared.record("interruption began")
-            queue.async { [weak self] in self?.handleLocked(.interruptionBegan) }
+            let expectedGeneration = generation
+            queue.async { [weak self] in
+                guard let self, self.generation == expectedGeneration else { return }
+                self.handleLocked(.interruptionBegan)
+            }
         case .ended:
             let optionsRaw = notification.userInfo?[AVAudioSessionInterruptionOptionKey]
                 as? UInt ?? 0
@@ -371,7 +425,11 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
             HeartbeatLogger.shared.record(
                 "interruption ended, shouldResume=\(options.contains(.shouldResume))"
             )
-            queue.async { [weak self] in self?.handleLocked(.interruptionEnded) }
+            let expectedGeneration = generation
+            queue.async { [weak self] in
+                guard let self, self.generation == expectedGeneration else { return }
+                self.handleLocked(.interruptionEnded)
+            }
         @unknown default:
             break
         }
@@ -379,16 +437,28 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
 
     @objc private func handleMediaServicesReset(_ notification: Notification) {
         HeartbeatLogger.shared.record("media services were reset")
-        queue.async { [weak self] in self?.handleLocked(.mediaServicesWereReset) }
+        let expectedGeneration = generation
+        queue.async { [weak self] in
+            guard let self, self.generation == expectedGeneration else { return }
+            self.handleLocked(.mediaServicesWereReset)
+        }
     }
 
     @objc private func handleSilenceSecondaryAudioHint(_ notification: Notification) {
-        queue.async { [weak self] in self?.handleLocked(.silenceSecondaryAudioHint) }
+        let expectedGeneration = generation
+        queue.async { [weak self] in
+            guard let self, self.generation == expectedGeneration else { return }
+            self.handleLocked(.silenceSecondaryAudioHint)
+        }
     }
 
     #if canImport(UIKit)
     @objc private func handleAppDidBecomeActive(_ notification: Notification) {
-        queue.async { [weak self] in self?.handleLocked(.appDidBecomeActive) }
+        let expectedGeneration = generation
+        queue.async { [weak self] in
+            guard let self, self.generation == expectedGeneration else { return }
+            self.handleLocked(.appDidBecomeActive)
+        }
     }
     #endif
 }

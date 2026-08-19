@@ -25,10 +25,25 @@ public final class HeartbeatLogger {
     public var isEngineRunning: (() -> Bool)?
 
     /// §5: other audio is sampled "on the existing heartbeat tick". Installed
-    /// by `AlwaysHotBackgroundManager` while the session is active, cleared when
-    /// it is not. Called on the main queue, like every other timer callback
-    /// here; the manager hops onto its own queue.
-    public var onTick: (() -> Void)?
+    /// by `AlwaysHotBackgroundManager.activate()` and cleared by its
+    /// `deactivate()` — so, unlike `sessionActive`, it survives an
+    /// interruption and is only ever absent before the first activation or
+    /// after the radio has fully stopped. Called on the main queue, like every
+    /// other timer callback here; the manager hops onto its own queue. Set
+    /// only through `setOnTick(_:)`, which hops onto main itself, because this
+    /// is written from the engine queue and read from the timer's main queue.
+    private var onTick: (() -> Void)?
+
+    /// All timer state lives on the main queue — see `start`/`stop`/`record`.
+    /// `onTick` is a closure, not a `Bool` like `sessionActive`: an
+    /// unsynchronized read here would race the closure box's retain/release,
+    /// not just observe a stale value, so it gets the same main-queue
+    /// discipline as the rest of this class's mutable state.
+    public func setOnTick(_ onTick: (() -> Void)?) {
+        DispatchQueue.main.async {
+            self.onTick = onTick
+        }
+    }
 
     private let log = Logger(
         subsystem: RadioConfig.Logging.subsystem,

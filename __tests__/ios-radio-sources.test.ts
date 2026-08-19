@@ -435,7 +435,17 @@ describe('AlwaysHotBackgroundManager (spec section 10.2)', () => {
   // `.deactivationRequested`, and the release call site sits inside the
   // `.deactivate` action case, appearing exactly once in the file.
   it('releases the session only when the radio stops', () => {
-    expect(background).toContain('handleLocked(.deactivationRequested)');
+    const deactivateMethod = background.indexOf('public func deactivate()');
+    const requestBeginTransmitting = background.indexOf(
+      'public func requestBeginTransmitting()',
+    );
+    const deactivationRequested = background.indexOf(
+      'handleLocked(.deactivationRequested)',
+    );
+    expect(deactivateMethod).toBeGreaterThan(-1);
+    expect(requestBeginTransmitting).toBeGreaterThan(deactivateMethod);
+    expect(deactivationRequested).toBeGreaterThan(deactivateMethod);
+    expect(deactivationRequested).toBeLessThan(requestBeginTransmitting);
     const deactivateCase = background.indexOf('case .deactivate:');
     const nextCase = background.indexOf('case .maximizeInputGain:');
     const release = background.indexOf('.notifyOthersOnDeactivation');
