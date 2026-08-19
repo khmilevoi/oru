@@ -409,7 +409,11 @@ extension AudioEngine {
             // this buffer, rebuild from what actually arrived, and carry on —
             // the next buffer transmits.
             HeartbeatLogger.shared.record("tx resample failed, rebuilding: \(conversionError)")
-            try? rebuildConverterLocked(for: buffer.format)
+            do {
+                try rebuildConverterLocked(for: buffer.format)
+            } catch {
+                HeartbeatLogger.shared.record("tx converter rebuild FAILED: \(error)")
+            }
             return
         }
 
@@ -570,6 +574,11 @@ extension AudioEngine {
     /// peer's playback chain.
     public func playGrantTone() {
         queue.async { [self] in
+            // Same guard `rebuildEngine` carries: before the first
+            // `startPlayback()` the record permission may still be
+            // undetermined, and starting the engine then is the documented
+            // `inputNode != nullptr` crash.
+            guard isPlaybackStarted else { return }
             guard let buffer = OpusFormat.buffer(from: GrantTone.pcm()) else { return }
             if !isTonePlayerAttached {
                 engine.attach(tonePlayer)
