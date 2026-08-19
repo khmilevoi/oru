@@ -33,7 +33,7 @@ export const SettingsScreen = reatomComponent<{
   return (
     <ScreenFrame
       testID={testIds.settingsScreen}
-      title={t`SETTINGS`}
+      title={t`Settings`}
       backLabel={t`Back`}
       backTestID={testIds.settingsBack}
       onBack={onBack}>

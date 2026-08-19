@@ -19,7 +19,7 @@ msgstr ""
 #~ msgstr "{0} дБм"
 
 #. placeholder {0}: radio().nearbyCount
-#: src/screens/RadioScreen.tsx:178
+#: src/screens/RadioScreen.tsx:179
 msgid "{0} nearby"
 msgstr "{0} рядом"
 
@@ -65,8 +65,8 @@ msgstr "Авто"
 msgid "Back"
 msgstr "Назад"
 
-#. placeholder {0}: candidate.rssi
-#: src/screens/PairingFlow.tsx:108
+#. placeholder {0}: signedRssi(candidate.rssi)
+#: src/screens/PairingFlow.tsx:122
 msgid "BLE · {0} dBm"
 msgstr "BLE · {0} dBm"
 
@@ -74,7 +74,7 @@ msgstr "BLE · {0} dBm"
 msgid "Bluetooth"
 msgstr "Bluetooth"
 
-#: src/screens/PairingFlow.tsx:136
+#: src/screens/PairingFlow.tsx:165
 msgid "BUTTON CONNECTED"
 msgstr "КНОПКА ПОДКЛЮЧЕНА"
 
@@ -82,7 +82,8 @@ msgstr "КНОПКА ПОДКЛЮЧЕНА"
 #~ msgid "Button saved"
 #~ msgstr "Кнопка сохранена"
 
-#: src/screens/PairingFlow.tsx:65
+#: src/screens/PairingFlow.tsx:73
+#: src/screens/PairingFlow.tsx:150
 msgid "Cancel"
 msgstr "Отмена"
 
@@ -91,8 +92,12 @@ msgid "Connect"
 msgstr "Подключить"
 
 #: src/screens/PairingFlow.tsx:64
-msgid "CONNECT A BUTTON"
-msgstr "ПОДКЛЮЧЕНИЕ КНОПКИ"
+#~ msgid "CONNECT A BUTTON"
+#~ msgstr "ПОДКЛЮЧЕНИЕ КНОПКИ"
+
+#: src/screens/PairingFlow.tsx:72
+msgid "Connect PTT button"
+msgstr "Подключение кнопки"
 
 #: src/screens/SettingsScreen.tsx:58
 msgid "Connected"
@@ -102,7 +107,7 @@ msgstr "Подключена"
 msgid "Connects nearby phones and pairs the external PTT button. No internet involved."
 msgstr "Соединяет телефоны рядом и подключает внешнюю PTT-кнопку. Интернет не используется."
 
-#: src/screens/PairingFlow.tsx:141
+#: src/screens/PairingFlow.tsx:170
 msgid "device"
 msgstr "устройство"
 
@@ -110,11 +115,11 @@ msgstr "устройство"
 msgid "Disconnected"
 msgstr "Отключена"
 
-#: src/screens/PairingFlow.tsx:147
+#: src/screens/PairingFlow.tsx:180
 msgid "Done"
 msgstr "Готово"
 
-#: src/screens/PairingFlow.tsx:91
+#: src/screens/PairingFlow.tsx:105
 msgid "Found"
 msgstr "Найдено"
 
@@ -130,7 +135,7 @@ msgstr "Наушники"
 #~ msgid "Hold it down until it is recognised"
 #~ msgstr "Удерживайте её, пока она не будет распознана"
 
-#: src/screens/RadioScreen.tsx:210
+#: src/screens/RadioScreen.tsx:211
 msgid "HOLD TO TALK"
 msgstr "УДЕРЖИВАЙТЕ ЧТОБЫ ГОВОРИТЬ"
 
@@ -138,7 +143,7 @@ msgstr "УДЕРЖИВАЙТЕ ЧТОБЫ ГОВОРИТЬ"
 msgid "Hold to transmit"
 msgstr "Удерживайте, чтобы передавать"
 
-#: src/screens/RadioScreen.tsx:259
+#: src/screens/RadioScreen.tsx:264
 msgid "Hold to turn the radio off"
 msgstr "Удерживайте, чтобы выключить рацию"
 
@@ -146,15 +151,19 @@ msgstr "Удерживайте, чтобы выключить рацию"
 msgid "Keep the radio working"
 msgstr "Чтобы рация работала"
 
-#: src/screens/PairingFlow.tsx:125
-msgid "Listening for a signal from {buttonName}..."
-msgstr "Слушаем сигнал от {buttonName}..."
+#: src/screens/PairingFlow.tsx:143
+msgid "Listening for a signal from “{buttonName}”..."
+msgstr "Слушаем сигнал от «{buttonName}»..."
 
-#: src/screens/PairingFlow.tsx:163
+#: src/screens/PairingFlow.tsx:125
+#~ msgid "Listening for a signal from {buttonName}..."
+#~ msgstr "Слушаем сигнал от {buttonName}..."
+
+#: src/screens/PairingFlow.tsx:197
 msgid "Make sure the button is switched on and in pairing mode."
 msgstr "Убедитесь, что кнопка включена и находится в режиме сопряжения."
 
-#: src/screens/PairingFlow.tsx:75
+#: src/screens/PairingFlow.tsx:89
 msgid "Make sure the button is turned on and close to the phone."
 msgstr "Убедитесь, что кнопка включена и находится рядом с телефоном."
 
@@ -174,7 +183,7 @@ msgstr "музыка, микрофон телефона"
 msgid "Nearby devices"
 msgstr "Устройства рядом"
 
-#: src/screens/PairingFlow.tsx:160
+#: src/screens/PairingFlow.tsx:194
 msgid "No buttons found"
 msgstr "Кнопки не найдены"
 
@@ -207,7 +216,7 @@ msgstr "Oru нужен доступ к геолокации в фоне, что�
 #~ msgid "Oru uses the microphone to transmit your voice to nearby devices."
 #~ msgstr "Oru использует микрофон, чтобы передавать ваш голос на устройства рядом."
 
-#: src/screens/PairingFlow.tsx:171
+#: src/screens/PairingFlow.tsx:205
 msgid "Pairing failed"
 msgstr "Сопряжение не удалось"
 
@@ -227,7 +236,7 @@ msgstr "Телефоны находят друг друга и соединяю�
 #~ msgid "Press the PTT button"
 #~ msgstr "Нажмите кнопку PTT"
 
-#: src/screens/PairingFlow.tsx:121
+#: src/screens/PairingFlow.tsx:136
 msgid "PRESS THE PTT BUTTON"
 msgstr "НАЖМИТЕ КНОПКУ PTT"
 
@@ -239,7 +248,7 @@ msgstr "PTT-кнопка"
 #~ msgid "PTT BUTTON"
 #~ msgstr "КНОПКА PTT"
 
-#: src/screens/RadioScreen.tsx:166
+#: src/screens/RadioScreen.tsx:167
 msgid "Push to talk"
 msgstr "Нажмите и говорите"
 
@@ -251,11 +260,11 @@ msgstr "рация"
 msgid "Radio"
 msgstr "Рация"
 
-#: src/screens/RadioScreen.tsx:42
+#: src/screens/RadioScreen.tsx:43
 msgid "RADIO ERROR"
 msgstr "ОШИБКА РАЦИИ"
 
-#: src/screens/RadioScreen.tsx:131
+#: src/screens/RadioScreen.tsx:132
 msgid "RADIO OFF"
 msgstr "РАЦИЯ ВЫКЛЮЧЕНА"
 
@@ -263,11 +272,11 @@ msgstr "РАЦИЯ ВЫКЛЮЧЕНА"
 #~ msgid "Ready"
 #~ msgstr "Готово"
 
-#: src/screens/RadioScreen.tsx:236
+#: src/screens/RadioScreen.tsx:237
 msgid "RECEIVING..."
 msgstr "ПРИЁМ..."
 
-#: src/screens/RadioScreen.tsx:226
+#: src/screens/RadioScreen.tsx:227
 msgid "RELEASE TO FINISH"
 msgstr "ОТПУСТИТЕ ЧТОБЫ ЗАКОНЧИТЬ"
 
@@ -275,15 +284,15 @@ msgstr "ОТПУСТИТЕ ЧТОБЫ ЗАКОНЧИТЬ"
 msgid "Replace"
 msgstr "Заменить"
 
-#: src/screens/RadioScreen.tsx:48
+#: src/screens/RadioScreen.tsx:49
 msgid "RESTART RADIO"
 msgstr "ПЕРЕЗАПУСТИТЬ"
 
-#: src/screens/PairingFlow.tsx:183
+#: src/screens/PairingFlow.tsx:217
 msgid "Retry"
 msgstr "Повторить"
 
-#: src/screens/PairingFlow.tsx:72
+#: src/screens/PairingFlow.tsx:81
 msgid "SCANNING FOR BLE DEVICES..."
 msgstr "ИЩЕМ BLE-УСТРОЙСТВА..."
 
@@ -291,7 +300,7 @@ msgstr "ИЩЕМ BLE-УСТРОЙСТВА..."
 #~ msgid "Searching for Bluetooth buttons..."
 #~ msgstr "Ищем Bluetooth-кнопки..."
 
-#: src/screens/RadioScreen.tsx:190
+#: src/screens/RadioScreen.tsx:191
 msgid "SEARCHING FOR DEVICES..."
 msgstr "ИЩЕМ УСТРОЙСТВА..."
 
@@ -299,14 +308,15 @@ msgstr "ИЩЕМ УСТРОЙСТВА..."
 #~ msgid "Select your button"
 #~ msgstr "Выберите вашу кнопку"
 
-#: src/screens/RadioScreen.tsx:145
-#: src/screens/RadioScreen.tsx:250
+#: src/screens/RadioScreen.tsx:146
+#: src/screens/RadioScreen.tsx:251
+#: src/screens/SettingsScreen.tsx:36
 msgid "Settings"
 msgstr "Настройки"
 
 #: src/screens/SettingsScreen.tsx:36
-msgid "SETTINGS"
-msgstr "НАСТРОЙКИ"
+#~ msgid "SETTINGS"
+#~ msgstr "НАСТРОЙКИ"
 
 #: src/screens/OnboardingFlow.tsx:147
 msgid "Skip"
@@ -330,11 +340,11 @@ msgstr "Динамик"
 msgid "STEP {step} OF {0}"
 msgstr "ШАГ {step} ИЗ {0}"
 
-#: src/screens/PairingFlow.tsx:87
+#: src/screens/PairingFlow.tsx:101
 msgid "still scanning"
 msgstr "поиск продолжается"
 
-#: src/screens/RadioScreen.tsx:134
+#: src/screens/RadioScreen.tsx:135
 msgid "TAP TO TURN ON"
 msgstr "НАЖМИТЕ ЧТОБЫ ВКЛЮЧИТЬ"
 
@@ -342,7 +352,7 @@ msgstr "НАЖМИТЕ ЧТОБЫ ВКЛЮЧИТЬ"
 msgid "Test"
 msgstr "Проверить"
 
-#: src/screens/RadioScreen.tsx:221
+#: src/screens/RadioScreen.tsx:222
 msgid "TRANSMITTING..."
 msgstr "ПЕРЕДАЧА..."
 
@@ -350,12 +360,12 @@ msgstr "ПЕРЕДАЧА..."
 msgid "Try again"
 msgstr "Попробовать снова"
 
-#: src/screens/RadioScreen.tsx:56
+#: src/screens/RadioScreen.tsx:57
 msgid "TURN OFF"
 msgstr "ВЫКЛЮЧИТЬ"
 
-#: src/screens/RadioScreen.tsx:115
-#: src/screens/RadioScreen.tsx:124
+#: src/screens/RadioScreen.tsx:116
+#: src/screens/RadioScreen.tsx:125
 msgid "Turn the radio on"
 msgstr "Включить рацию"
 

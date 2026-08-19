@@ -30,6 +30,9 @@ describe('the pairing flow — spec sections 9.3 and 12.1', () => {
     // No `radio.start()` anywhere in this suite: the flow opens its own session
     // on mount, and starting the radio afterwards would cancel it -- `start()`
     // cancels every pending timer and aborts an in-flight pairing by design.
+    // The canvas titles the flow in sentence case (`.stitle` has no
+    // text-transform, 03 Pairing.dc.html).
+    expect(screen.hasText('Connect PTT button')).toBe(true);
     expect(screen.hasText('SCANNING FOR BLE DEVICES...')).toBe(true);
     expect(screen.findAll('pairing-pings')).toHaveLength(1);
 
@@ -37,9 +40,14 @@ describe('the pairing flow — spec sections 9.3 and 12.1', () => {
     expect(screen.hasText('Found')).toBe(true);
     expect(screen.hasText('ORU-PTT-01')).toBe(true);
     expect(screen.hasText('BT-REMOTE')).toBe(true);
+    // RSSI prints with a true minus, U+2212, not a hyphen (canvas: −52 dBm).
+    expect(screen.hasText('BLE · −52 dBm')).toBe(true);
 
     await screen.press(`${testIds.pairingCandidate}-mock-ptt-01`);
     expect(screen.hasText('PRESS THE PTT BUTTON')).toBe(true);
+    // The learn hint quotes the device name (canvas: “Zello PTT”).
+    expect(screen.hasText('Listening for a signal from “')).toBe(true);
+    expect(screen.hasText('”...')).toBe(true);
 
     await screen.advance(1300);
     expect(screen.hasText('BUTTON CONNECTED')).toBe(true);
@@ -118,6 +126,7 @@ describe('the pairing flow — spec sections 9.3 and 12.1', () => {
       locale: 'ru',
     });
 
+    expect(screen.hasText('Подключение кнопки')).toBe(true);
     expect(screen.hasText('ИЩЕМ BLE-УСТРОЙСТВА...')).toBe(true);
 
     await screen.advance(1000);
@@ -125,6 +134,8 @@ describe('the pairing flow — spec sections 9.3 and 12.1', () => {
 
     await screen.press(`${testIds.pairingCandidate}-mock-ptt-01`);
     expect(screen.hasText('НАЖМИТЕ КНОПКУ PTT')).toBe(true);
+    // Russian quotes the device name in guillemets (canvas: «Zello PTT»).
+    expect(screen.hasText('Слушаем сигнал от «')).toBe(true);
 
     await screen.advance(1300);
     expect(screen.hasText('КНОПКА ПОДКЛЮЧЕНА')).toBe(true);

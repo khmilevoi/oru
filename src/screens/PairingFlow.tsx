@@ -33,6 +33,12 @@ import {
 } from '../ptt/ptt.pairing.model';
 
 /**
+ * The canvas prints RSSI with a true minus -- `BLE · −52 dBm`, U+2212 -- where
+ * a bare number renders the ASCII hyphen (design/03 Pairing.dc.html).
+ */
+const signedRssi = (rssi: number) => String(rssi).replace('-', '−');
+
+/**
  * Spec section 9.3's learning flow in the four steps section 12.1 designed:
  * scan -> pick -> learn -> saved, plus the empty/retry path the `pairing-empty`
  * scenario drives. Amber is the learning colour (section 12.1).
@@ -63,7 +69,7 @@ export const PairingFlow = reatomComponent<{onClose: () => void}>(
     return (
       <ScreenFrame
         testID={testIds.pairingScreen}
-        title={t`CONNECT A BUTTON`}
+        title={t`Connect PTT button`}
         backLabel={t`Cancel`}
         backTestID={testIds.pairingCancel}
         onBack={close}>
@@ -113,7 +119,7 @@ export const PairingFlow = reatomComponent<{onClose: () => void}>(
                     {candidate.name}
                   </Text>
                   <Text style={[type.caption, styles.rowMeta]}>
-                    <Trans>BLE · {candidate.rssi} dBm</Trans>
+                    <Trans>BLE · {signedRssi(candidate.rssi)} dBm</Trans>
                   </Text>
                 </View>
                 <Text style={styles.chevron}>›</Text>
@@ -131,7 +137,10 @@ export const PairingFlow = reatomComponent<{onClose: () => void}>(
                 </Text>
               </StateRing>
               <Text style={[type.learnSub, styles.learnSub]}>
-                <Trans>Listening for a signal from {buttonName}...</Trans>
+                {/* The name is quoted -- curly in en, guillemets in ru -- and
+                    the quotes live in the catalogs: they are locale copy, not
+                    layout (design/03 Pairing.dc.html). */}
+                <Trans>Listening for a signal from “{buttonName}”...</Trans>
               </Text>
             </View>
             {/* The `.pfoot` ghost Cancel of design/03 Pairing.dc.html frame 03,
