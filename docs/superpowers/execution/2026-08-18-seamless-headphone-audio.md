@@ -224,7 +224,7 @@ RadioKit leg does not compile the bridge glue this plan rewrites).
 **Model override:** —
 
 ### P4 `android-routing` — wave 2, track B
-- [ ] planned   → docs/superpowers/plans/2026-08-18-p4-android-routing.md
+- [x] planned   → docs/superpowers/plans/2026-08-18-p4-android-routing.md
 - [ ] executed  → branch plan/p4-android-routing · worktree .claude/worktrees/p4-android-routing
 - [ ] merged    → sync 2
 
