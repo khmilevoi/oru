@@ -267,3 +267,69 @@ describe('RadioScreen — design/01 Radio.dc.html', () => {
     screen.unmount();
   });
 });
+
+describe('the section 8 audio route readout', () => {
+  it('is hidden while the radio is off', async () => {
+    const screen = await openRadio('happy');
+
+    expect(screen.findAll(testIds.audioRoute)).toHaveLength(0);
+
+    screen.unmount();
+  });
+
+  it('names the speaker once the radio is on', async () => {
+    const screen = await openRadio('happy');
+    await screen.press(testIds.powerOnArea);
+    await screen.advance(1000);
+
+    expect(screen.findAll(testIds.audioRoute)).toHaveLength(1);
+    expect(screen.hasText('Speaker · radio')).toBe(true);
+
+    screen.unmount();
+  });
+
+  it('follows the engine onto the headset and into media', async () => {
+    const screen = await openRadio('happy');
+    await screen.press(testIds.powerOnArea);
+
+    await screen.advance(3500);
+    expect(screen.hasText('AirPods Pro · radio')).toBe(true);
+
+    await screen.advance(3000);
+    expect(screen.hasText('AirPods Pro · music, phone mic')).toBe(true);
+
+    screen.unmount();
+  });
+
+  it('stays put while receiving -- it names the live mic', async () => {
+    const screen = await openRadio('happy');
+    await screen.press(testIds.powerOnArea);
+    await screen.advance(9000);
+
+    expect(screen.hasText('RECEIVING...')).toBe(true);
+    expect(screen.findAll(testIds.audioRoute)).toHaveLength(1);
+    // It is a sibling of the corner controls, not a child: the corners
+    // recede while live and the readout must not, so it must never turn up
+    // among the corner controls' own descendants.
+    expect(
+      screen
+        .find('corner-controls')
+        .findAll(node => node.props.testID === testIds.audioRoute),
+    ).toHaveLength(0);
+
+    screen.unmount();
+  });
+
+  it('renders in Russian', async () => {
+    const screen = await renderScreen(<RadioScreen onSettingsPress={jest.fn()} />, {
+      scenario: 'happy',
+      locale: 'ru',
+    });
+    await screen.press(testIds.powerOnArea);
+    await screen.advance(1000);
+
+    expect(screen.hasText('Динамик · рация')).toBe(true);
+
+    screen.unmount();
+  });
+});
