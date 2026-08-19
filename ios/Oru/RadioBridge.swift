@@ -304,8 +304,7 @@ public final class RadioBridge: NSObject {
 
     /// Kept as its own constant rather than folded into `placeholderAudioRoute`:
     /// P3 replaces the two independently — route classification and the
-    /// UserDefaults-backed mode setting are unrelated pieces of work. Projected
-    /// as `"audioMode": "auto"`.
+    /// UserDefaults-backed mode setting are unrelated pieces of work.
     private let placeholderAudioMode = "auto"
 
     /// Caller holds `lock`.

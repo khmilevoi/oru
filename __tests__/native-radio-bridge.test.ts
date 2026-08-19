@@ -168,7 +168,11 @@ describe('the iOS Turbo Module (spec section 6.1)', () => {
     expect(swift).toContain('placeholderAudioRoute');
     expect(swift).toMatch(/"kind": "speaker"/);
     expect(swift).toMatch(/"mode": "voice"/);
-    expect(swift).toMatch(/"audioMode": "auto"/);
+    // Asserts on the constant name, not the literal "auto": a source-grep for
+    // the literal is satisfied by a doc comment as readily as by the
+    // projecting code, and proves nothing about what gets projected.
+    expect(swift).toContain('placeholderAudioMode = "auto"');
+    expect(swift).toMatch(/"audioMode": placeholderAudioMode/);
     // The real classification is P3's; the stub carries no routing logic.
     expect(swift).not.toMatch(/AVAudioSession/);
   });
