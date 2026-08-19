@@ -514,13 +514,27 @@ The visual design lives in the Claude Design project **"Offline Nearby PTT"**:
 
 ### 12.2 Localization
 
-- Two locales: **English (default)** and **Russian**. The app language follows the system
-  locale; anything other than Russian falls back to English. No in-app language picker.
+- Two locales: **English (default)** and **Russian**. By default the app language follows
+  the system locale; anything other than Russian falls back to English.
+- **Amended 2026-08-19 (product decision): an in-app language picker.** Settings carries a
+  third section, Language, mirroring the Audio section: a segmented control whose two
+  options are the endonyms **English / Русский**, rendered literally (never through the
+  catalog) so each option reads in its own language. The choice is a JS-side override with
+  no engine counterpart, persisted natively through the `NativeRadio` bridge
+  (`getAppLocale` / `setAppLocale`: UserDefaults `com.oru.appLocale` on iOS,
+  SharedPreferences on Android — the §8 `audioMode` persistence pattern, since no JS
+  storage dependency exists). On startup a stored override beats the system locale; with
+  nothing stored the system rule above stands. Switching re-activates the Lingui catalog in
+  place — every `Trans`/`useLingui` consumer re-renders in the same tick, no reload.
+  **Accepted tradeoff:** native-surface strings (the Android foreground-service
+  notification's `strings.xml`, iOS `InfoPlist.strings` permission texts) keep following
+  the **system** locale, so an in-app override yields mixed languages on those surfaces.
 - JS strings are managed with **Lingui** (`@lingui/core` + `@lingui/react`, macros):
   source copy is written inline in English via the `Trans` / `t` macros; `lingui extract`
   produces `.po` catalogs for `en` and `ru`, loaded through `@lingui/metro-transformer`
   (bare React Native Metro config). On startup `i18n.loadAndActivate()` selects the system
-  locale with `en` fallback.
+  locale with `en` fallback, then the stored override — when one exists — re-activates on
+  top of it.
 - Native-side strings are localized through platform resources: the Android
   foreground-service notification via `strings.xml` and iOS permission texts via
   `InfoPlist.strings`. RadioKit itself ships no localized copy — its only two strings

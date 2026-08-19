@@ -15,6 +15,14 @@ untouched. Both changed screens were pushed back to the ORU project via DesignSy
 2026-08-18 (write verified: the remote `02 Settings.dc.html` was re-fetched and carries
 the Audio section), so the canvas project and this export match again.
 
+**2026-08-19 — extended locally for the in-app language picker** (amended spec §12.2 of
+`docs/superpowers/specs/2026-08-13-offline-nearby-ptt-design.md`): `02 Settings` gained a
+Language section in both frames — a segmented control with the endonym options
+English / Русский (labels literal, never translated; the selected side follows the frame's
+`lang`), and `01 Radio`'s canvas note no longer says "no in-app picker". **Local change
+only — not yet pushed back to the ORU project; needs a DesignSync push** before the canvas
+project and this export match again.
+
 Spec §12.1 (`docs/superpowers/specs/2026-08-13-offline-nearby-ptt-design.md`) points at this
 canvas as the source of the visual design, but until now it was never exported — the P6 UI
 plan states this outright and records reconciling the app's tokens against the canvas as an
