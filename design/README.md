@@ -73,10 +73,11 @@ corrected to match.** The product owner reported the big round button *jumping* 
   overlay ring in the app. Same 3pt of green, zero layout cost.
 
 A new `.canvasnote geometry` block under frames 03–05 carries the rule for implementers,
-and `theme.css`'s `.ring` is annotated as the canonical border. **Owed a DesignSync push:**
-`01 Radio.dc.html` and `theme.css` are edited locally only — the branch that made this
-change had no DesignSync tool, so the export and the ORU project are **out of sync until
-the main session pushes them**. Read the remote first, as the earlier pushes did.
+and `theme.css`'s `.ring` is annotated as the canonical border. Both files were pushed to
+the ORU project on 2026-08-19 by the main session (the branch that made the change had no
+DesignSync tool of its own). The remote was read first and still matched the earlier push,
+so nothing was clobbered; the write was verified by re-fetching `01 Radio.dc.html` and
+confirming it carries the reserved `.hintslot` and the geometry note.
 
 Spec §12.1 (`docs/superpowers/specs/2026-08-13-offline-nearby-ptt-design.md`) points at this
 canvas as the source of the visual design, but until now it was never exported — the P6 UI
