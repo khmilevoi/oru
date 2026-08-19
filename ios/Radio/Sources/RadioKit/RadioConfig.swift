@@ -86,6 +86,13 @@ public enum RadioConfig {
         public static let activationRetryDelay: TimeInterval = 0.5
         public static let activationRetryLimit = 3
 
+        /// How long the MEDIA duck outlives the incoming burst that raised it.
+        /// A conversation is a run of bursts a second or two apart; un-ducking
+        /// the instant one ends would pump the user's music up and down between
+        /// them. Long enough to bridge that gap, short enough that a single
+        /// burst does not hold the music down noticeably after it.
+        public static let duckReleaseTail: TimeInterval = 1.5
+
         /// §8's persisted setting. The native side owns the storage — there is
         /// no JavaScript store in this app and adding one would move
         /// package.json for no benefit (the `PttBindingStore` precedent).

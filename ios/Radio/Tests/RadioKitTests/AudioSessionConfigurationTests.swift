@@ -54,6 +54,77 @@ final class AudioSessionConfigurationTests: XCTestCase {
     func testLogNamesAreTheStableGrepVocabulary() {
         XCTAssertEqual(AudioSessionConfiguration.voice.logName, "voice")
         XCTAssertEqual(AudioSessionConfiguration.media.logName, "media")
+        XCTAssertEqual(AudioSessionConfiguration.mediaDucking.logName, "media+duck")
+    }
+
+    // MARK: - Ducking (§5 MEDIA, per incoming burst)
+
+    func testTheDuckingMediaConfigurationIsMediaPlusDuckOthers() {
+        // The whole point: an incoming burst must be audible over the user's
+        // music, and MEDIA otherwise mixes at full volume.
+        XCTAssertEqual(AudioSessionConfiguration.mediaDucking.category, .playAndRecord)
+        XCTAssertEqual(AudioSessionConfiguration.mediaDucking.mode, .default)
+        XCTAssertEqual(
+            AudioSessionConfiguration.mediaDucking.options,
+            [.allowBluetoothA2DP, .mixWithOthers, .duckOthers]
+        )
+    }
+
+    func testDuckingIsNeverStaticOnTheSessionItself() {
+        // The session is always hot, so a `.duckOthers` baked into the MEDIA
+        // configuration would duck the user's music for the whole run.
+        XCTAssertFalse(AudioSessionConfiguration.media.options.contains(.duckOthers))
+        XCTAssertFalse(AudioSessionConfiguration.voice.options.contains(.duckOthers))
+    }
+
+    func testTheMediaProfileDucksOnlyWhileABurstIsPlaying() {
+        XCTAssertEqual(
+            AudioSessionConfiguration.of(.media, ducking: true),
+            AudioSessionConfiguration.mediaDucking
+        )
+        XCTAssertEqual(
+            AudioSessionConfiguration.of(.media, ducking: false),
+            AudioSessionConfiguration.media
+        )
+    }
+
+    func testTheVoiceProfileHasNothingToDuck() {
+        // On VOICE the headset is on HFP: the music app is already out of the
+        // way, and `.duckOthers` there would only be a second mechanism.
+        XCTAssertEqual(
+            AudioSessionConfiguration.of(.voice, ducking: true),
+            AudioSessionConfiguration.voice
+        )
+    }
+
+    func testTheDuckingConfigurationCountsAsAppliedOnceItIsInForce() {
+        XCTAssertTrue(
+            AudioSessionConfiguration.mediaDucking.matches(
+                category: .playAndRecord, mode: .default,
+                options: [.allowBluetoothA2DP, .mixWithOthers, .duckOthers]
+            )
+        )
+    }
+
+    func testALeftoverDuckMeansTheConfigurationMustBeApplied() {
+        // The un-duck is the one apply the superset test would otherwise skip:
+        // the ducking options are a superset of MEDIA's, so nothing but an
+        // explicit "this option must be absent" rule can end a duck.
+        XCTAssertFalse(
+            AudioSessionConfiguration.media.matches(
+                category: .playAndRecord, mode: .default,
+                options: [.allowBluetoothA2DP, .mixWithOthers, .duckOthers]
+            )
+        )
+    }
+
+    func testAMissingDuckMeansTheDuckingConfigurationMustBeApplied() {
+        XCTAssertFalse(
+            AudioSessionConfiguration.mediaDucking.matches(
+                category: .playAndRecord, mode: .default,
+                options: [.allowBluetoothA2DP, .mixWithOthers]
+            )
+        )
     }
 
     // MARK: - Diff-only

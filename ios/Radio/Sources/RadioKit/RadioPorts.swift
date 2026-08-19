@@ -111,6 +111,12 @@ public protocol BackgroundSession: AnyObject {
     /// Called from the engine queue, like every other method here, and must
     /// never dispatch synchronously back onto it.
     func applyProfile(_ profile: ModePolicy.Profile)
+
+    /// §9 row 5: hand the other apps the resume signal that only a session
+    /// deactivation carries. `ResumeNudgePolicy` decides when this is owed; the
+    /// implementation decides whether it can be delivered at all, and a failure
+    /// is logged rather than raised — the radio outranks the music.
+    func nudgeOtherAudioResume()
 }
 
 public protocol BackgroundSessionDelegate: AnyObject {

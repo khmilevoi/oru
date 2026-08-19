@@ -184,6 +184,14 @@ final class FakeBackground: BackgroundSession {
         appliedProfiles.append(profile)
     }
 
+    /// How many times the engine asked the session to hand the other apps
+    /// their audio back.
+    private(set) var resumeNudges = 0
+
+    func nudgeOtherAudioResume() {
+        resumeNudges += 1
+    }
+
     /// Stands in for a route change the session observed and classified.
     func publishRoute(_ snapshot: AudioRouteSnapshot) {
         delegate?.backgroundSession(self, routeDidChange: snapshot)

@@ -41,6 +41,8 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
     /// a radio the user has since stopped, and a stale `.appDidBecomeActive`
     /// from before an `activate()` cannot double-run recovery.
     private var generation = 0
+    /// Bumped by every armed un-duck tail — see `scheduleUnduckLocked`.
+    private var unduckToken = 0
     private let log = Logger(
         subsystem: RadioConfig.Logging.subsystem,
         category: "background"
@@ -102,12 +104,43 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
     }
 
     public func setReceiving(_ receiving: Bool) {
-        // The port exists so an implementation can activate the session for
-        // playback; here it is always active, so there is nothing to do.
+        // Nothing to activate — the session is always hot — but this is exactly
+        // the incoming burst's start and end, which is what the MEDIA duck is
+        // scoped to.
+        handleLocked(receiving ? .incomingAudioBegan : .incomingAudioEnded)
     }
 
     public func applyProfile(_ profile: ModePolicy.Profile) {
         handleLocked(.profileRequested(profile))
+    }
+
+    /// §9 row 5's "music … resumes after linger", on a session that never goes
+    /// down. Other apps are told they may play again by the system, when the
+    /// session that interrupted them deactivates with
+    /// `.notifyOthersOnDeactivation` — and an always-hot session never
+    /// deactivates, so the music stays paused for good after a PTT raise.
+    /// This puts the session down and straight back up to send that one signal.
+    ///
+    /// `RadioEngine` owns the decision (`ResumeNudgePolicy`); this is only the
+    /// mechanism. Never fatal: if the deactivation is refused — iOS declines
+    /// while audio I/O is running — the session is exactly as it was, the radio
+    /// keeps running, and the answer lands in heartbeat.log. Caller is on
+    /// `queue`, like every other `BackgroundSession` method.
+    public func nudgeOtherAudioResume() {
+        guard status.isActive else {
+            HeartbeatLogger.shared.record("resume nudge skipped, session not active")
+            return
+        }
+        do {
+            try AVAudioSession.sharedInstance().setActive(
+                false, options: .notifyOthersOnDeactivation
+            )
+        } catch {
+            HeartbeatLogger.shared.record("resume nudge FAILED: \(error)")
+            return
+        }
+        HeartbeatLogger.shared.record("resume nudge")
+        handleLocked(.resumeNudgeDeactivated)
     }
 
     // MARK: - The table
@@ -144,8 +177,10 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
     private func perform(_ action: AudioSessionAction) {
         let session = AVAudioSession.sharedInstance()
         switch action {
-        case let .applyConfiguration(profile):
-            applyConfigurationLocked(AudioSessionConfiguration.of(profile), on: session)
+        case let .applyConfiguration(configuration):
+            applyConfigurationLocked(configuration, on: session)
+        case .scheduleUnduck:
+            scheduleUnduckLocked()
         case .activate:
             // Unreachable: `performLocked` intercepts `.activate` itself so it
             // can carry the rest of the list across a retry. Kept in the
@@ -205,6 +240,27 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
             HeartbeatLogger.shared.record(
                 "session config \(configuration.logName) FAILED: \(error)"
             )
+        }
+    }
+
+    /// The un-duck tail. `unduckToken` is to this what `generation` is to the
+    /// activation retry: back-to-back bursts arm one tail each, and only the
+    /// last one may end the duck — otherwise an early tail from burst 1 would
+    /// cut burst 2's tail short. Caller is on `queue`.
+    private func scheduleUnduckLocked() {
+        unduckToken += 1
+        let expectedToken = unduckToken
+        let expectedGeneration = generation
+        queue.asyncAfter(deadline: .now() + RadioConfig.Session.duckReleaseTail) {
+            [weak self] in
+            guard
+                let self,
+                self.generation == expectedGeneration,
+                self.unduckToken == expectedToken
+            else {
+                return
+            }
+            self.handleLocked(.unduckTailElapsed)
         }
     }
 

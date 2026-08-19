@@ -20,6 +20,15 @@ public enum AudioSessionEvent: Equatable {
     case appDidBecomeActive
     case mediaServicesWereReset
     case silenceSecondaryAudioHint
+    /// An incoming radio burst started playing (`setReceiving(true)`).
+    case incomingAudioBegan
+    /// The last peer stopped (`setReceiving(false)`).
+    case incomingAudioEnded
+    /// The `.scheduleUnduck` tail armed by `incomingAudioEnded` has run out.
+    case unduckTailElapsed
+    /// `setActive(false, .notifyOthersOnDeactivation)` succeeded: the other
+    /// apps have their resume signal and the session must be brought back up.
+    case resumeNudgeDeactivated
 }
 
 /// The manager's whole mutable state, as a value.
@@ -35,10 +44,28 @@ public struct AudioSessionStatus: Equatable {
     /// The configuration in force. §5's mode switches are a re-apply of the
     /// other one.
     public var profile: ModePolicy.Profile
+    /// An incoming burst is playing right now.
+    public var isReceiving: Bool
+    /// The `.duckOthers` variant of the current profile is in force. Distinct
+    /// from `isReceiving`, because the duck outlives the burst by the tail.
+    public var isDucking: Bool
 
-    public init(isActive: Bool = false, profile: ModePolicy.Profile = .voice) {
+    public init(
+        isActive: Bool = false,
+        profile: ModePolicy.Profile = .voice,
+        isReceiving: Bool = false,
+        isDucking: Bool = false
+    ) {
         self.isActive = isActive
         self.profile = profile
+        self.isReceiving = isReceiving
+        self.isDucking = isDucking
+    }
+
+    /// The one configuration this status asks for — profile and duck together,
+    /// so every row that re-applies "the configuration in force" restores both.
+    var configuration: AudioSessionConfiguration {
+        AudioSessionConfiguration.of(profile, ducking: isDucking)
     }
 }
 
@@ -46,8 +73,11 @@ public struct AudioSessionStatus: Equatable {
 /// its delegate. Naming them instead of performing them inline is what makes
 /// §10's "(event, state) → actions reaction table" a unit test.
 public enum AudioSessionAction: Equatable {
-    /// `setCategory` with one of the two static configurations, diff-only.
-    case applyConfiguration(ModePolicy.Profile)
+    /// `setCategory` with one of the static configurations, diff-only.
+    case applyConfiguration(AudioSessionConfiguration)
+    /// Arm the un-duck tail: ask for `.unduckTailElapsed` in
+    /// `RadioConfig.Session.duckReleaseTail` seconds.
+    case scheduleUnduck
     /// `setActive(true)`, retrying on `.isBusy`; answers with
     /// `activationSucceeded` or `activationFailed`.
     case activate
@@ -87,7 +117,7 @@ public enum AudioSessionReactor {
         case .activationRequested:
             return AudioSessionReaction(
                 status: next,
-                actions: [.applyConfiguration(next.profile), .activate]
+                actions: [.applyConfiguration(next.configuration), .activate]
             )
 
         case .activationSucceeded:
@@ -111,9 +141,9 @@ public enum AudioSessionReactor {
             return AudioSessionReaction(status: next, actions: [])
 
         case .deactivationRequested:
-            next.isActive = false
-            // §9's first row is the state a stopped radio starts from again.
-            next.profile = .voice
+            // §9's first row is the state a stopped radio starts from again:
+            // inactive, VOICE, nothing playing, nothing ducked.
+            next = AudioSessionStatus()
             return AudioSessionReaction(status: next, actions: [.deactivate])
 
         case let .profileRequested(profile):
@@ -121,13 +151,20 @@ public enum AudioSessionReactor {
                 return AudioSessionReaction(status: next, actions: [])
             }
             next.profile = profile
+            // The duck belongs to MEDIA: VOICE has the headset on HFP, where
+            // the other app is out of the way already. Recomputed rather than
+            // carried, so a raise mid-burst leaves the duck behind and a return
+            // to MEDIA mid-burst comes back to it.
+            next.isDucking = profile == .media && next.isReceiving
             // No rebuild here: the `setCategory` emits
             // AVAudioEngineConfigurationChange when the hardware format moves,
             // and that notification owns the rebuild (§5, "ride the same
             // rebuild path").
             return AudioSessionReaction(
                 status: next,
-                actions: [.applyConfiguration(profile), .syncSpeakerOverride, .publishRoute]
+                actions: [
+                    .applyConfiguration(next.configuration), .syncSpeakerOverride, .publishRoute
+                ]
             )
 
         case let .routeChanged(reason):
@@ -145,7 +182,7 @@ public enum AudioSessionReactor {
                 return AudioSessionReaction(
                     status: next,
                     actions: [
-                        .applyConfiguration(next.profile), .syncSpeakerOverride, .publishRoute
+                        .applyConfiguration(next.configuration), .syncSpeakerOverride, .publishRoute
                     ]
                 )
             case .override:
@@ -187,7 +224,7 @@ public enum AudioSessionReactor {
             // logged — §2 goal 3 — and the next recovery retries.
             return AudioSessionReaction(
                 status: next,
-                actions: [.applyConfiguration(next.profile), .activate, .rebuildEngine]
+                actions: [.applyConfiguration(next.configuration), .activate, .rebuildEngine]
             )
 
         case .appDidBecomeActive:
@@ -196,7 +233,7 @@ public enum AudioSessionReactor {
                 // same recovery.
                 return AudioSessionReaction(
                     status: next,
-                    actions: [.applyConfiguration(next.profile), .activate, .rebuildEngine]
+                    actions: [.applyConfiguration(next.configuration), .activate, .rebuildEngine]
                 )
             }
             // A live session only needs a refresh; a setActive and an engine
@@ -212,7 +249,7 @@ public enum AudioSessionReactor {
             next.isActive = false
             return AudioSessionReaction(
                 status: next,
-                actions: [.applyConfiguration(next.profile), .activate, .recreateEngine]
+                actions: [.applyConfiguration(next.configuration), .activate, .recreateEngine]
             )
 
         case .silenceSecondaryAudioHint:
@@ -220,6 +257,59 @@ public enum AudioSessionReactor {
                 return AudioSessionReaction(status: next, actions: [])
             }
             return AudioSessionReaction(status: next, actions: [.sampleOtherAudio])
+
+        case .incomingAudioBegan:
+            // MEDIA mixes (§5), so a burst arriving over full-volume music is
+            // hard to hear. The duck is dynamic — added here, removed after the
+            // burst — because this session is always hot: a static
+            // `.duckOthers` would duck the user's music for the whole run.
+            //
+            // Deliberately not gated on `isActive`, exactly like
+            // `.profileRequested`: `setCategory` is legal on a session that is
+            // not active, and the status is what the recovery rows re-apply.
+            next.isReceiving = true
+            guard next.profile == .media, !next.isDucking else {
+                return AudioSessionReaction(status: next, actions: [])
+            }
+            next.isDucking = true
+            return AudioSessionReaction(
+                status: next,
+                actions: [.applyConfiguration(next.configuration)]
+            )
+
+        case .incomingAudioEnded:
+            next.isReceiving = false
+            guard next.isDucking else {
+                return AudioSessionReaction(status: next, actions: [])
+            }
+            // Not un-ducked here: a conversation is a run of bursts, and
+            // restoring the music between two of them would pump its volume.
+            return AudioSessionReaction(status: next, actions: [.scheduleUnduck])
+
+        case .unduckTailElapsed:
+            guard next.isDucking, !next.isReceiving else {
+                // A new burst arrived inside the tail: stay ducked, and let
+                // that burst's own end arm the next tail.
+                return AudioSessionReaction(status: next, actions: [])
+            }
+            next.isDucking = false
+            return AudioSessionReaction(
+                status: next,
+                actions: [.applyConfiguration(next.configuration)]
+            )
+
+        case .resumeNudgeDeactivated:
+            // The manager has just deactivated the session on purpose, to give
+            // the other apps the resume signal an always-hot session never
+            // sends. Everything here is the way back up, and it is the same way
+            // an interruption comes back: the deactivation stopped the audio
+            // I/O, so the always-hot keep-alive tap has to be restarted or the
+            // radio is dead.
+            next.isActive = false
+            return AudioSessionReaction(
+                status: next,
+                actions: [.activate, .applyConfiguration(next.configuration), .rebuildEngine]
+            )
         }
     }
 }

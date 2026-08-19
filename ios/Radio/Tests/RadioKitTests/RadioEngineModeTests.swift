@@ -276,6 +276,73 @@ final class RadioEngineModeTests: XCTestCase {
         XCTAssertEqual(background.appliedProfiles, [.media, .voice, .media])
     }
 
+    // MARK: - The resume nudge (§9 row 5's "music resumes after the linger")
+
+    func testTheLingerReturningToMediaNudgesTheMusicAppBackToLife() {
+        // The always-hot session never deactivates, so the raise pauses the
+        // music and nothing ever tells it it may play again.
+        reachMedia()
+        ptt.delegate?.pttSourceDidPress(ptt)
+        flush()
+        background.publishRoute(hfp)
+        flush()
+        background.grantAudioSession()
+        flush()
+
+        let releasedAt = ModePolicy.Constants.otherAudioToMediaMs
+        clock.nowMs = releasedAt
+        ptt.delegate?.pttSourceDidRelease(ptt)
+        flush()
+
+        XCTAssertEqual(background.resumeNudges, 0, "not while the link is still held")
+
+        advance(to: releasedAt + ModePolicy.Constants.voiceLinkLingerMs)
+
+        XCTAssertEqual(background.appliedProfiles, [.media, .voice, .media])
+        XCTAssertEqual(background.resumeNudges, 1)
+    }
+
+    func testTheGrantTimeoutFallbackComesBackToMediaWithoutANudge() {
+        // §7's 4 s timeout restores MEDIA and starts capture on the phone mic
+        // in the same decision: a deactivation there would land under a
+        // transmission that is about to open.
+        reachMedia()
+        let pressedAt = ModePolicy.Constants.otherAudioToMediaMs
+        ptt.delegate?.pttSourceDidPress(ptt)
+        flush()
+
+        advance(to: pressedAt + ModePolicy.Constants.voiceLinkGrantTimeoutMs)
+
+        XCTAssertEqual(background.appliedProfiles, [.media, .voice, .media])
+        XCTAssertEqual(background.resumeNudges, 0)
+    }
+
+    func testAReturnToMediaWithNothingPlayingIsNotNudged() {
+        // MEDIA reached by the §8 pin rather than by music: there is no paused
+        // app to resume, so the session is left alone.
+        background.publishRoute(a2dp)
+        flush()
+        engine.setAudioMode(.media)
+        flush()
+
+        ptt.delegate?.pttSourceDidPress(ptt)
+        flush()
+        background.publishRoute(hfp)
+        flush()
+        background.grantAudioSession()
+        flush()
+
+        let releasedAt: Int64 = 1_000
+        clock.nowMs = releasedAt
+        ptt.delegate?.pttSourceDidRelease(ptt)
+        flush()
+
+        advance(to: releasedAt + ModePolicy.Constants.voiceLinkLingerMs)
+
+        XCTAssertEqual(background.appliedProfiles, [.media, .voice, .media])
+        XCTAssertEqual(background.resumeNudges, 0)
+    }
+
     // MARK: - Lifetime
 
     func testStoppingTheRadioForgetsEveryPolicyDeadline() {

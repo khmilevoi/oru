@@ -35,10 +35,39 @@ public struct AudioSessionConfiguration: Equatable {
         logName: "media"
     )
 
-    public static func of(_ profile: ModePolicy.Profile) -> AudioSessionConfiguration {
+    /// MEDIA for as long as an incoming burst is playing.
+    ///
+    /// MEDIA mixes, which is what lets the user's music keep playing at full
+    /// quality — and also what makes a radio burst arriving over it hard to
+    /// hear. `.duckOthers` turns the music down for the burst and the system
+    /// turns it back up when the option goes away again.
+    ///
+    /// It is a second configuration rather than an option on `media` because
+    /// this session is always hot: a static `.duckOthers` would duck the user's
+    /// music for the entire run, not for the burst.
+    public static let mediaDucking = AudioSessionConfiguration(
+        category: .playAndRecord,
+        mode: .default,
+        options: [.allowBluetoothA2DP, .mixWithOthers, .duckOthers],
+        logName: "media+duck"
+    )
+
+    /// Options this file switches on and off at runtime. `matches` has to
+    /// demand their ABSENCE as explicitly as it demands the rest's presence:
+    /// the ducking options are a superset of MEDIA's, so a superset test alone
+    /// would report a leftover duck as "already applied" and no un-duck would
+    /// ever reach the session.
+    private static let dynamicOptions: AVAudioSession.CategoryOptions = [.duckOthers]
+
+    /// `ducking` only means anything on MEDIA: on VOICE the headset is already
+    /// on HFP and the other app is out of the way by construction.
+    public static func of(
+        _ profile: ModePolicy.Profile,
+        ducking: Bool = false
+    ) -> AudioSessionConfiguration {
         switch profile {
         case .voice: return voice
-        case .media: return media
+        case .media: return ducking ? mediaDucking : media
         }
     }
 
@@ -54,9 +83,14 @@ public struct AudioSessionConfiguration: Equatable {
     ///
     /// Options are compared with a superset test, not equality: iOS adds
     /// implied options (`.voiceChat` implies `.allowBluetooth`) and demanding
-    /// equality would re-apply forever. The two configurations always differ in
+    /// equality would re-apply forever. The two profiles always differ in
     /// `mode`, so mode equality alone already separates them; the superset test
     /// is there to catch an option somebody else cleared.
+    ///
+    /// The exception is `dynamicOptions`: the ones this file itself adds and
+    /// removes at runtime. MEDIA and MEDIA+duck share a category and a mode and
+    /// differ only by `.duckOthers`, so the superset test alone would call a
+    /// still-ducking session "already MEDIA" and the duck would never end.
     public func matches(
         category: AVAudioSession.Category,
         mode: AVAudioSession.Mode,
@@ -65,6 +99,7 @@ public struct AudioSessionConfiguration: Equatable {
         category == self.category
             && mode == self.mode
             && options.isSuperset(of: self.options)
+            && options.isDisjoint(with: Self.dynamicOptions.subtracting(self.options))
     }
 
     /// §5's on-demand speaker, and the wired-headphones fix.

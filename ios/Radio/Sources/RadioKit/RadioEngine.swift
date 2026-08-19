@@ -44,6 +44,12 @@ public final class RadioEngine {
     private var isPttHeld = false
     /// A `raiseVoiceLink` is in flight and a route change must answer it.
     private var isAwaitingVoiceLink = false
+    /// §5's other-audio detection, as last reported by the session.
+    private var otherAudioActive = false
+    /// What `otherAudioActive` was when the profile last left MEDIA for VOICE.
+    /// Latched there because a raise pauses the other app, which then reports
+    /// no audio at all — see `ResumeNudgePolicy`.
+    private var otherAudioActiveBeforeVoice = false
     /// §8's persisted setting. `RadioAssembly` supplies the production store;
     /// tests inject one against a private `UserDefaults` suite.
     private let audioModeStore: AudioModeStore
@@ -144,6 +150,8 @@ public final class RadioEngine {
         appliedProfile = .voice
         isPttHeld = false
         isAwaitingVoiceLink = false
+        otherAudioActive = false
+        otherAudioActiveBeforeVoice = false
         state = RadioState(
             status: .starting,
             pttButton: ptt.buttonState,
@@ -315,12 +323,16 @@ public final class RadioEngine {
     /// first and the raise/drop is treated as satisfied by it.
     private func performLocked(_ decision: ModePolicy.Decision) {
         if decision.profile != appliedProfile {
+            let previousProfile = appliedProfile
             appliedProfile = decision.profile
             background.applyProfile(decision.profile)
             // §8's `mode` is the *effective* profile, so it moves with the
             // apply and not with the user's pin.
             state.audioRoute.mode = AudioRoute.Mode(decision.profile)
             emitStateLocked()
+            settleOtherAudioResumeLocked(
+                from: previousProfile, to: decision.profile, actions: decision.actions
+            )
         }
 
         for action in decision.actions {
@@ -357,6 +369,48 @@ public final class RadioEngine {
         }
 
         scheduleTickLocked(decision.nextWakeupMs)
+    }
+
+    /// §9 row 5's second half. The raise pauses the user's music; nothing on
+    /// iOS resumes it, because the always-hot session never deactivates and a
+    /// deactivation is the only resume signal there is. So the return to MEDIA
+    /// asks the session for one — but only at the one moment where it costs
+    /// nothing, which is what `ResumeNudgePolicy` decides.
+    ///
+    /// Runs right after the profile apply, so the nudge lands on a session that
+    /// is already back on the MEDIA configuration.
+    private func settleOtherAudioResumeLocked(
+        from previousProfile: ModePolicy.Profile,
+        to nextProfile: ModePolicy.Profile,
+        actions: [ModePolicy.Action]
+    ) {
+        guard previousProfile == .voice else {
+            // Leaving MEDIA: latch what the raise is about to interrupt. While
+            // the link is up the paused app reports no other audio at all, so
+            // this is the last moment the truth is observable.
+            otherAudioActiveBeforeVoice = otherAudioActive
+            return
+        }
+        let startsCapture = actions.contains {
+            if case .startCapture = $0 { return true }
+            return false
+        }
+        guard
+            ResumeNudgePolicy.isWarranted(
+                from: previousProfile,
+                to: nextProfile,
+                otherAudioWasActive: otherAudioActiveBeforeVoice,
+                startsCapture: startsCapture,
+                pttHeld: isPttHeld,
+                transmitting: state.transmitting,
+                receiving: state.receiving
+            )
+        else {
+            return
+        }
+        // One nudge per raise: the latch is the permission, and it is spent.
+        otherAudioActiveBeforeVoice = false
+        background.nudgeOtherAudioResume()
     }
 
     private func scheduleTickLocked(_ nextWakeupMs: Int64?) {
@@ -589,6 +643,7 @@ extension RadioEngine: BackgroundSessionDelegate {
         otherAudioActiveDidChange active: Bool
     ) {
         queue.async {
+            self.otherAudioActive = active
             self.performLocked(self.policy.setOtherAudioActive(active, nowMs: self.clock.nowMs))
         }
     }

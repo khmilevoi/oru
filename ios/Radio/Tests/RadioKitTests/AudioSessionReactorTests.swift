@@ -9,6 +9,10 @@ final class AudioSessionReactorTests: XCTestCase {
     private let inactive = AudioSessionStatus(isActive: false, profile: .voice)
     private let active = AudioSessionStatus(isActive: true, profile: .voice)
     private let activeMedia = AudioSessionStatus(isActive: true, profile: .media)
+    /// MEDIA with an incoming burst playing: the duck is in force.
+    private let duckingMedia = AudioSessionStatus(
+        isActive: true, profile: .media, isReceiving: true, isDucking: true
+    )
 
     private func react(
         _ event: AudioSessionEvent,
@@ -250,6 +254,127 @@ final class AudioSessionReactorTests: XCTestCase {
         XCTAssertEqual(react(.silenceSecondaryAudioHint, inactive).actions, [])
     }
 
+    // MARK: - Ducking an incoming burst in MEDIA
+
+    func testABurstInMediaDucksTheOtherAppsAudio() {
+        // MEDIA mixes, so without this the burst plays under full-volume music.
+        let reaction = react(.incomingAudioBegan, activeMedia)
+        XCTAssertTrue(reaction.status.isReceiving)
+        XCTAssertTrue(reaction.status.isDucking)
+        XCTAssertEqual(reaction.actions, [.applyConfiguration(.mediaDucking)])
+    }
+
+    func testABurstInVoiceDucksNothing() {
+        // On VOICE the headset is on HFP and the music app is already out of
+        // the way; a duck there would be a second mechanism for nothing.
+        let reaction = react(.incomingAudioBegan, active)
+        XCTAssertTrue(reaction.status.isReceiving)
+        XCTAssertFalse(reaction.status.isDucking)
+        XCTAssertEqual(reaction.actions, [])
+    }
+
+    func testASecondBurstInsideTheFirstDoesNotReapplyTheDuck() {
+        XCTAssertEqual(react(.incomingAudioBegan, duckingMedia).actions, [])
+    }
+
+    func testTheBurstEndingArmsTheTailInsteadOfUnduckingImmediately() {
+        // "un-ducks shortly after the burst ends": a conversation is a run of
+        // bursts, and un-ducking between two of them would pump the music.
+        let reaction = react(.incomingAudioEnded, duckingMedia)
+        XCTAssertFalse(reaction.status.isReceiving)
+        XCTAssertTrue(reaction.status.isDucking, "still ducked until the tail elapses")
+        XCTAssertEqual(reaction.actions, [.scheduleUnduck])
+    }
+
+    func testABurstEndingWithNoDuckInForceIsInert() {
+        let reaction = react(.incomingAudioEnded, AudioSessionStatus(
+            isActive: true, profile: .voice, isReceiving: true, isDucking: false
+        ))
+        XCTAssertFalse(reaction.status.isReceiving)
+        XCTAssertEqual(reaction.actions, [])
+    }
+
+    func testTheTailRestoresTheUnduckedMediaConfiguration() {
+        let ended = react(.incomingAudioEnded, duckingMedia).status
+        let reaction = react(.unduckTailElapsed, ended)
+        XCTAssertFalse(reaction.status.isDucking)
+        XCTAssertEqual(reaction.actions, [.applyConfiguration(.media)])
+    }
+
+    func testATailThatFindsANewBurstKeepsTheDuck() {
+        let reaction = react(.unduckTailElapsed, duckingMedia)
+        XCTAssertTrue(reaction.status.isDucking)
+        XCTAssertEqual(reaction.actions, [])
+    }
+
+    func testATailWithNothingLeftToUndoIsInert() {
+        XCTAssertEqual(react(.unduckTailElapsed, activeMedia).actions, [])
+    }
+
+    func testARaiseDuringABurstLeavesTheDuckBehindWithTheMediaProfile() {
+        // The duck is a MEDIA mechanism; VOICE carries none.
+        let reaction = react(.profileRequested(.voice), duckingMedia)
+        XCTAssertFalse(reaction.status.isDucking)
+        XCTAssertEqual(
+            reaction.actions,
+            [.applyConfiguration(.voice), .syncSpeakerOverride, .publishRoute]
+        )
+    }
+
+    func testReturningToMediaWhileABurstPlaysComesBackDucked() {
+        let receivingVoice = AudioSessionStatus(
+            isActive: true, profile: .voice, isReceiving: true, isDucking: false
+        )
+        let reaction = react(.profileRequested(.media), receivingVoice)
+        XCTAssertTrue(reaction.status.isDucking)
+        XCTAssertEqual(reaction.actions.first, .applyConfiguration(.mediaDucking))
+    }
+
+    func testEveryRecoveryRowReappliesTheDuckThatIsInForce() {
+        // The duck lives in the status, so an interruption, a foreground or a
+        // media-services reset restores it with everything else.
+        for event in [
+            AudioSessionEvent.interruptionEnded, .mediaServicesWereReset
+        ] {
+            XCTAssertEqual(
+                react(event, duckingMedia).actions.first,
+                .applyConfiguration(.mediaDucking),
+                "\(event)"
+            )
+        }
+        XCTAssertEqual(
+            react(.activationRequested, duckingMedia).actions.first,
+            .applyConfiguration(.mediaDucking)
+        )
+    }
+
+    func testStoppingTheRadioForgetsTheDuckAsWellAsTheProfile() {
+        let reaction = react(.deactivationRequested, duckingMedia)
+        XCTAssertEqual(reaction.status, AudioSessionStatus())
+        XCTAssertEqual(reaction.actions, [.deactivate])
+    }
+
+    // MARK: - The resume nudge (§9 row 5, "music resumes after the linger")
+
+    func testTheResumeNudgeReactivatesReappliesAndRestartsTheEngine() {
+        // The deactivation already happened (and succeeded) — this row is the
+        // way back up. The rebuild is not optional: a session that really went
+        // down took the always-hot keep-alive tap with it.
+        let reaction = react(.resumeNudgeDeactivated, activeMedia)
+        XCTAssertFalse(reaction.status.isActive)
+        XCTAssertEqual(reaction.status.profile, .media)
+        XCTAssertEqual(
+            reaction.actions, [.activate, .applyConfiguration(.media), .rebuildEngine]
+        )
+    }
+
+    func testTheResumeNudgeComesBackToTheDuckItLeft() {
+        XCTAssertEqual(
+            react(.resumeNudgeDeactivated, duckingMedia).actions,
+            [.activate, .applyConfiguration(.mediaDucking), .rebuildEngine]
+        )
+    }
+
     // MARK: - Invariants across the whole table
 
     func testNothingEverMutatesTheSessionWhileItIsInactiveExceptOnPurpose() {
@@ -273,13 +398,34 @@ final class AudioSessionReactorTests: XCTestCase {
             .activationRequested, .activationSucceeded, .activationFailed,
             .routeChanged(reason: .newDeviceAvailable), .routeChanged(reason: .categoryChange),
             .engineConfigurationChanged, .interruptionBegan, .interruptionEnded,
-            .appDidBecomeActive, .mediaServicesWereReset, .silenceSecondaryAudioHint
+            .appDidBecomeActive, .mediaServicesWereReset, .silenceSecondaryAudioHint,
+            .incomingAudioBegan, .incomingAudioEnded, .unduckTailElapsed,
+            .resumeNudgeDeactivated
         ]
         for event in events {
             XCTAssertEqual(
                 react(event, activeMedia).status.profile, .media,
                 "\(event) must not move the profile"
             )
+        }
+    }
+
+    func testTheDuckIsOnlyEverInForceOnTheMediaProfile() {
+        // A duck on VOICE would fight the HFP link for the same stream.
+        let events: [AudioSessionEvent] = [
+            .activationRequested, .activationSucceeded, .interruptionEnded,
+            .appDidBecomeActive, .mediaServicesWereReset, .incomingAudioBegan,
+            .incomingAudioEnded, .unduckTailElapsed, .profileRequested(.voice),
+            .resumeNudgeDeactivated
+        ]
+        for status in [active, activeMedia, duckingMedia] {
+            for event in events {
+                let next = react(event, status).status
+                XCTAssertFalse(
+                    next.isDucking && next.profile == .voice,
+                    "\(event) from \(status) left a duck on VOICE"
+                )
+            }
         }
     }
 }

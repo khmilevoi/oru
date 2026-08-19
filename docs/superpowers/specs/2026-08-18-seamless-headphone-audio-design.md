@@ -104,13 +104,19 @@ One static configuration per profile, applied whole (diff-only: skip if already 
 |---|---|---|
 | Category | `.playAndRecord` | `.playAndRecord` |
 | Mode | `.voiceChat` | `.default` |
-| Options | `[.allowBluetooth, .mixWithOthers]` | `[.allowBluetoothA2DP, .mixWithOthers]` |
+| Options | `[.allowBluetooth, .mixWithOthers]` | `[.allowBluetoothA2DP, .mixWithOthers]`, plus `.duckOthers` while an incoming burst plays |
 | BT route | HFP both directions (system-picked) | A2DP out, built-in mic |
 
 The two-phase detection state machine, `setPreferredInput` pinning, and the `AudioSessionProfile`
 profile enum are removed. `.mixWithOthers` is mandatory in both profiles: it is what lets another
 app start playing at all (a non-mixable Spotify would otherwise interrupt and kill the radio
 session), which is also how MEDIA-mode demand is detected.
+
+Mixing alone leaves an incoming burst competing with full-volume music, so MEDIA ducks for the
+burst: the same MEDIA configuration is re-applied with `.duckOthers` added when the burst starts
+and removed a short tail after it ends (2026-08-19, approved). The duck is dynamic rather than a
+static option because this session is always hot — a `.duckOthers` baked into MEDIA would hold the
+user's music down for the entire run.
 
 **Speaker default stays override-on-demand, not `.defaultToSpeaker`** (respecting the
 hardware-confirmed iOS 17/18 route-collapse regression recorded in `AudioSessionProfile.swift`):
@@ -249,7 +255,7 @@ Same hardware must produce the same behavior; this table is the acceptance oracl
 | No external device, no music | Loudspeaker + phone mic, VOICE |
 | BT headset connects, no music | HFP both ways within the platform's switch time; instant PTT |
 | BT headset connected, user starts music | ≤ ~2 s + rate limit: headset to A2DP, music at full quality, MEDIA |
-| Incoming voice during music | Voice plays into the A2DP stream; music ducks (Android) / mixes (iOS); no profile switch |
+| Incoming voice during music | Voice plays into the A2DP stream; music ducks for the burst (Android: transient duck focus; iOS: `.duckOthers` re-applied onto MEDIA); no profile switch |
 | PTT press during music | SCO raised → grant tone (~1–3 s first press) → headset mic; linger 15 s; music paused by SCO, resumes after linger |
 | Music stops | After 30 s silence, back to VOICE (SCO held, instant PTT) |
 | Headset battery dies / walks out of range | Immediate loudspeaker + phone mic; no error state |
