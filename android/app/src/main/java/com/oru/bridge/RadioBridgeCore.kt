@@ -16,6 +16,26 @@ interface RadioBridgeOutput {
 }
 
 /**
+ * Spec section 8, as a compile-keeping stub.
+ *
+ * The Codegen spec now publishes `audioRoute` and `audioMode`, and JavaScript
+ * types both as required, so every projection must carry them or the screens
+ * read `undefined` through a type that promises otherwise. P4 replaces this
+ * constant with the real `AudioRouteController` output and the real
+ * SharedPreferences-backed setting; until then the bridge reports the honest
+ * pre-routing truth -- loudspeaker, voice profile, no pin -- and stores nothing.
+ *
+ * `label` is deliberately absent rather than null: section 8 makes it optional
+ * and only a Bluetooth route has one, the same rule `pttButton.name` follows.
+ */
+private val PLACEHOLDER_AUDIO_ROUTE: Map<String, Any?> = mapOf(
+    "kind" to "speaker",
+    "mode" to "voice",
+)
+
+private const val PLACEHOLDER_AUDIO_MODE = "auto"
+
+/**
  * The whole of the Android bridge's logic, with no Android and no React Native
  * in it.
  *
@@ -36,26 +56,6 @@ interface RadioBridgeOutput {
  * and never call back into this class, so there is no re-entrancy to deadlock
  * on, and emissions stay in the order the state changed.
  */
-/**
- * Spec section 8, as a compile-keeping stub.
- *
- * The Codegen spec now publishes `audioRoute` and `audioMode`, and JavaScript
- * types both as required, so every projection must carry them or the screens
- * read `undefined` through a type that promises otherwise. P4 replaces this
- * constant with the real `AudioRouteController` output and the real
- * SharedPreferences-backed setting; until then the bridge reports the honest
- * pre-routing truth -- loudspeaker, voice profile, no pin -- and stores nothing.
- *
- * `label` is deliberately absent rather than null: section 8 makes it optional
- * and only a Bluetooth route has one, the same rule `pttButton.name` follows.
- */
-private val PLACEHOLDER_AUDIO_ROUTE: Map<String, Any?> = mapOf(
-    "kind" to "speaker",
-    "mode" to "voice",
-)
-
-private const val PLACEHOLDER_AUDIO_MODE = "auto"
-
 class RadioBridgeCore(
     private val output: RadioBridgeOutput,
     private val storedConfiguration: () -> PttConfiguration?,
