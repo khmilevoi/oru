@@ -45,6 +45,14 @@ class AudioRouteController(
 
         /** Backstop for the mode change, for stacks that never fire the mode listener. */
         const val MODE_SETTLE_TIMEOUT_MS = 500L
+
+        /**
+         * How many times, within one device episode, a platform-cleared or
+         * platform-replaced communication device is re-asserted before it is demoted
+         * directly. Keeps an OEM stack that keeps rerouting from turning into an endless
+         * re-selection loop.
+         */
+        const val MAX_COMMUNICATION_DEVICE_REASSERTS = 3
     }
 
     private var started = false
@@ -64,6 +72,15 @@ class AudioRouteController(
 
     /** A voice link the platform accepted but has not yet confirmed. */
     private var establishing: RouteDevice? = null
+
+    /**
+     * Platform interference — a cleared or replaced communication device — seen within the
+     * current device episode. Per-episode, not per-confirmation: [onDeviceEvent] resets it,
+     * alongside [demoted] and [attempts], when a connect or disconnect starts a new episode.
+     * A confirmed selection along the way does not reset it, so interference that recurs
+     * across several confirmed cycles still reaches [MAX_COMMUNICATION_DEVICE_REASSERTS].
+     */
+    private var reassertCount = 0
 
     /** Section 6's per-episode attempt counters, keyed by [RouteDevice.key]. */
     private val attempts = mutableMapOf<String, Int>()
@@ -185,8 +202,40 @@ class AudioRouteController(
         if (!started) return@post
         logger.log("route: platform communication device t=${clock()}ms -> ${device?.productName}")
         val target = establishing
-        if (target != null && device?.id == target.id && !RoutePicker.requiresVoiceLink(target)) {
-            markEstablished(target)
+        if (target != null && device?.id == target.id) {
+            // A Bluetooth Classic selection is confirmed by the SCO link, not by the
+            // selection echo: this is exactly the state the 2026-08-17 total-silence session
+            // was stuck in — confirmed selection, no link.
+            if (!RoutePicker.requiresVoiceLink(target)) markEstablished(target)
+            reevaluate()
+            return@post
+        }
+        val inForce = applied
+        // Deviation from the plan's literal snippet (recorded in the task report's "Left, and
+        // why"): a bare `device?.id != inForce.id` also fires on the synchronous echo of the
+        // controller's *own* selection of a genuinely new candidate while the old one is still
+        // applied — `facade.setCommunicationDevice()` echoes before `routeCommunicationTo`
+        // gets to assign `establishing`, so `inForce` is still the previous device at that
+        // instant. That collided with the existing (Task 3) "audio keeps flowing on the
+        // previous route while the new link establishes" test: a self-triggered switch away
+        // from `inForce` was misread as the platform taking `inForce` away from us. Requiring
+        // `inForce` to still be the candidate the controller currently wants tells that
+        // self-triggered echo apart from the platform genuinely overriding a device we still
+        // want.
+        val stillWanted = inForce != null && inForce.id == pickCandidate()?.id
+        if (inForce != null && device?.id != inForce.id && stillWanted) {
+            if (reassertCount < MAX_COMMUNICATION_DEVICE_REASSERTS) {
+                reassertCount++
+                logger.log(
+                    "route: platform ${if (device == null) "cleared" else "replaced"} our " +
+                        "selection t=${clock()}ms; re-asserting " +
+                        "($reassertCount/$MAX_COMMUNICATION_DEVICE_REASSERTS)",
+                )
+                applied = null
+            } else {
+                reassertCount = 0
+                demote(inForce, "the platform kept taking the route away")
+            }
         }
         reevaluate()
     }
@@ -204,7 +253,18 @@ class AudioRouteController(
         when (state) {
             VoiceLinkState.CONNECTED -> if (target != null) markEstablished(target)
             VoiceLinkState.ERROR -> if (target != null) failEstablishment(target, "SCO error")
-            VoiceLinkState.CONNECTING, VoiceLinkState.DISCONNECTED -> Unit
+            VoiceLinkState.DISCONNECTED -> {
+                val inForce = applied
+                if (target == null && inForce != null && RoutePicker.requiresVoiceLink(inForce)) {
+                    // Signal's wasAudioStateInterrupted: someone else took the link. That is
+                    // not our failure, so the attempt budget is refreshed rather than spent.
+                    logger.log("route: voice link stolen t=${clock()}ms ${inForce.productName}")
+                    attempts.remove(inForce.key)
+                    demoted.remove(inForce.key)
+                    applied = null
+                }
+            }
+            VoiceLinkState.CONNECTING -> Unit
         }
         reevaluate()
     }
@@ -224,6 +284,7 @@ class AudioRouteController(
     private fun onDeviceEvent(added: List<RouteDevice>, removed: List<RouteDevice>) {
         if (added.isEmpty() && removed.isEmpty()) return
         demoted.clear()
+        reassertCount = 0
         (added + removed).forEach { attempts.remove(it.key) }
         removed.forEach { device ->
             if (applied?.id == device.id) applied = null
@@ -415,10 +476,31 @@ class AudioRouteController(
                 "attempt=$count/$MAX_ESTABLISH_ATTEMPTS reason=$reason",
         )
         if (count >= MAX_ESTABLISH_ATTEMPTS) {
-            demoted.add(device.key)
-            attempts.remove(device.key)
-            logger.log("route: demoted t=${clock()}ms ${device.productName} until the next device event")
+            demote(device, reason)
+        } else {
+            reevaluateAgain = true
         }
+    }
+
+    /**
+     * Tears the device out of whatever state it was in and demotes it directly: the shared
+     * tail of a spent establish-attempt budget ([failEstablishment], once [count] reaches
+     * [MAX_ESTABLISH_ATTEMPTS]) and of the platform simply refusing to keep our confirmed
+     * selection ([onCommunicationDeviceChanged]'s give-up branch, which is never mid
+     * establishment and so has nothing for [failEstablishment] itself to fail). Demotion still
+     * lasts only until the next device event — [onDeviceEvent] clears [demoted] — so §11's "no
+     * blacklist" holds either way.
+     */
+    private fun demote(device: RouteDevice, reason: String) {
+        cancelEstablishTimeout()
+        if (establishing?.id == device.id) establishing = null
+        if (applied?.id == device.id) applied = null
+        facade.stopVoiceLink()
+        demoted.add(device.key)
+        attempts.remove(device.key)
+        logger.log(
+            "route: demoted t=${clock()}ms ${device.productName} until the next device event: $reason",
+        )
         reevaluateAgain = true
     }
 
@@ -465,8 +547,20 @@ class AudioRouteController(
         establishTimeout = null
     }
 
+    /**
+     * Section 6: `setCommunicationDevice` returning true only means the request was
+     * accepted, not that the route was built. Before the headset spends an attempt, the
+     * Bluetooth stack is asked directly whether SCO audio is connected — the listener event
+     * is the thing that goes missing on OEM stacks, not the link.
+     */
     private fun onEstablishTimeout(device: RouteDevice) {
         if (!started || establishing?.id != device.id) return
+        if (facade.isVoiceLinkConnected(device)) {
+            logger.log("route: establish timeout t=${clock()}ms but the link is up; keeping it")
+            markEstablished(device)
+            reevaluate()
+            return
+        }
         failEstablishment(device, "not confirmed within ${ESTABLISH_TIMEOUT_MS}ms")
         reevaluate()
     }
