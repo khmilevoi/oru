@@ -158,8 +158,8 @@ public enum AudioRouteClassifier {
 }
 
 /// Compact, human-readable route strings for heartbeat.log and the spike panel.
-/// Moved here unchanged when `AudioSessionProfile.swift` was deleted (§11: "the
-/// route formatter stays").
+/// Moved here unchanged when the old two-phase-detection file was deleted
+/// (§11: "the route formatter stays").
 public enum AudioRouteFormatter {
 
     /// "→ AirPods (HFP) / ← AirPods (HFP)" or "→ Speaker / ← iPhone mic".

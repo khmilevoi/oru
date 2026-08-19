@@ -380,6 +380,15 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
                 + "in=\(AudioRouteFormatter.portTypes(route.inputs)) "
                 + "out=\(AudioRouteFormatter.portTypes(route.outputs))"
         )
+        if reason == .newDeviceAvailable || reason == .oldDeviceUnavailable {
+            // §10: starts the switch-latency measurement. It is closed by the
+            // first buffer either tap delivers afterwards — which is precisely
+            // "audio on the new route", because no tap delivers while the
+            // engine is stopped for a rebuild.
+            HeartbeatLogger.shared.markRouteChange(
+                reason: AudioRouteFormatter.name(of: reason)
+            )
+        }
         let expectedGeneration = generation
         queue.async { [weak self] in
             guard let self, self.generation == expectedGeneration else { return }

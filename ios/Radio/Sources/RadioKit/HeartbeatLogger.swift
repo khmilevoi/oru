@@ -51,6 +51,7 @@ public final class HeartbeatLogger {
     )
     private let lock = NSLock()
     private var lastInputBufferAt: Date?
+    private var stopwatch = RouteSwitchStopwatch()
     private var timer: DispatchSourceTimer?
     private let formatter = ISO8601DateFormatter()
 
@@ -60,12 +61,33 @@ public final class HeartbeatLogger {
             .appendingPathComponent("heartbeat.log")
     }
 
-    /// Called from the audio input tap on every buffer. Only a timestamp store:
-    /// the tap thread must never touch files or os_log.
+    /// Called from the audio input tap on every buffer. Only a timestamp store
+    /// and one comparison: the tap thread must never touch files or os_log.
+    /// `record` hops to the main queue, and the stopwatch answers at most once
+    /// per route switch, so at most one line per switch is written from here.
     public func noteInputBuffer() {
         lock.lock()
         lastInputBufferAt = Date()
+        let line = stopwatch.noteAudio(atMs: Self.monotonicMs())
         lock.unlock()
+        if let line {
+            record(line)
+        }
+    }
+
+    /// §10: "device-event → audio-on-new-route". Called by
+    /// `AlwaysHotBackgroundManager` when a device appears or disappears; the
+    /// next input buffer closes the measurement.
+    public func markRouteChange(reason: String) {
+        lock.lock()
+        stopwatch.markRouteChange(reason: reason, atMs: Self.monotonicMs())
+        lock.unlock()
+    }
+
+    /// Monotonic, like every other deadline in this radio: a system clock
+    /// change must not turn a switch latency into a negative number.
+    private static func monotonicMs() -> Int64 {
+        Int64(DispatchTime.now().uptimeNanoseconds / 1_000_000)
     }
 
     /// All timer state lives on the main queue — also the one place
