@@ -45,6 +45,11 @@ export const colors = {
   rx: '#35c26d',
   /** Button learning — oklch(0.78 0.14 75). */
   learning: '#eba941',
+  /**
+   * The learning ring's pulse halo — `@keyframes pulse` states rgb(255 190 90)
+   * of its own, not `--amber`. Its 0.25 alpha is animated, not baked in here.
+   */
+  learningHalo: '#ffbe5a',
   danger: '#ff5a4d',
 } as const;
 
@@ -92,12 +97,12 @@ export const fonts = {
  * `textTransform: 'uppercase'` is part of a token wherever the canvas class it
  * resolves reaches the same effect in CSS -- `.display` (which `.holden`,
  * `.holdword`, `.bigword`, `.learnword` and `.okword` are all composed with),
- * `.obtitle`, `.slabel`, `.subhint`, `.scantext` and `.scanrow`. It belongs
- * here and not in the catalogs: a `.po` msgid is source text, and shouting is
- * a rendering decision.
+ * `.obtitle`, `.slabel`, `.subhint`, `.scantext`, `.scanrow` and `.routeline`.
+ * It belongs here and not in the catalogs: a `.po` msgid is source text, and
+ * shouting is a rendering decision.
  */
 export const type = {
-  /** `.holden` -- the one-line headline, and `.obtitle`. */
+  /** `.holden` -- the one-line headline. */
   hero: {
     fontFamily: fonts.display,
     fontSize: 40,
@@ -121,6 +126,30 @@ export const type = {
     letterSpacing: 1.7,
     textTransform: 'uppercase',
   },
+  /**
+   * `.learnword` and `.okword` -- the pairing flow's ring words, one size down
+   * from `.bigword` (30px over 1.3). Composed with `.display` on the canvas,
+   * whose 0.05em is 1.5 at this size.
+   */
+  stateSmall: {
+    fontFamily: fonts.display,
+    fontSize: 30,
+    lineHeight: 39,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  /**
+   * `.obtitle` -- the onboarding title. `.holden`'s face and size, but the
+   * canvas states its own tighter 0.04em (1.6 here) against `.display`'s
+   * 0.05em, and a 1.05 line (42).
+   */
+  obTitle: {
+    fontFamily: fonts.display,
+    fontSize: 40,
+    lineHeight: 42,
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
+  },
   /** `.stitle` -- the settings/pairing screen title. */
   title: {
     fontFamily: fonts.displayMedium,
@@ -136,6 +165,18 @@ export const type = {
     letterSpacing: 2.4,
     textTransform: 'uppercase',
   },
+  /**
+   * `.scantext` in the pairing flow, which the canvas restates one size down
+   * (14px at 0.14em). No line-height there; `type.scan`'s 20 keeps the two
+   * scan lines on one metric.
+   */
+  scanPairing: {
+    fontFamily: fonts.mono,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 1.96,
+    textTransform: 'uppercase',
+  },
   /** `.subhint` -- the uppercase hint under a ring. */
   subhint: {
     fontFamily: fonts.mono,
@@ -144,18 +185,37 @@ export const type = {
     letterSpacing: 1.56,
     textTransform: 'uppercase',
   },
-  /**
-   * `.slabel`, `.scanrow` and `.obstep` -- engraved section labels. `.obstep`
-   * alone carries no `text-transform` on the canvas, but its own copy there is
-   * already shouted ("STEP 1 OF 3"), so the token's uppercase is a no-op for it
-   * rather than a deviation.
-   */
+  /** `.slabel` -- the engraved section label: 11px medium at 0.2em. */
   label: {
     fontFamily: fonts.monoMedium,
     fontSize: 11,
     lineHeight: 15,
     letterSpacing: 2.2,
     textTransform: 'uppercase',
+  },
+  /**
+   * `.scanrow` -- the pairing list's "still scanning" line: regular weight at
+   * 0.14em, which lands on `.routeline`'s exact metrics; a coincidence the
+   * canvas states twice, so it is written down twice. Line-height as
+   * `type.label`'s, for the same reason `type.routeLabel` takes it.
+   */
+  scanRow: {
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    lineHeight: 15,
+    letterSpacing: 1.54,
+    textTransform: 'uppercase',
+  },
+  /**
+   * `.obstep` -- the onboarding step counter: regular weight at 0.22em, and the
+   * one engraved label with no `text-transform` on the canvas (its copy there
+   * is already shouted). Line-height as `type.label`'s.
+   */
+  obStep: {
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    lineHeight: 15,
+    letterSpacing: 2.42,
   },
   /** `.btn`. */
   button: {
@@ -170,8 +230,21 @@ export const type = {
   peer: {fontFamily: fonts.mono, fontSize: 15, lineHeight: 20},
   /** `.devname`. */
   devName: {fontFamily: fonts.monoMedium, fontSize: 19, lineHeight: 24},
+  /**
+   * `.offname` -- the "Not connected" line: `.devname`'s size at weight 400.
+   * Line-height as `type.devName`'s, so the card holds its height either way.
+   */
+  devNameOff: {fontFamily: fonts.mono, fontSize: 19, lineHeight: 24},
   /** `.devmeta` and `.note`. */
   caption: {fontFamily: fonts.mono, fontSize: 12, lineHeight: 20},
+  /**
+   * `.devsub` -- the connection status under a device name: 13px, one up from
+   * `.devmeta`. No line-height on the canvas; `type.subhint`'s 18 is the
+   * figure for the same 13px mono face.
+   */
+  devStatus: {fontFamily: fonts.mono, fontSize: 13, lineHeight: 18},
+  /** `.learnsub` -- the pairing learn step's hint: 13px over 1.7 (22). */
+  learnSub: {fontFamily: fonts.mono, fontSize: 13, lineHeight: 22},
   /** `.vers`. */
   version: {
     fontFamily: fonts.mono,
@@ -189,6 +262,7 @@ export const type = {
     fontSize: 11,
     lineHeight: 15,
     letterSpacing: 1.54,
+    textTransform: 'uppercase',
   },
   /** `.seg span` -- an unselected audio-mode segment. */
   segment: {
@@ -228,7 +302,33 @@ export const chrome = {
   sectionLabel: {paddingTop: 34, paddingHorizontal: 28, paddingBottom: 12},
   /** `.obfoot` -- `padding: 0 26px 30px; gap: 18px` (the onboarding footers). */
   footer: {paddingHorizontal: 26, paddingBottom: 30, gap: 18},
+  /** `.pfoot` -- `padding: 0 22px 30px` (the pairing learn/saved footers). */
+  pairingFooter: {paddingHorizontal: 22, paddingBottom: 30},
 } as const satisfies Record<string, ViewStyle>;
+
+/**
+ * `.stage` -- the centred column every radio and pairing state sits in -- and
+ * the two gap overrides screens compose onto it (`.offstage` in `design/01
+ * Radio.dc.html`, `.stage.pair` in `design/03 Pairing.dc.html`). Its own group
+ * rather than entries on the `spacing` scale, which is the app's own invention:
+ * these figures are the canvas's, stated per class.
+ */
+export const stage = {
+  /** `.stage` gap. */
+  gap: 40,
+  /** `.stage` padding-bottom. */
+  paddingBottom: 40,
+  /** `.offstage` gap -- the `off` state opens the column up a touch. */
+  offGap: 46,
+  /** `.stage.pair` gap -- the pairing learn/saved steps close it down. */
+  pairGap: 30,
+} as const;
+
+/**
+ * `.scanhint` in `design/03 Pairing.dc.html` -- the scan step's hint, pinned
+ * to the foot of the frame rather than stacked into the stage.
+ */
+export const scanHintInset = {side: 40, bottom: 40} as const;
 
 export const radii = {
   /** `.bars span`. */
@@ -307,8 +407,13 @@ export const motion = {
   levelStaggerMs: 120,
   /** `.pulse`. */
   pulseMs: 1600,
+  /** How far `@keyframes pulse`'s halo spreads (`0 0 0 26px`). */
+  pulseSpread: 26,
   fadeMs: 220,
-  /** `.pwr.dim` -- what the corner controls recede to while live. */
+  /**
+   * `.pwr.dim` -- what the power key recedes to while transmitting or
+   * receiving. The power key alone: the canvas never dims `.gear`.
+   */
   recededOpacity: 0.34,
 } as const;
 
@@ -338,6 +443,8 @@ export const testIds = {
   pairingCandidate: 'pairing-candidate',
   pairingRetry: 'pairing-retry',
   pairingCancel: 'pairing-cancel',
+  /** The learn step's `.pfoot` Cancel -- the header chevron keeps `pairingCancel`. */
+  pairingCancelFooter: 'pairing-cancel-footer',
   pairingDone: 'pairing-done',
 
   onboardingScreen: 'onboarding-screen',

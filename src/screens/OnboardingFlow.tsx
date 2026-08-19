@@ -32,7 +32,7 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
             <PermissionMark kind="done" />
           </View>
           <View style={styles.foot}>
-            <Text style={[type.hero, styles.title]}>
+            <Text style={[type.obTitle, styles.title]}>
               <Trans>All set</Trans>
             </Text>
             <Text style={[type.body, styles.body]}>
@@ -95,12 +95,12 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
           <PermissionMark kind={permission ?? 'microphone'} />
         </View>
         <View style={styles.foot}>
-          <Text style={[type.label, styles.step]}>
+          <Text style={[type.obStep, styles.step]}>
             <Trans>
               STEP {step} OF {APP_PERMISSIONS.length}
             </Trans>
           </Text>
-          <Text style={[type.hero, styles.title]}>{copy.title}</Text>
+          <Text style={[type.obTitle, styles.title]}>{copy.title}</Text>
           <Text style={[type.body, styles.body]}>{copy.body}</Text>
 
           {status === 'denied' ? (

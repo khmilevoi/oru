@@ -10,7 +10,7 @@ import {PairingFlow} from '../src/screens/PairingFlow';
 import {radio, radioEventListener} from '../src/radio/radio.model';
 import {NativeRadioUnavailableError, RadioNative} from '../src/radio/radio.native';
 import {pairingError} from '../src/ptt/ptt.pairing.model';
-import {testIds} from '../src/ui/theme';
+import {scanHintInset, testIds} from '../src/ui/theme';
 import {renderScreen} from '../jest/renderScreen';
 
 /** Same walk `renderScreen` does internally over the rendered tree. */
@@ -31,6 +31,9 @@ describe('the pairing flow — spec sections 9.3 and 12.1', () => {
     // No `radio.start()` anywhere in this suite: the flow opens its own session
     // on mount, and starting the radio afterwards would cancel it -- `start()`
     // cancels every pending timer and aborts an in-flight pairing by design.
+    // The canvas titles the flow in sentence case (`.stitle` has no
+    // text-transform, 03 Pairing.dc.html).
+    expect(screen.hasText('Connect PTT button')).toBe(true);
     expect(screen.hasText('SCANNING FOR BLE DEVICES...')).toBe(true);
     expect(screen.findAll('pairing-pings')).toHaveLength(1);
 
@@ -38,9 +41,14 @@ describe('the pairing flow — spec sections 9.3 and 12.1', () => {
     expect(screen.hasText('Found')).toBe(true);
     expect(screen.hasText('ORU-PTT-01')).toBe(true);
     expect(screen.hasText('BT-REMOTE')).toBe(true);
+    // RSSI prints with a true minus, U+2212, not a hyphen (canvas: −52 dBm).
+    expect(screen.hasText('BLE · −52 dBm')).toBe(true);
 
     await screen.press(`${testIds.pairingCandidate}-mock-ptt-01`);
     expect(screen.hasText('PRESS THE PTT BUTTON')).toBe(true);
+    // The learn hint quotes the device name (canvas: “Zello PTT”).
+    expect(screen.hasText('Listening for a signal from “')).toBe(true);
+    expect(screen.hasText('”...')).toBe(true);
 
     await screen.advance(1300);
     expect(screen.hasText('BUTTON CONNECTED')).toBe(true);
@@ -119,6 +127,7 @@ describe('the pairing flow — spec sections 9.3 and 12.1', () => {
       locale: 'ru',
     });
 
+    expect(screen.hasText('Подключение кнопки')).toBe(true);
     expect(screen.hasText('ИЩЕМ BLE-УСТРОЙСТВА...')).toBe(true);
 
     await screen.advance(1000);
@@ -126,6 +135,8 @@ describe('the pairing flow — spec sections 9.3 and 12.1', () => {
 
     await screen.press(`${testIds.pairingCandidate}-mock-ptt-01`);
     expect(screen.hasText('НАЖМИТЕ КНОПКУ PTT')).toBe(true);
+    // Russian quotes the device name in guillemets (canvas: «Zello PTT»).
+    expect(screen.hasText('Слушаем сигнал от «')).toBe(true);
 
     await screen.advance(1300);
     expect(screen.hasText('КНОПКА ПОДКЛЮЧЕНА')).toBe(true);
@@ -196,6 +207,13 @@ describe('PairingFlow — design/03 Pairing.dc.html', () => {
 
     expect(screen.findAll('pairing-pings')).toHaveLength(1);
 
+    // `.scanhint` is absolutely positioned at the foot of the frame
+    // (design/03 Pairing.dc.html: `position: absolute; bottom: 40px`), not a
+    // third row of the centred stage.
+    const hint = JSON.stringify(screen.find('pairing-scan-hint').props.style);
+    expect(hint).toContain('"position":"absolute"');
+    expect(hint).toContain(`"bottom":${scanHintInset.bottom}`);
+
     // Settle the in-flight scan (`SUCCESSFUL_PAIRING.scanMs`) before
     // unmounting: `jest.useFakeTimers()` is set up once for the whole file, so
     // its clock -- and any `setTimeout` the mock engine scheduled -- outlives
@@ -235,6 +253,65 @@ describe('PairingFlow — design/03 Pairing.dc.html', () => {
 
     expect(screen.findAll('pairing-tick')).toHaveLength(1);
     expect(screen.findAll(testIds.pairingDone)).toHaveLength(1);
+
+    screen.unmount();
+  });
+
+  it('pulses the learning ring, motion-safe only', async () => {
+    // `.learnring` carries the canvas `pulse` class (design/03 Pairing.dc.html),
+    // declared under `@media (prefers-reduced-motion: no-preference)`.
+    const learn = async (reducedMotion: boolean) => {
+      const screen = await renderScreen(<PairingFlow onClose={jest.fn()} />, {
+        scenario: 'happy',
+        reducedMotion,
+      });
+      await screen.advance(1000);
+      await screen.press(`${testIds.pairingCandidate}-mock-ptt-01`);
+      const halos = screen.findAll('state-ring-pulse').length;
+      await screen.advance(1300);
+      screen.unmount();
+      return halos;
+    };
+
+    expect(await learn(false)).toBe(1);
+    expect(await learn(true)).toBe(0);
+  });
+
+  it('offers a ghost Cancel in the learn step footer', async () => {
+    const onClose = jest.fn();
+    const screen = await renderScreen(<PairingFlow onClose={onClose} />, {
+      scenario: 'happy',
+    });
+    await screen.advance(1000);
+    await screen.press(`${testIds.pairingCandidate}-mock-ptt-01`);
+
+    // A `.pfoot` Cancel below the stage, on top of the header chevron
+    // (design/03 Pairing.dc.html frame 03).
+    const foot = screen.find('pairing-foot');
+    expect(
+      foot.findAll(node => node.props.testID === testIds.pairingCancelFooter),
+    ).not.toHaveLength(0);
+
+    await screen.press(testIds.pairingCancelFooter);
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    await screen.advance(1300);
+    screen.unmount();
+  });
+
+  it('sits Done in the saved step footer, not the centred stage', async () => {
+    const screen = await renderScreen(<PairingFlow onClose={jest.fn()} />, {
+      scenario: 'happy',
+    });
+    await screen.advance(1000);
+    await screen.press(`${testIds.pairingCandidate}-mock-ptt-01`);
+    await screen.advance(1300);
+
+    // design/03 Pairing.dc.html frame 04: the solid Done lives in `.pfoot`.
+    const foot = screen.find('pairing-foot');
+    expect(
+      foot.findAll(node => node.props.testID === testIds.pairingDone),
+    ).not.toHaveLength(0);
 
     screen.unmount();
   });

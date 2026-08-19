@@ -122,18 +122,43 @@ describe('RadioScreen — spec sections 12 and 12.1', () => {
     screen.unmount();
   });
 
-  it('recedes the corner controls while transmitting', async () => {
+  it('recedes only the power key while transmitting -- the gear stays live', async () => {
+    // The canvas dims `.pwr` alone: `.gear` never carries `dim`
+    // (design/01 Radio.dc.html frames 04 and 05).
     const screen = await openRadio('happy');
     await screen.press(testIds.powerOnArea);
     await screen.advance(2100);
 
-    const before = screen.find('corner-controls').props.style;
+    const before = screen.find('power-corner').props.style;
     await screen.pressIn(testIds.pttArea);
-    const during = screen.find('corner-controls').props.style;
+    const during = screen.find('power-corner').props.style;
 
     expect(JSON.stringify(during)).toContain(String(motion.recededOpacity));
     expect(JSON.stringify(before)).not.toEqual(JSON.stringify(during));
+    expect(screen.find('power-corner').props.pointerEvents).toBe('none');
 
+    // The whole corner container must not recede or go untappable with it.
+    expect(JSON.stringify(screen.find('corner-controls').props.style)).not.toContain(
+      String(motion.recededOpacity),
+    );
+    expect(screen.find('corner-controls').props.pointerEvents).not.toBe('none');
+
+    screen.unmount();
+  });
+
+  it('opens settings from the gear even while transmitting', async () => {
+    const onSettingsPress = jest.fn();
+    const screen = await renderScreen(
+      <RadioScreen onSettingsPress={onSettingsPress} />,
+      {scenario: 'happy'},
+    );
+    await screen.press(testIds.powerOnArea);
+    await screen.advance(2100);
+
+    await screen.pressIn(testIds.pttArea);
+    await screen.press(testIds.settingsGear);
+
+    expect(onSettingsPress).toHaveBeenCalledTimes(1);
     screen.unmount();
   });
 

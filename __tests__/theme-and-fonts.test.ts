@@ -2,13 +2,16 @@ import {existsSync, readFileSync, statSync} from 'fs';
 import {join} from 'path';
 
 import {
+  chrome,
   colors,
   fonts,
   glows,
   motion,
   radii,
+  scanHintInset,
   sizes,
   spacing,
+  stage,
   testIds,
   type,
   washes,
@@ -83,6 +86,52 @@ describe('theme tokens — design/theme.css', () => {
     expect(motion.powerHoldMs).toBe(1200);
     expect(motion.recededOpacity).toBe(0.34);
     expect(testIds.pttArea).toBe('ptt-area');
+  });
+
+  it('carries the canvas stage geometry', () => {
+    // `.stage { gap: 40; padding-bottom: 40 }` (theme.css), `.offstage
+    // { gap: 46 }` (01 Radio.dc.html), `.stage.pair { gap: 30 }` and
+    // `.scanhint { left/right/bottom: 40 }` (03 Pairing.dc.html), `.pfoot
+    // { padding: 0 22px 30px }` (03 Pairing.dc.html).
+    expect(stage.gap).toBe(40);
+    expect(stage.paddingBottom).toBe(40);
+    expect(stage.offGap).toBe(46);
+    expect(stage.pairGap).toBe(30);
+    expect(scanHintInset).toEqual({side: 40, bottom: 40});
+    expect(chrome.pairingFooter).toEqual({paddingHorizontal: 22, paddingBottom: 30});
+  });
+
+  it('carries the pairing, settings and onboarding type overrides', () => {
+    // `.obtitle`: 40px, 0.04em, uppercase (theme.css).
+    expect(type.obTitle.fontSize).toBe(40);
+    expect(type.obTitle.letterSpacing).toBe(1.6);
+    expect(type.obTitle.textTransform).toBe('uppercase');
+    // `.obstep`: 11px, 0.22em, regular, no transform (theme.css).
+    expect(type.obStep.letterSpacing).toBe(2.42);
+    expect(type.obStep.fontFamily).toBe(fonts.mono);
+    expect(type.obStep).not.toHaveProperty('textTransform');
+    // `.scanrow`: 11px, 0.14em, regular (03 Pairing.dc.html).
+    expect(type.scanRow.letterSpacing).toBe(1.54);
+    expect(type.scanRow.fontFamily).toBe(fonts.mono);
+    // The pairing `.scantext`: 14px, 0.14em (03 Pairing.dc.html).
+    expect(type.scanPairing.fontSize).toBe(14);
+    expect(type.scanPairing.letterSpacing).toBe(1.96);
+    // `.learnword` / `.okword`: 30px over 39 (03 Pairing.dc.html).
+    expect(type.stateSmall.fontSize).toBe(30);
+    expect(type.stateSmall.lineHeight).toBe(39);
+    expect(type.stateSmall.fontFamily).toBe(fonts.display);
+    // `.learnsub`: 13px over 22 (03 Pairing.dc.html).
+    expect(type.learnSub.fontSize).toBe(13);
+    expect(type.learnSub.lineHeight).toBe(22);
+    // `.devsub`: 13px (02 Settings.dc.html).
+    expect(type.devStatus.fontSize).toBe(13);
+    // `.offname`: 19px at weight 400 (02 Settings.dc.html).
+    expect(type.devNameOff.fontSize).toBe(19);
+    expect(type.devNameOff.fontFamily).toBe(fonts.mono);
+    // `.slabel` keeps the medium engraved label to itself.
+    expect(type.label.letterSpacing).toBe(2.2);
+    // `.routeline`'s uppercase lives on the token, like every other one.
+    expect(type.routeLabel.textTransform).toBe('uppercase');
   });
 });
 

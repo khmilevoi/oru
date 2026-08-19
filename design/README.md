@@ -53,14 +53,23 @@ The project's `.thumbnail` entry is a generated canvas preview and was not expor
 
 ## Known divergences from `src/ui/theme.ts`
 
-Recorded here as the starting point for reconciliation, not as a change:
+Updated 2026-08-19. Everything the 2026-08-18 export recorded here — the colour
+deltas, the swapped corners, the receded opacity, the font-weight inventory —
+was closed by the reconciliation of 2026-08-18/19
+(`docs/superpowers/plans/2026-08-18-design-reconciliation.md`) and the residual
+fix pass that followed. What still stands:
 
-- **Colours differ throughout.** Chassis `#0b0d0f` vs the app's `#0a0c0d`, panel `#13161a`
-  vs `#14181a`, text `#f2f4f2` vs `#e7ecee`. The status colours are the widest gap — the
-  canvas specifies them in oklch, which resolves to roughly `#35c26d` / `#ed413b` /
-  `#eba941` against the app's `#2fd65b` / `#ff3b30` / `#ffb020`.
-- **Corners are swapped.** The canvas puts the settings gear bottom-**left** and the power
-  key bottom-**right**.
-- **Receded opacity** is `0.34` in the canvas, `0.15` in `theme.ts`.
-- **Font weights.** The canvas loads Oswald 500/600 and IBM Plex Mono 400/500/600; the app
-  bundles Oswald Regular/Medium/Bold and IBM Plex Mono Regular/Medium/SemiBold.
+- **The saved-step bind card shows only the `device` row.** The canvas's card
+  lists `service`, `characteristic` and `press / release` too
+  (`03 Pairing.dc.html`, frame 04), but `RadioState.pttButton` publishes none
+  of them — a model-owning change, deferred (audit item C3).
+- **Oswald 600 renders as 700.** The canvas asks for Oswald 600 on `.display`
+  and `.obtitle`; the app bundles Regular/Medium/Bold, so 600 maps to Bold.
+  An accepted delta, decision D3 in the reconciliation plan, not an oversight.
+- **The spacing scale is invented.** `theme.ts`'s `spacing` (xs…xxl) is the
+  app's own; the canvas states per-class figures instead, and those are carried
+  verbatim in `theme.ts`'s named groups (`chrome`, `stage`, `sizes`,
+  `routeReadout`, …) where a screen needs them.
+- **No rasterized visual pass yet.** The reconciliation was token- and
+  structure-level; no side-by-side render comparison against the canvas frames
+  has been made.

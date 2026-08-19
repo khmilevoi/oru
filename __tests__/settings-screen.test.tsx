@@ -20,6 +20,10 @@ describe('SettingsScreen — spec section 12', () => {
       {scenario: 'happy'},
     );
 
+    // The canvas titles the screen in sentence case (`.stitle` has no
+    // text-transform, 02 Settings.dc.html).
+    expect(screen.hasText('Settings')).toBe(true);
+    expect(screen.hasText('SETTINGS')).toBe(false);
     expect(screen.hasText('PTT button')).toBe(true);
     expect(screen.hasText('Not connected')).toBe(true);
     expect(screen.findAll(testIds.pttTest)).toHaveLength(0);
@@ -105,7 +109,9 @@ describe('SettingsScreen — spec section 12', () => {
       {scenario: 'happy', locale: 'ru'},
     );
 
-    expect(screen.hasText('НАСТРОЙКИ')).toBe(true);
+    // `.stitle` carries no text-transform on the canvas: sentence case.
+    expect(screen.hasText('Настройки')).toBe(true);
+    expect(screen.hasText('НАСТРОЙКИ')).toBe(false);
     expect(screen.hasText('PTT-кнопка')).toBe(true);
     expect(screen.hasText('Не подключена')).toBe(true);
     expect(screen.hasText('Подключить')).toBe(true);
