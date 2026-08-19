@@ -24,12 +24,27 @@ export const backgroundStatus = atom<'idle' | 'needsSettings' | 'granted'>(
  * nothing is queryable, the `Settings` flag is the record.
  *
  * Both reactive reads happen before the first `await`.
+ *
+ * Total by construction. `platform.gateway.ts` says why in its own comment --
+ * "a rejection here is a permanently blank app" -- because this action is the
+ * only thing that ever moves `route()` off `null`, and `AppRoot` renders
+ * nothing until it does. The gateway guards each of its bodies, but the guard
+ * cannot cover `wrap()` (which rejects on a context reset) or the argument
+ * evaluation above its own `try`. So the answer is decided here instead: an
+ * unanswerable platform is "not granted", which costs the user one explanation
+ * sequence rather than a black screen.
  */
 export const resolveInitialRoute = action(async (): Promise<SequencingStep> => {
   const gateway = platformGateway();
 
-  const completed = gateway.onboardingCompleted();
-  const granted = await wrap(gateway.hasOnboardingPermissions());
+  let completed = false;
+  let granted = false;
+  try {
+    completed = gateway.onboardingCompleted();
+    granted = await wrap(gateway.hasOnboardingPermissions());
+  } catch {
+    // Both stay `false`, which is the `onboarding` branch below.
+  }
 
   const step: SequencingStep = completed && granted ? 'radio' : 'onboarding';
   navigate(step === 'radio' ? 'radio' : 'onboarding');

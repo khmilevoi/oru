@@ -12,6 +12,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import {AppRoot} from './src/app/AppRoot';
+import {detach} from './src/app/detach';
 import {resolveInitialRoute} from './src/permissions/sequencing.model';
 import {chassis} from './src/ui/theme';
 
@@ -29,7 +30,11 @@ import {chassis} from './src/ui/theme';
  */
 function App() {
   useEffect(() => {
-    void resolveInitialRoute();
+    // `detach`, not `void`. `resolveInitialRoute` is total, so this is belt and
+    // braces -- but it is the mount effect of the root component, and an
+    // `Uncaught (in promise)` raised from here is the first thing a developer
+    // sees on every launch.
+    void detach(resolveInitialRoute());
   }, []);
 
   return (
