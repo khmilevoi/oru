@@ -132,6 +132,10 @@ class AudioRouteController(
     private var reevaluating = false
     private var reevaluateAgain = false
 
+    private var focusHeld = false
+    private var pttHeld = false
+    private var radioActive = false
+
     // --- lifecycle -------------------------------------------------------------------------
 
     override fun start(listener: AudioRouteListener) = post {
@@ -163,6 +167,9 @@ class AudioRouteController(
         reassertCount = 0
         modeRequested = null
         facade.setMode(AudioManager.MODE_NORMAL)
+        pttHeld = false
+        radioActive = false
+        updateFocus()
         facade.stop()
         listener = null
         published = null
@@ -183,17 +190,27 @@ class AudioRouteController(
     }
 
     override fun setRadioActive(active: Boolean) = post {
+        radioActive = active
+        updateFocus()
         apply(policy.setRadioActive(active, clock()))
     }
 
     override fun onPttPressed() = post {
         logger.log("route: ptt pressed t=${clock()}ms profile=$profile")
+        pttHeld = true
+        // Before the policy: the raise and the grant tone are part of the burst, and a tone
+        // nobody can hear over music is not a talk permit.
+        updateFocus()
         apply(policy.pttPressed(clock()))
     }
 
     override fun onPttReleased() = post {
         logger.log("route: ptt released t=${clock()}ms")
+        pttHeld = false
         apply(policy.pttReleased(clock()))
+        // After the policy: the release may still start capture-adjacent work, and the burst
+        // is only over once the radio is idle too.
+        updateFocus()
     }
 
     // --- platform callbacks ------------------------------------------------------------------
@@ -324,6 +341,28 @@ class AudioRouteController(
         // Raw and undebounced on purpose: the 2 s / 30 s dwell lives in the shared policy so
         // both platforms debounce identically.
         apply(policy.setOtherAudioActive(active, clock()))
+    }
+
+    /**
+     * Decision D6: one transient `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK` per voice burst, so the
+     * system ducks and restores other apps around it (API 26+). This replaces the session-long
+     * `AUDIOFOCUS_GAIN`, which killed background music for the whole session.
+     *
+     * A refused request still flips [focusHeld]: the abandon is then a no-op on the facade,
+     * and request and abandon stay exactly paired, which is what keeps a refusal from turning
+     * into a request on every subsequent event.
+     */
+    private fun updateFocus() {
+        val wanted = radioActive || pttHeld
+        if (wanted == focusHeld) return
+        focusHeld = wanted
+        if (wanted) {
+            val granted = facade.requestTransientDuckFocus()
+            logger.log("route: focus requested t=${clock()}ms granted=$granted")
+        } else {
+            facade.abandonFocus()
+            logger.log("route: focus abandoned t=${clock()}ms")
+        }
     }
 
     // --- the decision funnel ------------------------------------------------------------------
