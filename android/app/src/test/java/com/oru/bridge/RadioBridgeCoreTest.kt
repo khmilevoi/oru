@@ -390,4 +390,39 @@ class RadioBridgeCoreTest {
 
         assertEquals("bridge_detached", failure?.first)
     }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun Map<String, Any?>.route(): Map<String, Any?> =
+        this["audioRoute"] as Map<String, Any?>
+
+    @Test
+    fun `every projection carries the placeholder audio route and mode`() {
+        val output = RecordingOutput()
+        val core = core(output)
+
+        // Off, starting, running and failed: the four branches of project().
+        assertEquals("speaker", core.snapshot().route()["kind"])
+        assertEquals("voice", core.snapshot().route()["mode"])
+        assertEquals("auto", core.snapshot()["audioMode"])
+
+        core.start()
+        assertEquals("speaker", output.last().route()["kind"])
+        assertEquals("auto", output.last()["audioMode"])
+
+        core.onEngineState(RadioState(status = RadioStatus.READY, nearbyCount = 2))
+        assertEquals("speaker", output.last().route()["kind"])
+        assertEquals("voice", output.last().route()["mode"])
+        assertEquals("auto", output.last()["audioMode"])
+
+        core.startFailed("boom", "the service would not start")
+        assertEquals("speaker", output.last().route()["kind"])
+        assertEquals("auto", output.last()["audioMode"])
+    }
+
+    @Test
+    fun `the placeholder route never carries a label`() {
+        // Section 8: `label` is optional and only Bluetooth routes have one.
+        // An absent key, never a null -- the same rule `pttButton.name` follows.
+        assertFalse(core(RecordingOutput()).snapshot().route().containsKey("label"))
+    }
 }

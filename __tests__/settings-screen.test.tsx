@@ -138,3 +138,69 @@ describe('SettingsScreen — design/02 Settings.dc.html', () => {
     screen.unmount();
   });
 });
+
+describe('the section 8 audio mode setting', () => {
+  const openSettings = (locale?: 'en' | 'ru') =>
+    renderScreen(
+      <SettingsScreen onBack={jest.fn()} onConnectPress={jest.fn()} />,
+      locale ? {scenario: 'happy', locale} : {scenario: 'happy'},
+    );
+
+  it('offers the three modes with auto selected by default', async () => {
+    const screen = await openSettings();
+
+    expect(screen.hasText('Audio')).toBe(true);
+    expect(screen.hasText('Auto')).toBe(true);
+    expect(screen.hasText('Radio')).toBe(true);
+    expect(screen.hasText('Music')).toBe(true);
+    expect(
+      screen.find(`${testIds.audioMode}-auto`).props.accessibilityState,
+    ).toEqual({selected: true});
+
+    screen.unmount();
+  });
+
+  it('explains what the setting is for', async () => {
+    const screen = await openSettings();
+
+    expect(screen.hasText('What a Bluetooth headset is for.')).toBe(true);
+
+    screen.unmount();
+  });
+
+  it('pins the mode through the engine and mirrors what comes back', async () => {
+    const screen = await openSettings();
+
+    await screen.press(`${testIds.audioMode}-media`);
+
+    expect(radio().audioMode).toBe('media');
+    expect(
+      screen.find(`${testIds.audioMode}-media`).props.accessibilityState,
+    ).toEqual({selected: true});
+    expect(
+      screen.find(`${testIds.audioMode}-auto`).props.accessibilityState,
+    ).toEqual({selected: false});
+
+    screen.unmount();
+  });
+
+  it('offers no device picker -- the pin is the only audio control', async () => {
+    const screen = await openSettings();
+
+    expect(screen.findAll('audio-device-picker')).toHaveLength(0);
+    expect(screen.findAll(testIds.audioMode)).toHaveLength(1);
+
+    screen.unmount();
+  });
+
+  it('renders in Russian', async () => {
+    const screen = await openSettings('ru');
+
+    expect(screen.hasText('Звук')).toBe(true);
+    expect(screen.hasText('Авто')).toBe(true);
+    expect(screen.hasText('Рация')).toBe(true);
+    expect(screen.hasText('Музыка')).toBe(true);
+
+    screen.unmount();
+  });
+});

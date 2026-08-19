@@ -120,6 +120,15 @@ RCT_EXPORT_MODULE(NativeRadio)
   resolve(nil);
 }
 
+- (void)setAudioMode:(NSString *)mode
+             resolve:(RCTPromiseResolveBlock)resolve
+              reject:(RCTPromiseRejectBlock)reject
+{
+  [self attachIfNeeded];
+  [ORURadioBridge.shared setAudioMode:mode];
+  resolve(nil);
+}
+
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
     (const facebook::react::ObjCTurboModule::InitParams &)params
 {

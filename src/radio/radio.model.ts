@@ -2,7 +2,7 @@ import {atom, bind, computed, wrap} from '@reatom/core';
 
 import {NativeRadioCallError, RadioEngineError, RadioNative} from './radio.native';
 import {initialRadioState} from './radio.types';
-import type {RadioNativeEvent, RadioState, ScreenState} from './radio.types';
+import type {AudioMode, RadioNativeEvent, RadioState, ScreenState} from './radio.types';
 
 /**
  * Re-exported so `src/ptt/ptt.pairing.model.ts` can tell a failed pairing
@@ -111,6 +111,16 @@ export const radio = atom<RadioState>(initialRadioState, 'radio').extend(
        */
       selectPttCandidate(deviceId: string) {
         return command(() => RadioNative.selectPttCandidate(deviceId));
+      },
+
+      /**
+       * Spec section 8. The engine stores the setting (UserDefaults /
+       * SharedPreferences) and republishes the state, so there is deliberately
+       * no `sync()` and no local write here: the mirror moves when the
+       * `stateChanged` event arrives, never from this call's return value.
+       */
+      setAudioMode(mode: AudioMode) {
+        return command(() => RadioNative.setAudioMode(mode));
       },
 
       async forgetPtt() {

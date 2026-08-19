@@ -78,6 +78,7 @@ describe('specs/NativeRadio.ts is a valid Turbo Module spec', () => {
       'configurePtt',
       'selectPttCandidate',
       'forgetPtt',
+      'setAudioMode',
     ]);
   });
 

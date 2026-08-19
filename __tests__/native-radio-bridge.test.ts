@@ -65,7 +65,7 @@ describe('the Android Turbo Module (spec section 6.1)', () => {
     );
   });
 
-  it('implements all eight amended section 6.1 methods', () => {
+  it('implements all nine amended section 6.1 methods', () => {
     [
       'start',
       'stop',
@@ -75,6 +75,7 @@ describe('the Android Turbo Module (spec section 6.1)', () => {
       'configurePtt',
       'selectPttCandidate',
       'forgetPtt',
+      'setAudioMode',
     ].forEach(method => {
       expect(module()).toMatch(new RegExp(`override fun ${method}\\(`));
     });
@@ -147,7 +148,7 @@ describe('the iOS Turbo Module (spec section 6.1)', () => {
     expect(objcpp()).toMatch(/NativeRadioSpecJSI>\(params\)/);
   });
 
-  it('implements all eight amended section 6.1 selectors', () => {
+  it('implements all nine amended section 6.1 selectors', () => {
     [
       '- (void)start:(RCTPromiseResolveBlock)resolve',
       '- (void)stop:(RCTPromiseResolveBlock)resolve',
@@ -157,7 +158,23 @@ describe('the iOS Turbo Module (spec section 6.1)', () => {
       '- (void)configurePtt:(RCTPromiseResolveBlock)resolve',
       '- (void)selectPttCandidate:(NSString *)deviceId',
       '- (void)forgetPtt:(RCTPromiseResolveBlock)resolve',
+      '- (void)setAudioMode:(NSString *)mode',
     ].forEach(selector => expect(objcpp()).toContain(selector));
+  });
+
+  it('projects the section 8 placeholder route without touching RadioKit', () => {
+    const swift = read('ios/Oru/RadioBridge.swift');
+
+    expect(swift).toContain('placeholderAudioRoute');
+    expect(swift).toMatch(/"kind": "speaker"/);
+    expect(swift).toMatch(/"mode": "voice"/);
+    // Asserts on the constant name, not the literal "auto": a source-grep for
+    // the literal is satisfied by a doc comment as readily as by the
+    // projecting code, and proves nothing about what gets projected.
+    expect(swift).toContain('placeholderAudioMode = "auto"');
+    expect(swift).toMatch(/"audioMode": placeholderAudioMode/);
+    // The real classification is P3's; the stub carries no routing logic.
+    expect(swift).not.toMatch(/AVAudioSession/);
   });
 
   it('drives both event emitters', () => {

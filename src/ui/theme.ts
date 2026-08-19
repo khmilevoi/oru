@@ -179,6 +179,31 @@ export const type = {
     lineHeight: 14,
     letterSpacing: 1.54,
   },
+  /**
+   * `.routeline` -- the radio screen's audio route readout. The canvas states
+   * no line-height for it; 15 is `type.label`'s figure for the same 11px
+   * mono face, so the two engraved lines share a metric.
+   */
+  routeLabel: {
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    lineHeight: 15,
+    letterSpacing: 1.54,
+  },
+  /** `.seg span` -- an unselected audio-mode segment. */
+  segment: {
+    fontFamily: fonts.mono,
+    fontSize: 13.5,
+    lineHeight: 18,
+    letterSpacing: 0.54,
+  },
+  /** `.seg .on` -- the selected segment, which the canvas sets at weight 500. */
+  segmentSelected: {
+    fontFamily: fonts.monoMedium,
+    fontSize: 13.5,
+    lineHeight: 18,
+    letterSpacing: 0.54,
+  },
 } as const satisfies Record<string, TextStyle>;
 
 export const spacing = {
@@ -242,6 +267,31 @@ export const sizes = {
   mark: 176,
 } as const;
 
+/**
+ * `.routeline` and `.route` in `design/01 Radio.dc.html` -- the audio route
+ * readout. Its own geometry group rather than entries scattered through
+ * `spacing`/`sizes`, because the canvas states these five figures together and
+ * none of them belongs on a shared scale.
+ */
+export const routeReadout = {
+  /** `.routeline` gap between the glyph and the line. */
+  gap: 9,
+  /** The `viewBox` the three route glyphs are drawn in. */
+  iconSize: 14,
+  /** `stroke-width` on every route glyph. */
+  strokeWidth: 1.5,
+  /** `.route` left and right, clearing the gear and the power key. */
+  sideInset: 90,
+  /** `.route` bottom. */
+  bottomInset: 44,
+} as const;
+
+/** `.seg` in `design/02 Settings.dc.html` -- the audio mode control. */
+export const segmented = {
+  /** `.seg span` padding: `14px 0`. */
+  paddingVertical: 14,
+} as const;
+
 export const motion = {
   /**
    * Press-and-hold to power the radio off: a guard against an accidental
@@ -280,6 +330,8 @@ export const testIds = {
   pttReplace: 'ptt-replace',
   settingsBack: 'settings-back',
   settingsVersion: 'settings-version',
+  audioRoute: 'audio-route',
+  audioMode: 'audio-mode',
 
   pairingScreen: 'pairing-screen',
   pairingCandidate: 'pairing-candidate',

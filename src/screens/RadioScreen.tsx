@@ -11,8 +11,18 @@ import {LevelBars} from '../ui/LevelBars';
 import {PeerRow} from '../ui/PeerRow';
 import {PingRings} from '../ui/PingRings';
 import {PowerKey} from '../ui/PowerKey';
+import {RouteReadout} from '../ui/RouteReadout';
 import {StateRing} from '../ui/StateRing';
-import {chassis, colors, motion, spacing, testIds, type, washes} from '../ui/theme';
+import {
+  chassis,
+  colors,
+  motion,
+  routeReadout,
+  spacing,
+  testIds,
+  type,
+  washes,
+} from '../ui/theme';
 import {lastRadioError, radio, screenState} from '../radio/radio.model';
 
 /**
@@ -81,6 +91,12 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
       left: spacing.gutter,
       right: spacing.gutter,
     };
+    // `styles.route` mirrors `cornerStyle`'s own safe-area treatment: the
+    // canvas states 44 and 22 in the same frame, so a flat `bottomInset`
+    // would put the readout below the corner controls' own baseline on any
+    // device with a bottom inset, contradicting the canvas note "BOTTOM
+    // CENTRE BETWEEN GEAR AND POWER".
+    const routeStyle = {bottom: insets.bottom + routeReadout.bottomInset};
 
     if (radio().status === 'error') return <RadioErrorState />;
 
@@ -244,6 +260,10 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
             testID={testIds.powerKey}
           />
         </View>
+
+        <View style={[styles.route, routeStyle]} pointerEvents="none">
+          <RouteReadout route={radio().audioRoute} testID={testIds.audioRoute} />
+        </View>
       </View>
     );
   },
@@ -279,6 +299,22 @@ const styles = StyleSheet.create({
   },
   gearOnly: {position: 'absolute', alignItems: 'flex-start'},
   receded: {opacity: motion.recededOpacity},
+  /**
+   * `.route` in `design/01 Radio.dc.html`: bottom centre, clear of the gear
+   * and the power key. Deliberately a sibling of `styles.corners` rather
+   * than a child -- the corners recede while transmitting or receiving and
+   * the canvas says the readout "STAYS PUT ... IT NAMES THE LIVE MIC".
+   * `pointerEvents` is off because the whole screen underneath is the PTT
+   * touch area and the canvas says "INDICATOR ONLY -- NEVER A PICKER, NO TAP
+   * TARGET". `bottom` itself is supplied inline as `routeStyle`, the same
+   * way `cornerStyle` supplies its own -- see the comment there.
+   */
+  route: {
+    position: 'absolute',
+    left: routeReadout.sideInset,
+    right: routeReadout.sideInset,
+    alignItems: 'center',
+  },
   centre: {
     flex: 1,
     alignItems: 'center',

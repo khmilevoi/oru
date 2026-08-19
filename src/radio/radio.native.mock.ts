@@ -47,6 +47,8 @@ const clone = (state: NativeRadioState): NativeRadioState => ({
   transmitting: state.transmitting,
   receiving: state.receiving,
   pttButton: {...state.pttButton},
+  audioRoute: {...state.audioRoute},
+  audioMode: state.audioMode,
   ...(state.pttPairing
     ? {
         pttPairing: {
@@ -84,6 +86,8 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
     transmitting: false,
     receiving: false,
     pttButton: {...MOCK_SCRIPTS[scenario].button, connected: false},
+    audioRoute: {kind: 'speaker', mode: 'voice'},
+    audioMode: 'auto',
   };
 
   const publishState = () => {
@@ -122,12 +126,21 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
     // Rebuilt field by field rather than rest-destructured: `pttPairing` is
     // optional in the contract and an absent field is the normal state, so it
     // must be *gone*, not present-and-undefined.
+    //
+    // audioRoute/audioMode are carried over, not reset: this function exists
+    // only to drop `pttPairing` on a cancelled pairing session, which has
+    // nothing to do with audio. Unlike `toOffState()` (which does drop to a
+    // bare speaker route, because a stopped radio holds no accessory), a
+    // pairing abort must not discard a natively-persisted user setting over
+    // an unrelated event.
     state = {
       status: state.status,
       nearbyCount: state.nearbyCount,
       transmitting: state.transmitting,
       receiving: state.receiving,
       pttButton: {...state.pttButton},
+      audioRoute: {...state.audioRoute},
+      audioMode: state.audioMode,
     };
     reject?.(reason);
   };
@@ -163,6 +176,11 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
     transmitting: false,
     receiving: false,
     pttButton: preservedButton(),
+    // Section 8's setting is stored natively (UserDefaults / SharedPreferences),
+    // so it outlives the engine exactly as the PTT binding does. The route does
+    // not: a stopped radio is holding nothing.
+    audioRoute: {kind: 'speaker', mode: 'voice'},
+    audioMode: state.audioMode,
   });
 
   const radio: MockRadio = {
@@ -297,6 +315,28 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
       );
     },
 
+    /**
+     * Section 8. Stores the pin and republishes *before* resolving, per the
+     * implementation note in `specs/NativeRadio.ts`.
+     *
+     * A `voice`/`media` pin also moves the effective `audioRoute.mode`, because
+     * that is what a real engine's profile apply does and it is the only way a
+     * mock-driven screen can show a pinned mode. This is not policy: `auto`
+     * deliberately leaves the effective mode exactly where the timeline put it,
+     * and no hysteresis, rate limit or PTT-raise rule lives here. Section 7 is
+     * P1's, on both platforms.
+     */
+    async setAudioMode(mode: string) {
+      const pin = mode as NativeRadioState['audioMode'];
+      state = {
+        ...state,
+        audioMode: pin,
+        audioRoute:
+          pin === 'auto' ? state.audioRoute : {...state.audioRoute, mode: pin},
+      };
+      publishState();
+    },
+
     async forgetPtt() {
       state = {
         ...state,
@@ -336,6 +376,8 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
         transmitting: false,
         receiving: false,
         pttButton: {...MOCK_SCRIPTS[scenario].button, connected: false},
+        audioRoute: {kind: 'speaker', mode: 'voice'},
+        audioMode: 'auto',
       };
       publishState();
     },

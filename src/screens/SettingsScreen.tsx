@@ -6,8 +6,10 @@ import {wrap} from '@reatom/core';
 
 import {ActionButton} from '../ui/ActionButton';
 import {ScreenFrame} from '../ui/ScreenFrame';
+import {SegmentedControl} from '../ui/SegmentedControl';
 import {chrome, colors, glows, radii, spacing, testIds, type} from '../ui/theme';
 import {radio} from '../radio/radio.model';
+import type {AudioMode} from '../radio/radio.types';
 
 /**
  * Spec section 12: a single "PTT button" section, configured or not.
@@ -21,6 +23,12 @@ export const SettingsScreen = reatomComponent<{
 }>(({onBack, onConnectPress}) => {
   const {t} = useLingui();
   const button = radio().pttButton;
+
+  const audioModes: ReadonlyArray<{value: AudioMode; label: string}> = [
+    {value: 'auto', label: t`Auto`},
+    {value: 'voice', label: t`Radio`},
+    {value: 'media', label: t`Music`},
+  ];
 
   return (
     <ScreenFrame
@@ -100,6 +108,29 @@ export const SettingsScreen = reatomComponent<{
             </View>
           </>
         )}
+      </View>
+
+      <Text style={[type.label, styles.sectionLabel]}>
+        <Trans>Audio</Trans>
+      </Text>
+
+      <View style={styles.card}>
+        <SegmentedControl
+          options={audioModes}
+          value={radio().audioMode}
+          onChange={wrap((mode: AudioMode) => {
+            void radio.setAudioMode(mode);
+          })}
+          testID={testIds.audioMode}
+        />
+
+        <Text style={[type.caption, styles.note]}>
+          <Trans>
+            What a Bluetooth headset is for. Auto decides by itself: instant
+            push-to-talk while nothing else is playing, full music quality when
+            something is. Radio and Music pin one behavior.
+          </Trans>
+        </Text>
       </View>
 
       <Text testID={testIds.settingsVersion} style={[type.version, styles.version]}>

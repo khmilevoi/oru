@@ -237,6 +237,13 @@ public final class RadioBridge: NSObject {
         engine.forgetPtt()
     }
 
+    /// Spec section 8, stubbed. Accepts the call so the regenerated spec
+    /// compiles; it stores nothing and changes nothing. P3 replaces this with
+    /// the UserDefaults write, the profile apply, and the `onStateChanged`
+    /// emission `specs/NativeRadio.ts` requires of every mutating method.
+    @objc public func setAudioMode(_ mode: String) {
+    }
+
     // MARK: - Engine events
 
     private var pendingReject: ((NSString, NSString) -> Void)?
@@ -273,6 +280,33 @@ public final class RadioBridge: NSObject {
 
     // MARK: - Projection
 
+    /// Spec section 8, as a compile-keeping stub — the twin of Android's
+    /// `PLACEHOLDER_AUDIO_ROUTE`.
+    ///
+    /// The Codegen spec now publishes `audioRoute` and `audioMode`, and
+    /// JavaScript types both as required, so every projection must carry them.
+    /// P3 replaces this with the real route classification and the real
+    /// UserDefaults-backed setting; until then the bridge reports the honest
+    /// pre-routing truth — loudspeaker, voice profile, no pin — and stores
+    /// nothing.
+    ///
+    /// It lives here and not in `RadioKit`'s `RadioState.asDictionary` on
+    /// purpose: `ios/Radio` is P3's tree, and one place is one place to delete
+    /// when the real publication lands.
+    ///
+    /// `label` is deliberately absent rather than `NSNull`: section 8 makes it
+    /// optional and only a Bluetooth route has one — the same rule
+    /// `pttButton.name` follows.
+    private let placeholderAudioRoute: [String: Any] = [
+        "kind": "speaker",
+        "mode": "voice"
+    ]
+
+    /// Kept as its own constant rather than folded into `placeholderAudioRoute`:
+    /// P3 replaces the two independently — route classification and the
+    /// UserDefaults-backed mode setting are unrelated pieces of work.
+    private let placeholderAudioMode = "auto"
+
     /// Caller holds `lock`.
     private func projectLocked() -> NSDictionary {
         if failed {
@@ -284,7 +318,11 @@ public final class RadioBridge: NSObject {
         guard let state = lastState else {
             return offDictionary(status: "starting")
         }
-        return state.asDictionary as NSDictionary
+
+        var dictionary = state.asDictionary
+        dictionary["audioRoute"] = placeholderAudioRoute
+        dictionary["audioMode"] = placeholderAudioMode
+        return dictionary as NSDictionary
     }
 
     /// `radio.native.mock.ts`'s `toOffState()` + `preservedButton()`: the button
@@ -304,7 +342,9 @@ public final class RadioBridge: NSObject {
             "nearbyCount": 0,
             "transmitting": false,
             "receiving": false,
-            "pttButton": button.asDictionary
+            "pttButton": button.asDictionary,
+            "audioRoute": placeholderAudioRoute,
+            "audioMode": placeholderAudioMode
         ] as NSDictionary
     }
 }

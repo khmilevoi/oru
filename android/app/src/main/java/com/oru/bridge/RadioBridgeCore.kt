@@ -16,6 +16,26 @@ interface RadioBridgeOutput {
 }
 
 /**
+ * Spec section 8, as a compile-keeping stub.
+ *
+ * The Codegen spec now publishes `audioRoute` and `audioMode`, and JavaScript
+ * types both as required, so every projection must carry them or the screens
+ * read `undefined` through a type that promises otherwise. P4 replaces this
+ * constant with the real `AudioRouteController` output and the real
+ * SharedPreferences-backed setting; until then the bridge reports the honest
+ * pre-routing truth -- loudspeaker, voice profile, no pin -- and stores nothing.
+ *
+ * `label` is deliberately absent rather than null: section 8 makes it optional
+ * and only a Bluetooth route has one, the same rule `pttButton.name` follows.
+ */
+private val PLACEHOLDER_AUDIO_ROUTE: Map<String, Any?> = mapOf(
+    "kind" to "speaker",
+    "mode" to "voice",
+)
+
+private const val PLACEHOLDER_AUDIO_MODE = "auto"
+
+/**
  * The whole of the Android bridge's logic, with no Android and no React Native
  * in it.
  *
@@ -179,12 +199,20 @@ class RadioBridgeCore(
 
     private fun project(): Map<String, Any?> {
         val state = lastEngineState
-        return when {
+        val projected = when {
             failed -> offState() + ("status" to "error")
             !running -> offState()
             state == null -> offState() + ("status" to "starting")
             else -> withoutNulls(state.toMap())
         }
+
+        // Added here, after `withoutNulls`, rather than inside `offState()` and
+        // `RadioState.toMap()`: `toMap()` lives in `com.oru.radio`, which this
+        // plan does not own, and one place is one place to delete when P4
+        // publishes the real route.
+        return projected +
+            ("audioRoute" to PLACEHOLDER_AUDIO_ROUTE) +
+            ("audioMode" to PLACEHOLDER_AUDIO_MODE)
     }
 
     /**

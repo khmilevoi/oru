@@ -11,6 +11,7 @@ jest.mock('../src/radio/radio.native', () => ({
     configurePtt: jest.fn(),
     selectPttCandidate: jest.fn(),
     forgetPtt: jest.fn(),
+    setAudioMode: jest.fn(),
     subscribe: jest.fn(),
   },
 }));
@@ -28,6 +29,8 @@ const readyState: RadioState = {
   transmitting: false,
   receiving: false,
   pttButton: {configured: false, connected: false},
+  audioRoute: {kind: 'speaker', mode: 'voice'},
+  audioMode: 'auto',
 };
 
 beforeEach(() => {
@@ -90,6 +93,8 @@ describe('resume re-sync (spec section 6.2)', () => {
       transmitting: false,
       receiving: false,
       pttButton: {configured: false, connected: false},
+      audioRoute: {kind: 'speaker', mode: 'voice'},
+      audioMode: 'auto',
       pttPairing: {
         phase: 'learning',
         candidates: [

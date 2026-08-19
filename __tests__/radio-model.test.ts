@@ -13,6 +13,7 @@ jest.mock('../src/radio/radio.native', () => ({
     configurePtt: jest.fn(),
     selectPttCandidate: jest.fn(),
     forgetPtt: jest.fn(),
+    setAudioMode: jest.fn(),
     subscribe: jest.fn(),
   },
 }));
@@ -40,6 +41,8 @@ const readyState: RadioState = {
   transmitting: false,
   receiving: false,
   pttButton: {configured: true, connected: true, name: 'PTT Button'},
+  audioRoute: {kind: 'speaker', mode: 'voice'},
+  audioMode: 'auto',
 };
 
 const scanningState: RadioState = {
@@ -358,5 +361,51 @@ describe('spec section 6.1/6.2 — the off state', () => {
     radio.applyEvent({type: 'stateChanged', state: initialRadioState});
 
     expect(screenState()).toBe('off');
+  });
+});
+
+describe('section 8 — the audio route and the audioMode setting', () => {
+  it('mirrors an audioRoute arriving on a stateChanged event', () => {
+    radio.applyEvent({
+      type: 'stateChanged',
+      state: {
+        ...readyState,
+        audioRoute: {kind: 'bluetooth', label: 'AirPods Pro', mode: 'media'},
+        audioMode: 'auto',
+      },
+    });
+
+    expect(radio().audioRoute).toEqual({
+      kind: 'bluetooth',
+      label: 'AirPods Pro',
+      mode: 'media',
+    });
+    expect(radio().audioMode).toBe('auto');
+  });
+
+  it('starts on the speaker in voice, with the setting on auto', () => {
+    expect(radio().audioRoute).toEqual({kind: 'speaker', mode: 'voice'});
+    expect(radio().audioMode).toBe('auto');
+  });
+
+  it('passes the setting to the engine and does not touch the mirror', async () => {
+    native.setAudioMode.mockResolvedValue(null);
+
+    const result = await radio.setAudioMode('media');
+
+    expect(native.setAudioMode).toHaveBeenCalledWith('media');
+    expect(result).toBeNull();
+    // The engine is the source of truth: nothing moved until it says so.
+    expect(radio().audioMode).toBe('auto');
+  });
+
+  it('records a failed setAudioMode as the last error', async () => {
+    const failure = new NativeRadioCallError({method: 'setAudioMode'});
+    native.setAudioMode.mockResolvedValue(failure);
+
+    const result = await radio.setAudioMode('voice');
+
+    expect(result).toBe(failure);
+    expect(lastRadioError()).toBe(failure);
   });
 });
