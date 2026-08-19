@@ -320,3 +320,81 @@ describe('the mock engine — spec section 6.5', () => {
     expect(seen).toEqual(['starting']);
   });
 });
+
+describe('the mock engine — section 8 audio route and mode', () => {
+  it('boots on the speaker in voice, with the setting on auto', async () => {
+    const {radio} = harness('happy');
+    const state = await radio.getState();
+
+    expect(state.audioRoute).toEqual({kind: 'speaker', mode: 'voice'});
+    expect(state.audioMode).toBe('auto');
+  });
+
+  it('walks the happy scenario onto a Bluetooth headset and into media', async () => {
+    const {radio, clock, states} = harness('happy');
+    await radio.start();
+
+    clock.advance(3000);
+    expect(states.at(-1)?.audioRoute).toEqual({
+      kind: 'bluetooth',
+      label: 'AirPods Pro',
+      mode: 'voice',
+    });
+
+    clock.advance(3000);
+    expect(states.at(-1)?.audioRoute.mode).toBe('media');
+
+    clock.advance(9000);
+    expect(states.at(-1)?.audioRoute.mode).toBe('voice');
+
+    clock.advance(2000);
+    expect(states.at(-1)?.audioRoute).toEqual({kind: 'speaker', mode: 'voice'});
+  });
+
+  it('puts the solo scenario on wired headphones and back', async () => {
+    const {radio, clock, states} = harness('solo');
+    await radio.start();
+
+    clock.advance(2000);
+    expect(states.at(-1)?.audioRoute).toEqual({kind: 'wired', mode: 'voice'});
+
+    clock.advance(2000);
+    expect(states.at(-1)?.audioRoute).toEqual({kind: 'speaker', mode: 'voice'});
+  });
+
+  it('publishes the pinned mode before setAudioMode resolves', async () => {
+    const {radio, states} = harness('happy');
+    await radio.start();
+    const before = states.length;
+
+    await radio.setAudioMode('media');
+
+    expect(states.length).toBeGreaterThan(before);
+    expect(states.at(-1)?.audioMode).toBe('media');
+    expect(states.at(-1)?.audioRoute.mode).toBe('media');
+  });
+
+  it('leaves the effective mode alone when the pin goes back to auto', async () => {
+    const {radio, clock, states} = harness('happy');
+    await radio.start();
+    clock.advance(6000);
+    expect(states.at(-1)?.audioRoute.mode).toBe('media');
+
+    await radio.setAudioMode('auto');
+
+    expect(states.at(-1)?.audioMode).toBe('auto');
+    expect(states.at(-1)?.audioRoute.mode).toBe('media');
+  });
+
+  it('keeps the setting across a power cycle, the way native storage would', async () => {
+    const {radio} = harness('happy');
+    await radio.start();
+    await radio.setAudioMode('voice');
+    await radio.stop();
+
+    const state = await radio.getState();
+    expect(state.status).toBe('off');
+    expect(state.audioMode).toBe('voice');
+    expect(state.audioRoute).toEqual({kind: 'speaker', mode: 'voice'});
+  });
+});
