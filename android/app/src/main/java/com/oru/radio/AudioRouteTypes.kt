@@ -100,6 +100,32 @@ object RoutePicker {
     fun isWatch(device: RouteDevice): Boolean = device.productName.contains(WATCH_MARKER)
 
     /**
+     * True when a Bluetooth entry reports one of the phone's own names ([localNames] — see
+     * [AudioManagerFacade.localDeviceNames]).
+     *
+     * On the 2026-08-19 hardware session a single `OPENEAR Bone G1` connecting made ColorOS
+     * enumerate two extra entries called `CPH2747`, the phone's own model name, and one of
+     * them then carried the whole route: the indicator showed the phone instead of the
+     * headset. Such an entry is the stack's own duplicate, so it loses every tie to a
+     * differently named sibling and never labels the route while one exists. A name only
+     * breaks ties: it never reorders the §6 priority table, because on that same stack the
+     * phone's name is what the headset's LE Audio side reports, and demoting LE below A2DP
+     * would move real audio off the better path over a naming quirk.
+     *
+     * It is *not* filtered out: on ColorOS the zero-MAC SCO entry named after the phone is the
+     * only representation of the headset's microphone there is (see [isTrustedBluetoothInput]),
+     * so dropping it would cost the mic path entirely. Non-Bluetooth devices are exempt —
+     * built-in speakers and mics are routinely named after the phone and are recognised by
+     * type, never by name.
+     */
+    fun isSelfNamed(device: RouteDevice, localNames: Collection<String>): Boolean {
+        if (kindOf(device) != AudioRoute.Kind.BLUETOOTH) return false
+        val name = device.productName.trim()
+        if (name.isEmpty()) return false
+        return localNames.any { it.trim().equals(name, ignoreCase = true) }
+    }
+
+    /**
      * §6 priority, input-capable: BT SCO / BLE headset > wired headset > USB headset. LE
      * Audio ranks above BT Classic inside the Bluetooth class because it carries a mic
      * without suspending media (§4).
@@ -154,21 +180,37 @@ object RoutePicker {
         return connected.any { it.equals(address, ignoreCase = true) }
     }
 
-    /** The input-capable externals worth trying, most preferred first. */
+    /**
+     * The input-capable externals worth trying, most preferred first. A [isSelfNamed]
+     * duplicate sorts behind its equally ranked siblings, so it is picked only when it is all
+     * there is.
+     */
     fun inputCandidates(
         devices: List<RouteDevice>,
         hfpAddresses: List<String>?,
+        localNames: Collection<String> = emptyList(),
     ): List<RouteDevice> = devices
         .filter { it.isSource && inputPreference(it.type) >= 0 }
         .filterNot(::isWatch)
         .filter { isTrustedBluetoothInput(it, hfpAddresses) }
-        .sortedByDescending { inputPreference(it.type) }
+        .sortedWith(
+            compareByDescending<RouteDevice> { inputPreference(it.type) }
+                .thenBy { if (isSelfNamed(it, localNames)) 1 else 0 },
+        )
 
     /** The external sink playback lands on, or null for the loudspeaker. */
-    fun outputDevice(devices: List<RouteDevice>): RouteDevice? = devices
+    fun outputDevice(
+        devices: List<RouteDevice>,
+        localNames: Collection<String> = emptyList(),
+    ): RouteDevice? = devices
         .filter { it.isSink && outputPreference(it.type) >= 0 }
         .filterNot(::isWatch)
-        .maxByOrNull { outputPreference(it.type) }
+        // maxWith keeps the first of equal elements, so a self-named duplicate only wins when
+        // no sibling of the same rank is there to beat it.
+        .maxWithOrNull(
+            compareBy<RouteDevice> { outputPreference(it.type) }
+                .thenBy { if (isSelfNamed(it, localNames)) 0 else 1 },
+        )
 
     fun kindOf(device: RouteDevice?): AudioRoute.Kind = when (device?.type) {
         AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
@@ -188,9 +230,31 @@ object RoutePicker {
         else -> AudioRoute.Kind.SPEAKER
     }
 
-    fun labelOf(device: RouteDevice?): String? {
+    /**
+     * §8's `label`. [devices] and [localNames] are the enumeration the route was picked from
+     * and the phone's own names: when the routed device is one of the stack's [isSelfNamed]
+     * duplicates, the indicator names the best differently named Bluetooth sibling instead —
+     * the accessory the user is actually wearing. With no such sibling the duplicate's own
+     * name is still better than nothing.
+     */
+    fun labelOf(
+        device: RouteDevice?,
+        devices: List<RouteDevice> = emptyList(),
+        localNames: Collection<String> = emptyList(),
+    ): String? {
         if (device == null || kindOf(device) != AudioRoute.Kind.BLUETOOTH) return null
-        return device.productName.trim().ifBlank { null }
+        val name = if (isSelfNamed(device, localNames)) {
+            val sibling = devices
+                .filter { kindOf(it) == AudioRoute.Kind.BLUETOOTH }
+                .filterNot(::isWatch)
+                .filterNot { isSelfNamed(it, localNames) }
+                .filter { it.productName.isNotBlank() }
+                .maxByOrNull { outputPreference(it.type) }
+            sibling?.productName ?: device.productName
+        } else {
+            device.productName
+        }
+        return name.trim().ifBlank { null }
     }
 
     /**

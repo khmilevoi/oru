@@ -21,6 +21,14 @@ interface AudioManagerFacade {
     /** Inputs and outputs, deduplicated by device id. */
     fun devices(): List<RouteDevice>
 
+    /**
+     * The names this phone answers to — its Bluetooth adapter name, its user-visible device
+     * name and `Build.MODEL`. §6 device selection uses them to recognise the duplicate
+     * entries an OEM stack enumerates under the phone's *own* name when a headset connects
+     * (2026-08-19 hardware session: `added=[CPH2747, CPH2747]` next to `OPENEAR Bone G1`).
+     */
+    fun localDeviceNames(): List<String>
+
     /** `AudioManager.getAvailableCommunicationDevices()`, empty below API 31. */
     fun availableCommunicationDevices(): List<RouteDevice>
 

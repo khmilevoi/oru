@@ -152,6 +152,31 @@ class AudioRouteControllerTest {
     }
 
     @Test
+    fun `the applied route is labelled with the headset, not the phone's own duplicate`() {
+        // 2026-08-19 hardware session: connecting the OPENEAR headset made ColorOS enumerate
+        // `CPH2747` entries of its own, and once one of them was selected as the communication
+        // device the indicator showed the phone's name instead of the headset's.
+        facade.localNames = listOf("CPH2747")
+        val duplicate = TestDevices.btMic.copy(
+            id = 30,
+            address = "00:00:00:00:00:00",
+            productName = "CPH2747",
+        )
+        val headset = TestDevices.btMedia.copy(
+            id = 31,
+            address = "11:22:33:44:55:66",
+            productName = "OPENEAR Bone G1",
+        )
+
+        facade.connect(duplicate, headset)
+        settle()
+        facade.voiceLink(VoiceLinkState.CONNECTED)
+
+        assertEquals(AudioRoute.Kind.BLUETOOTH, listener.last.kind)
+        assertEquals("OPENEAR Bone G1", listener.last.label)
+    }
+
+    @Test
     fun `stopping releases the platform`() {
         controller.stop()
 

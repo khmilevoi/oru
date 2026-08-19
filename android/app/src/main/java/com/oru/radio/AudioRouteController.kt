@@ -61,6 +61,13 @@ class AudioRouteController(
     /** Last enumeration, watch-filtered. */
     private var devices: List<RouteDevice> = emptyList()
 
+    /**
+     * The names the phone itself answers to, re-read with the enumeration. A Bluetooth entry
+     * reporting one of them is the OEM's duplicate of the phone, not an accessory: §6 keeps it
+     * as a last-resort candidate but never lets it name the route.
+     */
+    private var localNames: List<String> = emptyList()
+
     /** Last route handed to the engine; the "notify only if changed" half of reevaluate. */
     private var published: AudioRoute? = null
 
@@ -133,6 +140,14 @@ class AudioRouteController(
     private var reevaluateAgain = false
 
     private var focusHeld = false
+
+    /**
+     * The profile in force when the focus currently held was requested, or null when none is
+     * held. A PTT raise out of MEDIA is exactly the case where these differ, which is what
+     * [updateFocus] defers the abandon on.
+     */
+    private var focusRequestedProfile: ModePolicy.Profile? = null
+
     private var pttHeld = false
     private var radioActive = false
 
@@ -171,6 +186,9 @@ class AudioRouteController(
         facade.setMode(AudioManager.MODE_NORMAL)
         pttHeld = false
         radioActive = false
+        // Cleared before the last updateFocus: the session is over, so there is no linger left
+        // to defer the abandon for and nothing to hand the music back to.
+        focusRequestedProfile = null
         updateFocus()
         facade.stop()
         listener = null
@@ -358,17 +376,35 @@ class AudioRouteController(
      * A refused request still flips [focusHeld]: the abandon is then a no-op on the facade,
      * and request and abandon stay exactly paired, which is what keeps a refusal from turning
      * into a request on every subsequent event.
+     *
+     * One case postpones the abandon rather than pairing it with the end of the burst: a press
+     * that raised the voice link out of MEDIA. Abandoning is what makes the paused music player
+     * auto-resume, and §7's 15 s linger still has the link up at release, so a resume there
+     * lands on the SCO-suppressed A2DP path and dies silently — the 2026-08-19 OPPO CPH2747 +
+     * Spotify session, where the music never came back at all. §9 row 5 wants it back *after*
+     * the linger, so the abandon waits for [profile] to return to MEDIA, which is the linger
+     * ending and the headset going back to A2DP.
+     *
+     * The wait is a decision over state the controller already has — the profile the focus was
+     * requested under versus the profile now in force — not a timer of its own: the policy owns
+     * the linger, and this simply reads the profile it publishes.
      */
     private fun updateFocus() {
-        val wanted = radioActive || pttHeld
+        val burstActive = radioActive || pttHeld
+        val deferred = focusHeld && !burstActive &&
+            focusRequestedProfile == ModePolicy.Profile.MEDIA &&
+            profile == ModePolicy.Profile.VOICE
+        val wanted = burstActive || deferred
         if (wanted == focusHeld) return
         focusHeld = wanted
         if (wanted) {
+            focusRequestedProfile = profile
             val granted = facade.requestTransientDuckFocus()
-            logger.log("route: focus requested t=${clock()}ms granted=$granted")
+            logger.log("route: focus requested t=${clock()}ms granted=$granted profile=$profile")
         } else {
+            focusRequestedProfile = null
             facade.abandonFocus()
-            logger.log("route: focus abandoned t=${clock()}ms")
+            logger.log("route: focus abandoned t=${clock()}ms profile=$profile")
         }
     }
 
@@ -384,12 +420,18 @@ class AudioRouteController(
      * [reevaluate] raises and drops it as an ordinary profile apply.
      */
     private fun apply(decision: ModePolicy.Decision) {
-        if (decision.profile != profile) {
+        val profileChanged = decision.profile != profile
+        if (profileChanged) {
             logger.log("route: profile t=${clock()}ms $profile -> ${decision.profile}")
             profile = decision.profile
         }
         scheduleWakeup(decision.nextWakeupMs)
         reevaluate()
+        // After the profile has actually been applied, never before: a focus abandon deferred
+        // to the end of a PTT linger (see [updateFocus]) is the music player's resume trigger,
+        // and the resume must find the communication device already released and the headset
+        // back on A2DP.
+        if (profileChanged) updateFocus()
         decision.actions.forEach(::perform)
     }
 
@@ -462,6 +504,7 @@ class AudioRouteController(
     private fun evaluateOnce() {
         if (!started) return
         devices = facade.devices().filterNot(RoutePicker::isWatch)
+        localNames = facade.localDeviceNames()
         val requires = RoutePicker.requiresVoiceLink(voiceCandidate())
         if (requires != routeRequiresVoiceLink) {
             routeRequiresVoiceLink = requires
@@ -481,7 +524,7 @@ class AudioRouteController(
      */
     private fun voiceCandidate(): RouteDevice? {
         if (noisyGuardActive()) return null
-        return RoutePicker.inputCandidates(devices, facade.connectedHfpAddresses())
+        return RoutePicker.inputCandidates(devices, facade.connectedHfpAddresses(), localNames)
             .firstOrNull { it.key !in demoted }
     }
 
@@ -498,7 +541,7 @@ class AudioRouteController(
     private fun wantedMode(candidate: RouteDevice?): Int = when {
         profile == ModePolicy.Profile.MEDIA -> AudioManager.MODE_NORMAL
         candidate != null -> AudioManager.MODE_IN_COMMUNICATION
-        RoutePicker.outputDevice(devices) != null -> AudioManager.MODE_NORMAL
+        RoutePicker.outputDevice(devices, localNames) != null -> AudioManager.MODE_NORMAL
         else -> AudioManager.MODE_IN_COMMUNICATION
     }
 
@@ -683,10 +726,10 @@ class AudioRouteController(
 
     private fun routeInForce(): AudioRoute {
         val output = applied
-            ?: if (noisyGuardActive()) null else RoutePicker.outputDevice(devices)
+            ?: if (noisyGuardActive()) null else RoutePicker.outputDevice(devices, localNames)
         return AudioRoute(
             kind = RoutePicker.kindOf(output),
-            label = RoutePicker.labelOf(output),
+            label = RoutePicker.labelOf(output, devices, localNames),
             mode = profile,
         )
     }

@@ -17,6 +17,7 @@ import android.media.AudioPlaybackConfiguration
 import android.media.ToneGenerator
 import android.os.Build
 import android.os.Handler
+import android.provider.Settings
 import android.util.Log
 
 /** The `RouteLogger` used in production: one tagged logcat line per event. */
@@ -171,6 +172,7 @@ class AndroidAudioManagerFacade(
         }
         headsetProxy = null
         bluetoothAdapter = null
+        localNames = null
         otherAudioActive = false
         // Honours the interface's "and releases the grant tone": clearing the field here, not
         // just releasing it, is what stops the delayed release below from releasing it again.
@@ -187,6 +189,16 @@ class AndroidAudioManagerFacade(
             .distinctBy { it.id }
             .map(::toRouteDevice)
     }
+
+    /**
+     * Cached because it is read on every evaluation pass while the device list flaps, and each
+     * of the three sources behind it is a binder call. Cleared by [stop] so a phone renamed
+     * between sessions is picked up on the next one.
+     */
+    private var localNames: List<String>? = null
+
+    override fun localDeviceNames(): List<String> =
+        localNames ?: buildLocalDeviceNames().also { localNames = it }
 
     override fun availableCommunicationDevices(): List<RouteDevice> {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return emptyList()
@@ -352,6 +364,24 @@ class AndroidAudioManagerFacade(
     }
 
     // --- internals -----------------------------------------------------------------------
+
+    /**
+     * All three names are collected, not just the adapter's: `BluetoothAdapter.getName()`
+     * needs `BLUETOOTH_CONNECT` and returns null before the adapter is up, the user-visible
+     * device name is what most stacks copy onto the duplicate entry, and `Build.MODEL` is what
+     * ColorOS used on the 2026-08-19 session (`CPH2747`).
+     */
+    private fun buildLocalDeviceNames(): List<String> = buildList {
+        Build.MODEL?.let(::add)
+        try {
+            bluetoothAdapter?.name?.let(::add)
+        } catch (error: SecurityException) {
+            Log.w(TAG, "route: BLUETOOTH_CONNECT denied; cannot read the adapter name", error)
+        }
+        runCatching {
+            Settings.Global.getString(appContext.contentResolver, Settings.Global.DEVICE_NAME)
+        }.getOrNull()?.let(::add)
+    }.filter { it.isNotBlank() }.distinct()
 
     private fun publishOtherAudio(active: Boolean) {
         if (active == otherAudioActive) return

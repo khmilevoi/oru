@@ -18,6 +18,9 @@ class FakeAudioManagerFacade : AudioManagerFacade {
 
     var hfpAddresses: List<String>? = emptyList()
 
+    /** The names the phone itself answers to; see [AudioManagerFacade.localDeviceNames]. */
+    var localNames: List<String> = emptyList()
+
     // The mutable backing field is named `currentMode`, not `mode`: a `var mode` would
     // generate a synthetic `setMode(Int)` setter whose erased JVM signature clashes with the
     // explicit override below (same pattern as `capturedFailureListener` in FakeAudioIo). `mode`
@@ -63,6 +66,8 @@ class FakeAudioManagerFacade : AudioManagerFacade {
     }
 
     override fun devices(): List<RouteDevice> = devices.toList()
+
+    override fun localDeviceNames(): List<String> = localNames
 
     override fun availableCommunicationDevices(): List<RouteDevice> =
         devices.filter { it.isSink || it.isSource }

@@ -65,6 +65,35 @@ class RoutePickerTest {
 
     private val hfp = listOf("AA:BB:CC:DD:EE:FF")
 
+    /**
+     * The 2026-08-19 hardware session: connecting an `OPENEAR Bone G1` made ColorOS enumerate
+     * two extra Bluetooth entries named after the phone itself (`added=[CPH2747, CPH2747]`).
+     */
+    private val selfNamedMic = device(
+        id = 21,
+        type = AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+        address = "00:00:00:00:00:00",
+        productName = "CPH2747",
+        isSource = true,
+        isSink = true,
+    )
+    private val selfNamedLe = device(
+        id = 22,
+        type = AudioDeviceInfo.TYPE_BLE_HEADSET,
+        address = "00:00:00:00:00:00",
+        productName = "CPH2747",
+        isSource = true,
+        isSink = true,
+    )
+    private val boneMedia = device(
+        id = 23,
+        type = AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+        address = "11:22:33:44:55:66",
+        productName = "OPENEAR Bone G1",
+        isSink = true,
+    )
+    private val phoneNames = listOf("CPH2747")
+
     @Test
     fun `bluetooth wins over wired and usb, and le audio wins inside bluetooth`() {
         // Section 6: "BT SCO / BLE headset > wired headset > USB headset". This deliberately
@@ -147,6 +176,62 @@ class RoutePickerTest {
         assertNull(RoutePicker.labelOf(wiredHeadset))
         assertNull(RoutePicker.labelOf(btMedia.copy(productName = "  ")))
         assertNull(RoutePicker.labelOf(null))
+    }
+
+    @Test
+    fun `a bluetooth entry named after the phone never labels the route`() {
+        val devices = listOf(speaker, phoneMic, selfNamedMic, selfNamedLe, boneMedia)
+
+        // The indicator names the headset the user is wearing, never the phone's own duplicate.
+        assertEquals("OPENEAR Bone G1", RoutePicker.labelOf(selfNamedMic, devices, phoneNames))
+        assertEquals("OPENEAR Bone G1", RoutePicker.labelOf(selfNamedLe, devices, phoneNames))
+        // The name comparison ignores case and surrounding space.
+        assertEquals("OPENEAR Bone G1", RoutePicker.labelOf(selfNamedMic, devices, listOf(" cph2747 ")))
+        // With no differently-named sibling there is nothing better to show than the duplicate.
+        assertEquals("CPH2747", RoutePicker.labelOf(selfNamedMic, listOf(speaker, selfNamedMic), phoneNames))
+        // A device that merely resembles nothing local keeps its own name.
+        assertEquals("CPH2747", RoutePicker.labelOf(selfNamedMic, devices, listOf("Pixel 8")))
+        assertEquals("Buds Pro", RoutePicker.labelOf(btMedia, listOf(btMedia, boneMedia), phoneNames))
+    }
+
+    @Test
+    fun `a bluetooth entry named after the phone is deprioritized, never filtered out`() {
+        val candidates = RoutePicker.inputCandidates(
+            listOf(speaker, phoneMic, selfNamedMic, btMic),
+            hfp,
+            phoneNames,
+        )
+
+        // Same class, so the duplicate simply sorts last behind the properly named headset.
+        assertEquals(listOf(btMic, selfNamedMic), candidates)
+        // ColorOS's zero-MAC SCO entry is the *only* representation of the headset mic on that
+        // stack: on its own it must still be selected, or the mic path is lost entirely.
+        assertEquals(
+            listOf(selfNamedMic),
+            RoutePicker.inputCandidates(listOf(speaker, phoneMic, selfNamedMic), hfp, phoneNames),
+        )
+        // Output selection breaks its ties the same way.
+        val selfNamedMedia = selfNamedMic.copy(id = 24, type = AudioDeviceInfo.TYPE_BLUETOOTH_A2DP)
+        assertEquals(
+            boneMedia,
+            RoutePicker.outputDevice(listOf(speaker, selfNamedMedia, boneMedia), phoneNames),
+        )
+        // A name breaks ties; it never reorders §6's priority table, so an LE entry still wins
+        // on rank -- on ColorOS the phone's own name is what the *headset's* LE side reports.
+        assertEquals(
+            selfNamedLe,
+            RoutePicker.outputDevice(listOf(speaker, selfNamedLe, boneMedia), phoneNames),
+        )
+        assertEquals(selfNamedLe, RoutePicker.outputDevice(listOf(speaker, selfNamedLe), phoneNames))
+        // The watch filter still comes first, whatever the names are.
+        assertEquals(
+            emptyList<RouteDevice>(),
+            RoutePicker.inputCandidates(
+                listOf(selfNamedMic.copy(id = 31, productName = "Galaxy Watch5")),
+                hfp,
+                phoneNames,
+            ),
+        )
     }
 
     @Test
