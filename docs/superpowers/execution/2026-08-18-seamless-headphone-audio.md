@@ -225,7 +225,7 @@ RadioKit leg does not compile the bridge glue this plan rewrites).
 
 ### P4 `android-routing` — wave 2, track B
 - [x] planned   → docs/superpowers/plans/2026-08-18-p4-android-routing.md
-- [ ] executed  → branch plan/p4-android-routing · worktree .claude/worktrees/p4-android-routing
+- [x] executed  → branch plan/p4-android-routing · worktree .claude/worktrees/p4-android-routing
 - [ ] merged    → sync 2
 
 **Owns:** everything §6, inside `android/`: **`AudioRouteController.kt`**, extracted from
