@@ -10,6 +10,13 @@ import {reducedMotion} from './reducedMotion';
  * `design/03 Pairing.dc.html`) -- one circle whose border, fill and glow carry
  * the state, with the state's own copy centred inside it.
  *
+ * It is GEOMETRICALLY INVARIANT: same diameter, same border box, same centre in
+ * every state, with only colour, fill and glow changing -- the canvas's GEOMETRY
+ * note states the rule and `__tests__/radio-ring-geometry.test.tsx` enforces it.
+ * Its caller owes the other half: the ring is centred in a column, so a sibling
+ * that appears in one state alone moves the ring just as surely as resizing it
+ * would (`src/screens/RadioScreen.tsx`'s reserved hint slot).
+ *
  * The glows are RN `boxShadow` strings, supported natively from React Native
  * 0.76 on the New Architecture; `design/theme.css` states them in CSS and they
  * transfer literally.
@@ -81,6 +88,15 @@ export const StateRing = reatomComponent<{
         tone === 'rx' && styles.rx,
         tone === 'learning' && styles.learning,
       ]}>
+      {tone === 'rx' ? (
+        <View
+          testID="state-ring-edge"
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={[styles.edge, {borderRadius: size / 2}]}
+        />
+      ) : null}
       {pulsing ? (
         <Animated.View
           testID="state-ring-pulse"
@@ -113,21 +129,49 @@ export const StateRing = reatomComponent<{
 }, 'StateRing');
 
 const styles = StyleSheet.create({
+  /**
+   * `borderWidth` lives HERE and not on any tone, deliberately. The ring is
+   * geometrically invariant: same diameter, same border box, same centre in
+   * every state, with only colour, fill and glow changing. A per-tone border
+   * width breaks that twice over -- it shrinks the content box, so the label
+   * and the bars inside step in by the difference on every edge, and on any
+   * platform sizing a circle by its content it would change the diameter too.
+   * Tones below therefore set colour, fill and shadow and nothing else.
+   */
   ring: {
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.gutter,
     paddingHorizontal: spacing.lg,
+    borderWidth: sizes.ringBorder,
   },
-  idle: {borderWidth: 2, borderColor: colors.hairlineRaised},
+  idle: {borderColor: colors.hairlineRaised},
   tx: {
-    borderWidth: 2,
     borderColor: colors.txBorder,
     backgroundColor: colors.tx,
     boxShadow: glows.tx,
   },
-  rx: {borderWidth: 3, borderColor: colors.rx, boxShadow: glows.rx},
-  learning: {borderWidth: 2, borderColor: colors.learning},
+  rx: {borderColor: colors.rx, boxShadow: glows.rx},
+  learning: {borderColor: colors.learning},
+  /**
+   * The canvas draws receiving one point heavier than every other state. That
+   * weight is real design intent and is kept -- but as paint, not as layout: an
+   * absolutely positioned ring pulled back out to the border box by
+   * `-sizes.ringBorder` on each side, so it covers the 2pt border with a 3pt one
+   * drawn inward from the same outer edge. Same trick as `halo` below, and like
+   * `halo` it costs the column nothing. `design/01 Radio.dc.html`'s `.ringrx`
+   * reaches the identical result with `inset 0 0 0 1px` and no border-width of
+   * its own; the two were reconciled together.
+   */
+  edge: {
+    position: 'absolute',
+    top: -sizes.ringBorder,
+    right: -sizes.ringBorder,
+    bottom: -sizes.ringBorder,
+    left: -sizes.ringBorder,
+    borderWidth: sizes.ringEdgeRx,
+    borderColor: colors.rx,
+  },
   halo: {
     position: 'absolute',
     top: 0,

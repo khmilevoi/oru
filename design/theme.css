@@ -128,6 +128,12 @@ a:hover { color: oklch(0.8 0.17 152); }
   gap: 40px;
   padding-bottom: 40px;
 }
+/* GEOMETRICALLY INVARIANT. Same 302 diameter, same 2px border box, same centre in
+   every state — only colour, fill and glow change. The 2px here is CANONICAL: no
+   state modifier may restate `border-width`, because a border is part of the box and
+   changing it moves both the circle and everything inside it. A state that needs a
+   heavier edge paints one (see `.ringrx` in `01 Radio.dc.html`). Full rule in that
+   file's GEOMETRY canvas note. */
 .ring {
   width: 302px;
   height: 302px;

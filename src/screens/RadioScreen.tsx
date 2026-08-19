@@ -228,19 +228,14 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
             ) : null}
 
             {state === 'transmitting' ? (
-              <>
-                <StateRing tone="tx" testID="radio-ring">
-                  <Text
-                    testID={testIds.radioStateLabel}
-                    style={[type.state, styles.onTx]}>
-                    <Trans>TRANSMITTING...</Trans>
-                  </Text>
-                  <LevelBars color={colors.text} testID="radio-bars" />
-                </StateRing>
-                <Text style={[type.subhint, styles.txHint]}>
-                  <Trans>RELEASE TO FINISH</Trans>
+              <StateRing tone="tx" testID="radio-ring">
+                <Text
+                  testID={testIds.radioStateLabel}
+                  style={[type.state, styles.onTx]}>
+                  <Trans>TRANSMITTING...</Trans>
                 </Text>
-              </>
+                <LevelBars color={colors.text} testID="radio-bars" />
+              </StateRing>
             ) : null}
 
             {state === 'receiving' ? (
@@ -253,6 +248,26 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
                 <LevelBars color={colors.rx} testID="radio-bars" />
               </StateRing>
             ) : null}
+
+            {/*
+              The hint slot, reserved in every ring state and filled in one.
+              `styles.stage` centres its column, so the ring's position is set
+              by the whole column's height -- and the canvas gives this hint to
+              `transmitting` alone (frame 04), which grew the column by
+              `stage.gap` plus a line and lifted the ring 29pt at the exact
+              moment of the press. That was the reported jump. Reserving the
+              slot in every state costs the same 40 + `stage.hintSlot` in all
+              of them, so the ring is centred identically whatever the state.
+            */}
+            {state === 'searching' ? null : (
+              <View style={styles.hintSlot}>
+                {state === 'transmitting' ? (
+                  <Text style={[type.subhint, styles.txHint]}>
+                    <Trans>RELEASE TO FINISH</Trans>
+                  </Text>
+                ) : null}
+              </View>
+            )}
           </View>
         </Pressable>
 
@@ -303,6 +318,21 @@ const styles = StyleSheet.create({
   /** `.offstage` -- the same column, opened up to the canvas's 46. */
   offStage: {gap: stage.offGap},
   offCopy: {alignItems: 'center', gap: spacing.md},
+  /**
+   * A fixed-height box, never a bare `<Text>`: its height must not depend on
+   * whether it currently holds copy, nor on how many lines that copy takes in
+   * the active locale. `stage.hintSlot` reserves the two-line worst case, and
+   * the hint is centred in it so a one-line locale still reads as one line
+   * under the ring. `alignSelf: 'stretch'` beats the stage's `alignItems:
+   * 'center'` so a wrapping translation gets the full width to wrap in.
+   */
+  hintSlot: {
+    height: stage.hintSlot,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.gutter,
+  },
   headline: {color: colors.text, textAlign: 'center'},
   hint: {color: colors.textFaint, textAlign: 'center'},
   deadAir: {color: colors.deadAir},

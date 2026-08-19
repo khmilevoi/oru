@@ -54,6 +54,30 @@ carried no edits of its own since the 2026-08-18 push, so nothing was clobbered;
 was verified by re-fetching `theme.css` and confirming it carries the `--seal-*` tokens.
 The canvas project and this export match again.
 
+**2026-08-19 — the talk ring is recorded as geometrically invariant, and the canvas was
+corrected to match.** The product owner reported the big round button *jumping* the moment
+"HOLD TO TALK" is pressed. It was two defects, both faithfully ported from this canvas:
+
+- `01 Radio` frame 04 is the only ring frame carrying a `.subhint` under the ring
+  ("RELEASE TO FINISH"). `.stage` centres its column, so rendering that hint in the
+  transmitting state alone grew the column by a 40 gap plus a line and lifted the ring
+  **29pt at the instant of the press**. The area under the ring is now a `.hintslot`
+  **reserved in every ring frame** (03, 05, 07, 09–13 reserve it empty; 04 fills it), at
+  two lines of `.subhint` — the worst case across locales, since
+  "ОТПУСТИТЕ ЧТОБЫ ЗАКОНЧИТЬ" wraps where "RELEASE TO FINISH" does not.
+- `.ringrx` restated `border-width: 3px` against `.ring`'s 2px. With no `box-sizing`
+  reset, that drew the receiving circle 308px across where every other frame's is 306px.
+  **2px is canonical** — it is what four of the five states already share, and a border is
+  part of the box. The heavier receiving edge is design intent and is kept as *paint*: an
+  `inset 0 0 0 1px` shadow just inside the 2px border here, and an absolutely positioned
+  overlay ring in the app. Same 3pt of green, zero layout cost.
+
+A new `.canvasnote geometry` block under frames 03–05 carries the rule for implementers,
+and `theme.css`'s `.ring` is annotated as the canonical border. **Owed a DesignSync push:**
+`01 Radio.dc.html` and `theme.css` are edited locally only — the branch that made this
+change had no DesignSync tool, so the export and the ORU project are **out of sync until
+the main session pushes them**. Read the remote first, as the earlier pushes did.
+
 Spec §12.1 (`docs/superpowers/specs/2026-08-13-offline-nearby-ptt-design.md`) points at this
 canvas as the source of the visual design, but until now it was never exported — the P6 UI
 plan states this outright and records reconciling the app's tokens against the canvas as an

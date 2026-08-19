@@ -322,6 +322,22 @@ export const stage = {
   offGap: 46,
   /** `.stage.pair` gap -- the pairing learn/saved steps close it down. */
   pairGap: 30,
+  /**
+   * The height reserved under the ring for a `.subhint`, in EVERY live state.
+   *
+   * `.stage` centres its column, so the ring's position is a function of the
+   * whole column's height: the canvas gives the hint to `transmitting` alone
+   * (`design/01 Radio.dc.html` frame 04), and rendering it only there grew the
+   * column by `gap` + one line and lifted the ring 29pt the instant the user
+   * pressed. The slot is therefore always in the column and only its copy
+   * comes and goes -- see the GEOMETRY canvas note.
+   *
+   * Two lines, not one: the reservation has to hold the WORST case across
+   * locales, and `ru`'s "ОТПУСТИТЕ ЧТОБЫ ЗАКОНЧИТЬ" is half again as long as
+   * "RELEASE TO FINISH" and wraps on a narrow screen. Sizing to `en` would
+   * reintroduce the same jump for one locale only.
+   */
+  hintSlot: type.subhint.lineHeight * 2,
 } as const;
 
 /**
@@ -346,6 +362,19 @@ export const radii = {
 export const sizes = {
   /** `.ring` on the radio screen. */
   ring: 302,
+  /**
+   * `.ring`'s border, and the canonical width for EVERY tone. The canvas's
+   * `.ringrx` restates it at 3px; that is the one figure the app deliberately
+   * does not follow, because a per-state border width is a per-state layout
+   * box -- see `ringEdgeRx` and the GEOMETRY canvas note.
+   */
+  ringBorder: 2,
+  /**
+   * How heavy the receiving edge PAINTS (`.ringrx` border-width). Drawn by an
+   * absolutely positioned overlay in `StateRing`, so the ring keeps the
+   * `ringBorder` box every other tone has and nothing inside it moves.
+   */
+  ringEdgeRx: 3,
   /** `.learnring` in the pairing flow. */
   ringLearning: 272,
   /** `.pingset` and `.pingset.sm`. */
