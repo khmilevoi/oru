@@ -28,7 +28,17 @@ public final class AudioEngine: AudioIO {
     private let queue: DispatchQueue
     private let makeEncoder: () throws -> OpusEncoding
     private let makeDecoder: () throws -> OpusDecoding
-    private let engine = AVAudioEngine()
+    /// `var`, not `let`: `mediaServicesWereReset` requires disposing every
+    /// audio object and building new ones (QA1749). A node cannot move between
+    /// engines, so `tonePlayer` is replaced with it.
+    private var engine = AVAudioEngine()
+    private var tonePlayer = AVAudioPlayerNode()
+    private var isTonePlayerAttached = false
+    /// True between `startPlayback()` and `stopPlayback()`. A rebuild request
+    /// that arrives before the first `startPlayback()` must do nothing: the
+    /// record permission may still be undetermined, and starting the engine
+    /// then is the documented `inputNode != nullptr` crash.
+    private var isPlaybackStarted = false
     private let log = Logger(
         subsystem: RadioConfig.Logging.subsystem,
         category: "audio"
@@ -76,6 +86,7 @@ public final class AudioEngine: AudioIO {
         // suspends the app once the screen locks. That continuity is what
         // earns background execution under the `audio` UIBackgroundMode.
         try queue.sync { try installKeepAliveTapLocked() }
+        queue.sync { isPlaybackStarted = true }
         HeartbeatLogger.shared.isEngineRunning = { [weak self] in
             self?.engine.isRunning ?? false
         }
@@ -140,6 +151,7 @@ public final class AudioEngine: AudioIO {
 
     public func stopPlayback() {
         queue.sync {
+            isPlaybackStarted = false
             for (peerId, _) in playbacks {
                 tearDownPlaybackLocked(peerId: peerId)
             }
@@ -164,9 +176,14 @@ public final class AudioEngine: AudioIO {
     public func beginIncoming(peerId: String) {
         queue.async { [self] in
             guard playbacks[peerId] == nil else { return }
+            // §5: "beginIncoming no longer stop/starts the engine per
+            // transmission; engine restarts happen only on configuration change
+            // or interruption recovery." The stop/start was a workaround for a
+            // graph that was never rebuilt when the hardware format moved —
+            // `rebuildEngine` is that rebuild, and attaching a player node to a
+            // running engine is a supported dynamic graph change.
             do {
                 let playback = PeerPlayback(decoder: try makeDecoder())
-                let wasRunning = engine.isRunning
                 engine.attach(playback.player)
                 engine.connect(
                     playback.player,
@@ -174,20 +191,9 @@ public final class AudioEngine: AudioIO {
                     format: OpusFormat.pcm
                 )
                 playbacks[peerId] = playback
-                // Always-hot silence suspect: the keep-alive tap starts the
-                // engine at startRadio, so this player is attached to an engine
-                // that is already rendering. A dynamically attached chain
-                // joining a running engine has been observed to stay silent on
-                // device; a stop/start rebuilds the graph with the player in
-                // it. Taps survive the restart, and when the engine was not
-                // yet running (`wasRunning == false`) nothing is disturbed.
-                if wasRunning {
-                    engine.stop()
-                }
                 try ensureEngineRunningLocked()
                 HeartbeatLogger.shared.record(
-                    "rx playback open peer=\(peerId) restarted=\(wasRunning) "
-                        + "engine=\(engine.isRunning)"
+                    "rx playback open peer=\(peerId) engine=\(engine.isRunning)"
                 )
                 log.info("playback opened for \(peerId, privacy: .public)")
             } catch {
@@ -280,48 +286,57 @@ extension AudioEngine {
     public func startCapture() throws {
         try queue.sync {
             guard !isCapturing else { return }
-
-            let input = engine.inputNode
-            let inputFormat = input.outputFormat(forBus: 0)
-            guard
-                inputFormat.sampleRate > 0,
-                let converter = AVAudioConverter(from: inputFormat, to: OpusFormat.pcm)
-            else {
-                throw RadioError.audioFailed("no usable microphone format")
-            }
-
-            self.converter = converter
             encoder = try makeEncoder()
-            captureResidue.removeAll(keepingCapacity: true)
             txMeter = LevelMeter(
                 label: "tx",
                 interval: RadioConfig.Audio.txMeterSeconds
             )
-            // Quiet-transmit investigation: `.voiceChat` puts voice processing
-            // on the SESSION, but a plain inputNode tap only gets the node's
-            // AGC when `setVoiceProcessingEnabled(true)` is called — which this
-            // engine never does. Record the actual state as hardware evidence;
-            // deliberately not changed here (it alters latency/behavior).
-            HeartbeatLogger.shared.record(
-                "tx capture start rate=\(Int(inputFormat.sampleRate)) "
-                    + "voiceProcessing=\(input.isVoiceProcessingEnabled) "
-                    + "gain=\(RadioConfig.Audio.captureGain)"
-            )
-
             // AVAudioEngine allows one tap per bus: the always-hot keep-alive
             // tap yields to the real capture tap for the transmission.
             removeKeepAliveTapLocked()
-            input.installTap(onBus: 0, bufferSize: 1_024, format: inputFormat) {
-                [weak self] buffer, _ in
-                guard let self else { return }
-                HeartbeatLogger.shared.noteInputBuffer()
-                self.queue.async { self.handleCaptureLocked(buffer) }
-            }
-
+            try installCaptureTapLocked()
             try ensureEngineRunningLocked()
             isCapturing = true
-            log.info("capture started at \(inputFormat.sampleRate, privacy: .public) Hz")
         }
+    }
+
+    /// Installs the capture tap at the format the hardware reports RIGHT NOW and
+    /// builds the converter from it. Called at `startCapture` and again after
+    /// every engine rebuild — §5's "formats are never cached across a rebuild"
+    /// is enforced by there being no other place a capture format is read.
+    private func installCaptureTapLocked() throws {
+        let input = engine.inputNode
+        let inputFormat = input.outputFormat(forBus: 0)
+        guard inputFormat.sampleRate > 0 else {
+            throw RadioError.audioFailed("no usable microphone format")
+        }
+        try rebuildConverterLocked(for: inputFormat)
+        // Quiet-transmit investigation: `.voiceChat` puts voice processing on
+        // the SESSION, but a plain inputNode tap only gets the node's AGC when
+        // `setVoiceProcessingEnabled(true)` is called — which this engine never
+        // does. Record the actual state as hardware evidence.
+        HeartbeatLogger.shared.record(
+            "tx capture start rate=\(Int(inputFormat.sampleRate)) "
+                + "voiceProcessing=\(input.isVoiceProcessingEnabled) "
+                + "gain=\(RadioConfig.Audio.captureGain)"
+        )
+        input.installTap(onBus: 0, bufferSize: 1_024, format: inputFormat) {
+            [weak self] buffer, _ in
+            guard let self else { return }
+            HeartbeatLogger.shared.noteInputBuffer()
+            self.queue.async { self.handleCaptureLocked(buffer) }
+        }
+        log.info("capture started at \(inputFormat.sampleRate, privacy: .public) Hz")
+    }
+
+    private func rebuildConverterLocked(for format: AVAudioFormat) throws {
+        guard let converter = AVAudioConverter(from: format, to: OpusFormat.pcm) else {
+            throw RadioError.audioFailed("no usable microphone format")
+        }
+        self.converter = converter
+        // The residue belongs to the old rate; keeping it would splice two
+        // sample rates into one Opus frame.
+        captureResidue.removeAll(keepingCapacity: true)
     }
 
     public func stopCapture() {
@@ -340,7 +355,26 @@ extension AudioEngine {
     }
 
     private func handleCaptureLocked(_ buffer: AVAudioPCMBuffer) {
-        guard isCapturing, let converter, let encoder else { return }
+        guard isCapturing, let encoder else { return }
+
+        // §5: a mid-transmission route change re-routes with a short glitch
+        // instead of raising `audioFailed`. The tap keeps its old format after
+        // a hardware change until it is reinstalled, so the buffer is the
+        // authority on what is actually arriving.
+        if CaptureConverterPolicy.needsRebuild(
+            converterInput: converter?.inputFormat, incoming: buffer.format
+        ) {
+            HeartbeatLogger.shared.record(
+                "tx converter rebuild rate=\(Int(buffer.format.sampleRate))"
+            )
+            do {
+                try rebuildConverterLocked(for: buffer.format)
+            } catch {
+                HeartbeatLogger.shared.record("tx converter rebuild FAILED: \(error)")
+                return
+            }
+        }
+        guard let converter else { return }
 
         // Metered pre-conversion and pre-gain: this is the level at the mic,
         // the number that tells us whether the capture itself is quiet.
@@ -371,7 +405,11 @@ extension AudioEngine {
             return buffer
         }
         if let conversionError {
-            delegate?.audioIO(self, didFail: .audioFailed("resample: \(conversionError)"))
+            // Never `audioFailed` (§2 goal 3): the format moved under us. Drop
+            // this buffer, rebuild from what actually arrived, and carry on —
+            // the next buffer transmits.
+            HeartbeatLogger.shared.record("tx resample failed, rebuilding: \(conversionError)")
+            try? rebuildConverterLocked(for: buffer.format)
             return
         }
 
@@ -436,5 +474,119 @@ extension AudioEngine {
         engine.inputNode.removeTap(onBus: 0)
         isKeepAliveTapInstalled = false
         log.info("always-hot keep-alive tap removed")
+    }
+}
+
+// MARK: - Rebuild and grant tone (§5, D2)
+
+extension AudioEngine {
+
+    /// §5's engine rebuild. Ordered the way AVAudioEngine requires it: taps
+    /// come off before anything is disconnected (a tap left on a node that is
+    /// about to be disconnected is a documented crash), the graph is torn down,
+    /// the hardware is re-queried by touching the I/O nodes, everything is
+    /// reconnected, the tap goes back on at the format the hardware reports NOW,
+    /// and only then does the engine start.
+    ///
+    /// `prepare()` is not called and no main-queue hop is needed: the documented
+    /// `inputNode != nullptr || outputNode != nullptr` assertion fires when
+    /// `prepare()`/`start()` run against an EMPTY graph, and both I/O nodes are
+    /// touched above before `start()`.
+    public func rebuildEngine(recreate: Bool) {
+        queue.async { [self] in
+            guard isPlaybackStarted else { return }
+            let wasCapturing = isCapturing
+            HeartbeatLogger.shared.record(
+                "engine rebuild begin recreate=\(recreate) capturing=\(wasCapturing)"
+            )
+
+            if wasCapturing {
+                engine.inputNode.removeTap(onBus: 0)
+            }
+            removeKeepAliveTapLocked()
+            if engine.isRunning {
+                engine.stop()
+            }
+            for playback in playbacks.values {
+                engine.disconnectNodeOutput(playback.player)
+            }
+            if isTonePlayerAttached {
+                engine.disconnectNodeOutput(tonePlayer)
+            }
+
+            if recreate {
+                // QA1749: after a media-services reset every audio object is
+                // dead, including the engine and its nodes.
+                for playback in playbacks.values {
+                    engine.detach(playback.player)
+                }
+                if isTonePlayerAttached {
+                    engine.detach(tonePlayer)
+                    isTonePlayerAttached = false
+                }
+                engine = AVAudioEngine()
+                tonePlayer = AVAudioPlayerNode()
+                converter = nil
+                for playback in playbacks.values {
+                    engine.attach(playback.player)
+                }
+            }
+
+            _ = engine.inputNode
+            _ = engine.mainMixerNode
+            for playback in playbacks.values {
+                engine.connect(
+                    playback.player,
+                    to: engine.mainMixerNode,
+                    format: OpusFormat.pcm
+                )
+            }
+            if isTonePlayerAttached {
+                engine.connect(tonePlayer, to: engine.mainMixerNode, format: OpusFormat.pcm)
+            }
+
+            do {
+                if wasCapturing {
+                    try installCaptureTapLocked()
+                } else {
+                    try installKeepAliveTapLocked()
+                }
+                try ensureEngineRunningLocked()
+            } catch {
+                // §2 goal 3: a route change never kills the radio. The next
+                // configuration change, route change or interruption recovery
+                // retries; nothing is raised to the delegate.
+                HeartbeatLogger.shared.record("engine rebuild FAILED: \(error)")
+                return
+            }
+            // Players that were mid-transmission lost their scheduled buffers
+            // with the stop. `drainLocked` calls `play()` when it schedules the
+            // next one, so playback resumes on the next frame off the wire.
+            HeartbeatLogger.shared.record("engine rebuild done running=\(engine.isRunning)")
+        }
+    }
+
+    /// D2's talk-permit tone, on its own player node so it never disturbs a
+    /// peer's playback chain.
+    public func playGrantTone() {
+        queue.async { [self] in
+            guard let buffer = OpusFormat.buffer(from: GrantTone.pcm()) else { return }
+            if !isTonePlayerAttached {
+                engine.attach(tonePlayer)
+                engine.connect(tonePlayer, to: engine.mainMixerNode, format: OpusFormat.pcm)
+                isTonePlayerAttached = true
+            }
+            do {
+                try ensureEngineRunningLocked()
+            } catch {
+                HeartbeatLogger.shared.record("grant tone SKIPPED: \(error)")
+                return
+            }
+            tonePlayer.scheduleBuffer(buffer, completionHandler: nil)
+            if !tonePlayer.isPlaying {
+                tonePlayer.play()
+            }
+            HeartbeatLogger.shared.record("grant tone")
+        }
     }
 }

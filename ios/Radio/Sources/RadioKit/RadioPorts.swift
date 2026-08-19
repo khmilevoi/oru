@@ -45,6 +45,22 @@ public protocol AudioIO: AnyObject {
     func beginIncoming(peerId: String)
     func enqueue(frame: Data, from peerId: String)
     func endIncoming(peerId: String)
+
+    /// §5's `AVAudioEngineConfigurationChange` rebuild: stop, disconnect the
+    /// nodes, re-query every format from the hardware, reconnect, restart,
+    /// reinstall the tap that was on the input. Formats are never cached across
+    /// it. `recreate` additionally throws the `AVAudioEngine` itself away and
+    /// builds a new one — Apple QA1749's answer to `mediaServicesWereReset`.
+    ///
+    /// Returns immediately: the work happens on the implementation's own queue,
+    /// so no call chain from the engine queue can block on it. A failure is
+    /// logged and never raised — §2 goal 3: a route change must not become
+    /// `status: 'error'`.
+    func rebuildEngine(recreate: Bool)
+
+    /// D2's talk-permit tone. Scheduled, not awaited: §7 gates transmission on
+    /// the tone being granted, not on its decay.
+    func playGrantTone()
 }
 
 public protocol AudioIODelegate: AnyObject {

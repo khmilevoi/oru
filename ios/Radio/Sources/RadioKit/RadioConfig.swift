@@ -33,6 +33,15 @@ public enum RadioConfig {
         /// How often the keep-alive tap writes an `idle level` line, so the
         /// idle mic floor and the transmit level can be compared.
         public static let idleMeterSeconds: TimeInterval = 30
+        /// D2's talk-permit tone: "press → tone → talk", in every mode. 1 kHz
+        /// is the LMR convention and sits in the middle of what an 8 kHz HFP
+        /// link reproduces, so the tone survives the narrowest route the radio
+        /// ever uses.
+        public static let grantToneFrequency: Double = 1_000
+        public static let grantToneDurationMs: Int = 120
+        /// Well below full scale: the tone plays into whatever the user is
+        /// wearing, at whatever volume they chose for voice.
+        public static let grantToneAmplitude: Double = 0.35
     }
 
     public enum Transmit {

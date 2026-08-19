@@ -86,6 +86,19 @@ final class FakeAudio: AudioIO {
     func endIncoming(peerId: String) {
         incoming.removeAll { $0 == peerId }
     }
+
+    /// One entry per rebuild request, `true` when the whole AVAudioEngine was
+    /// to be thrown away.
+    private(set) var rebuilds: [Bool] = []
+    private(set) var grantTones = 0
+
+    func rebuildEngine(recreate: Bool) {
+        rebuilds.append(recreate)
+    }
+
+    func playGrantTone() {
+        grantTones += 1
+    }
 }
 
 final class FakePtt: PttSource {
