@@ -159,4 +159,16 @@ class NativeRadioModule(private val reactContext: ReactApplicationContext) :
         }
         promise.resolve(null)
     }
+
+    /**
+     * Spec section 8, stubbed. Accepts the call so the regenerated spec
+     * compiles and resolves immediately; it stores nothing and changes nothing.
+     * P4 replaces this with the SharedPreferences write and the profile apply,
+     * and with the `onStateChanged` emission `specs/NativeRadio.ts` requires of
+     * every mutating method.
+     */
+    override fun setAudioMode(mode: String, promise: Promise) {
+        attach()
+        promise.resolve(null)
+    }
 }

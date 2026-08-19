@@ -65,7 +65,7 @@ describe('the Android Turbo Module (spec section 6.1)', () => {
     );
   });
 
-  it('implements all eight amended section 6.1 methods', () => {
+  it('implements all nine amended section 6.1 methods', () => {
     [
       'start',
       'stop',
@@ -75,6 +75,7 @@ describe('the Android Turbo Module (spec section 6.1)', () => {
       'configurePtt',
       'selectPttCandidate',
       'forgetPtt',
+      'setAudioMode',
     ].forEach(method => {
       expect(module()).toMatch(new RegExp(`override fun ${method}\\(`));
     });
