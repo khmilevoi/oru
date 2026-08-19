@@ -252,12 +252,12 @@ describe('the amended section 12.2 language setting', () => {
   it('switches every visible string in place — no reload, same tree', async () => {
     const screen = await openSettings();
 
-    expect(screen.hasText('SETTINGS')).toBe(true);
-    expect(screen.hasText('НАСТРОЙКИ')).toBe(false);
+    expect(screen.hasText('Settings')).toBe(true);
+    expect(screen.hasText('Настройки')).toBe(false);
 
     await screen.press(`${testIds.appLocale}-ru`);
 
-    expect(screen.hasText('НАСТРОЙКИ')).toBe(true);
+    expect(screen.hasText('Настройки')).toBe(true);
     expect(screen.hasText('Язык')).toBe(true);
     expect(
       screen.find(`${testIds.appLocale}-ru`).props.accessibilityState,
