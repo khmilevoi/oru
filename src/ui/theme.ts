@@ -435,6 +435,7 @@ export const testIds = {
   pttReplace: 'ptt-replace',
   settingsBack: 'settings-back',
   settingsVersion: 'settings-version',
+  settingsScroll: 'settings-scroll',
   audioRoute: 'audio-route',
   audioMode: 'audio-mode',
   appLocale: 'app-locale',
