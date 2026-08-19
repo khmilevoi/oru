@@ -8,11 +8,13 @@ import {ActionButton} from '../ui/ActionButton';
 import {PingRings} from '../ui/PingRings';
 import {PulseDot} from '../ui/PulseDot';
 import {ScreenFrame} from '../ui/ScreenFrame';
+import {SignalBars} from '../ui/SignalBars';
 import {StateRing} from '../ui/StateRing';
+import {SuccessMark} from '../ui/SuccessMark';
 import {
   chrome,
   colors,
-  glows,
+  icon,
   radii,
   scanHintInset,
   sizes,
@@ -146,15 +148,26 @@ export const PairingFlow = reatomComponent<{onClose: () => void}>(
 
         {step === 'picking' ? (
           <View>
-            <View style={styles.scanRow}>
-              <PulseDot active color={colors.learning} size={8} />
-              <Text style={[type.scanRow, styles.scanRowLabel]}>
-                <Trans>still scanning</Trans>
+            {/*
+              `.slabel.scanning` -- the "still scanning" ROW is gone
+              (2026-08-19) and its pulsing amber dot moved onto the "Found"
+              section label, where it has something to anchor to and means
+              "this list is still filling". A whole row of chrome deleted, and
+              the dot stops floating on its own. The words moved onto the dot's
+              accessible name; amber because this screen already spends amber
+              on "armed, finish the action".
+            */}
+            <View style={styles.foundLabel}>
+              <PulseDot
+                active
+                color={colors.learning}
+                size={8}
+                accessibilityLabel={t`Still scanning`}
+              />
+              <Text style={[type.label, styles.sectionLabelText]}>
+                <Trans>Found</Trans>
               </Text>
             </View>
-            <Text style={[type.label, styles.sectionLabel]}>
-              <Trans>Found</Trans>
-            </Text>
             {candidates.map(candidate => (
               <Pressable
                 key={candidate.deviceId}
@@ -169,9 +182,22 @@ export const PairingFlow = reatomComponent<{onClose: () => void}>(
                   <Text style={[type.devName, styles.rowName]}>
                     {candidate.name}
                   </Text>
-                  <Text style={[type.caption, styles.rowMeta]}>
-                    <Trans>BLE · {signedRssi(candidate.rssi)} dBm</Trans>
-                  </Text>
+                  {/*
+                    `BLE ·` became four signal bars (2026-08-19) and the dBm
+                    figure stayed. This is the ONE case where a deleted word
+                    needs no new home: it was constant on every row and the
+                    screen already says it once ("SCANNING FOR BLE DEVICES..."),
+                    so it was never carrying anything a reader would miss. The
+                    reading is a different matter -- four bars cannot separate
+                    two similarly named buttons on the same shelf, so the number
+                    is kept beside the glyph.
+                  */}
+                  <View style={styles.rowMetaLine}>
+                    <SignalBars rssi={candidate.rssi} color={colors.textFaint} />
+                    <Text style={[type.caption, styles.rowMeta]}>
+                      <Trans>{signedRssi(candidate.rssi)} dBm</Trans>
+                    </Text>
+                  </View>
                 </View>
                 <Text style={styles.chevron}>›</Text>
               </Pressable>
@@ -202,12 +228,20 @@ export const PairingFlow = reatomComponent<{onClose: () => void}>(
             (design/03 Pairing.dc.html frame 04) -- the frame's `footer`. */}
         {step === 'saved' ? (
           <View style={[styles.stage, styles.stagePair]}>
-            <View testID="pairing-tick" style={styles.tick}>
-              <View style={styles.tickMark} />
-            </View>
-            <Text style={[type.stateSmall, styles.saved]}>
-              <Trans>BUTTON CONNECTED</Trans>
-            </Text>
+            {/*
+              The "BUTTON CONNECTED" headline is gone (2026-08-19) and the 96
+              `.oktick` under it grew to the shared 132 `.okbig` -- so both
+              success moments in the product are now the same mark. A green tick
+              with the words restated directly beneath it said the same thing
+              twice; the mark is the whole statement, and the words moved to its
+              accessible name, which is where they were doing real work all
+              along. Nothing else on this step names it, so this one is not
+              optional.
+            */}
+            <SuccessMark
+              accessibilityLabel={t`Button connected`}
+              testID="pairing-tick"
+            />
             <View style={styles.bindCard}>
               <View style={styles.bindRow}>
                 <Text style={[type.caption, styles.bindKey]}>
@@ -283,25 +317,11 @@ const styles = StyleSheet.create({
   },
   headline: {color: colors.text, textAlign: 'center'},
   hint: {color: colors.textMuted, textAlign: 'center'},
-  tick: {
-    width: sizes.tick,
-    height: sizes.tick,
-    borderRadius: sizes.tick / 2,
-    borderWidth: 2,
-    borderColor: colors.rx,
-    boxShadow: glows.ok,
-  },
-  tickMark: {
-    position: 'absolute',
-    left: 26,
-    top: 30,
-    width: 40,
-    height: 20,
-    borderLeftWidth: 3,
-    borderBottomWidth: 3,
-    borderColor: colors.rx,
-    transform: [{rotate: '-45deg'}],
-  },
+  /*
+    The 96 `.oktick` and its mark are gone (2026-08-19). This step draws the
+    shared 132 `.okbig` through `SuccessMark` -- the same glyph the onboarding
+    done frame ends on, so the product has one success mark, not two.
+  */
   stage: {
     /** `flexGrow`, not `flex: 1` -- same reason as `centre` above. */
     flexGrow: 1,
@@ -324,15 +344,25 @@ const styles = StyleSheet.create({
     color: colors.textFaint,
     textAlign: 'center',
   },
-  scanRow: {
+  /**
+   * `.slabel.scanning` -- the section label wearing the scanning dot. It keeps
+   * `.slabel`'s own padding and only turns into a row, so deleting the separate
+   * "still scanning" line above it cost the list no vertical rhythm.
+   */
+  foundLabel: {
+    ...chrome.sectionLabel,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingTop: 30,
-    paddingHorizontal: 28,
   },
-  scanRowLabel: {color: colors.textFaint},
-  sectionLabel: {...chrome.sectionLabel, color: colors.textFaint},
+  sectionLabelText: {color: colors.textFaint},
+  /** `.devmeta` -- the bars sit inline with the reading they qualify. */
+  rowMetaLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: icon.smallGap,
+    marginTop: 5,
+  },
   row: {
     marginHorizontal: spacing.gutter,
     marginBottom: 12,

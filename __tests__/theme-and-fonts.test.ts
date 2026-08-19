@@ -106,10 +106,12 @@ describe('theme tokens — design/theme.css', () => {
     expect(type.obTitle.fontSize).toBe(40);
     expect(type.obTitle.letterSpacing).toBe(1.6);
     expect(type.obTitle.textTransform).toBe('uppercase');
-    // `.obstep`: 11px, 0.22em, regular, no transform (theme.css).
-    expect(type.obStep.letterSpacing).toBe(2.42);
-    expect(type.obStep.fontFamily).toBe(fonts.mono);
-    expect(type.obStep).not.toHaveProperty('textTransform');
+    // `.obstep` -- the "STEP n OF m" counter -- was DELETED from the canvas on
+    // 2026-08-19 (`design/theme.css` records it where the class used to be), so
+    // its token goes with it: `.obdots` already rendered exactly that line, and
+    // the words moved onto the dot row's accessible name. A token for a class
+    // the canvas no longer declares is drift, so this pins its ABSENCE.
+    expect(type).not.toHaveProperty('obStep');
     // `.scanrow`: 11px, 0.14em, regular (03 Pairing.dc.html).
     expect(type.scanRow.letterSpacing).toBe(1.54);
     expect(type.scanRow.fontFamily).toBe(fonts.mono);

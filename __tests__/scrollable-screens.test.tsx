@@ -221,7 +221,10 @@ describe('the pairing flow scrolls', () => {
     await screen.press(`${testIds.pairingCandidate}-mock-ptt-01`);
     await screen.advance(3000);
 
-    expect(screen.hasText('BUTTON CONNECTED')).toBe(true);
+    // The saved step is named by the shared 132 success mark now: the
+    // "BUTTON CONNECTED" headline under it was deleted on 2026-08-19 and
+    // its words moved onto the mark's accessible name.
+    expect(screen.findAll('pairing-tick')).toHaveLength(1);
     expect(inScroll(screen, testIds.pairingDone)).toBe(false);
     expect(inScroll(screen, 'pairing-tick')).toBe(true);
 
@@ -373,7 +376,9 @@ describe('the radio screen never scrolls', () => {
 
     await screen.press(testIds.powerOnArea);
     await screen.advance(2100);
-    expect(screen.hasText('HOLD TO TALK')).toBe(true);
+    // Ready is named by the microphone glyph now, not by the deleted
+    // "HOLD TO TALK" headline (2026-08-19 icon change).
+    expect(screen.findAll('mic-cradle')).toHaveLength(1);
 
     expect(scrollViewsOf(screen)).toHaveLength(0);
 

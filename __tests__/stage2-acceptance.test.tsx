@@ -16,16 +16,26 @@ beforeEach(() => context.reset());
 
 const LOCALES = ['en', 'ru'] as const;
 
+/**
+ * Two entries of this map became glyphs on 2026-08-19 and are no longer copy at
+ * all: the ready ring's headline is the microphone, and the pairing saved
+ * step's headline is the shared 132 success mark. Both keep their entry here as
+ * the ONE-WORD caption / the accessible name that the words moved to, so this
+ * suite still walks the same states by the same names -- see `readyMark` and
+ * `savedMark` below for the assertions that replaced the text matches.
+ */
 const COPY = {
   en: {
     off: 'RADIO OFF',
     searching: 'SEARCHING FOR DEVICES...',
-    ready: 'HOLD TO TALK',
+    /** The demoted caption in the reserved hint slot -- the verb only. */
+    ready: 'HOLD',
     transmitting: 'TRANSMITTING...',
     receiving: 'RECEIVING...',
     error: 'RADIO ERROR',
     restart: 'RESTART RADIO',
-    pairingSaved: 'BUTTON CONNECTED',
+    /** Now the success mark's accessible name, not a visible headline. */
+    pairingSaved: 'Button connected',
     pairingEmpty: 'No buttons found',
     onboardingDenied: 'Permission denied',
     onboardingReady: 'All set',
@@ -33,12 +43,12 @@ const COPY = {
   ru: {
     off: 'РАЦИЯ ВЫКЛЮЧЕНА',
     searching: 'ИЩЕМ УСТРОЙСТВА...',
-    ready: 'УДЕРЖИВАЙТЕ ЧТОБЫ ГОВОРИТЬ',
+    ready: 'УДЕРЖИВАЙТЕ',
     transmitting: 'ПЕРЕДАЧА...',
     receiving: 'ПРИЁМ...',
     error: 'ОШИБКА РАЦИИ',
     restart: 'ПЕРЕЗАПУСТИТЬ',
-    pairingSaved: 'КНОПКА ПОДКЛЮЧЕНА',
+    pairingSaved: 'Кнопка подключена',
     pairingEmpty: 'Кнопки не найдены',
     onboardingDenied: 'Разрешение отклонено',
     onboardingReady: 'Всё готово',
@@ -141,7 +151,13 @@ describe.each(LOCALES)('spec section 15 Stage 2 — locale %s', locale => {
     await screen.press(`${testIds.pairingCandidate}-mock-ptt-01`);
     await screen.advance(1300);
 
-    expect(screen.hasText(copy.pairingSaved)).toBe(true);
+    // Read as an announcement, not as text: the "BUTTON CONNECTED" headline
+    // became the 132 success mark on 2026-08-19 and its words moved onto the
+    // mark's accessible name. Stage 2 still has to see the flow confirm itself
+    // in the user's language -- it just hears it now instead of reading it.
+    expect(screen.find('pairing-tick').props.accessibilityLabel).toBe(
+      copy.pairingSaved,
+    );
     screen.unmount();
   });
 

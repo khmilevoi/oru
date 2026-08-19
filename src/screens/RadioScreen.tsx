@@ -9,6 +9,7 @@ import {ActionButton} from '../ui/ActionButton';
 import {GearButton} from '../ui/GearButton';
 import {HoldSeal} from '../ui/HoldSeal';
 import {LevelBars} from '../ui/LevelBars';
+import {MicMark} from '../ui/MicMark';
 import {PeerRow} from '../ui/PeerRow';
 import {PingRings} from '../ui/PingRings';
 import {PowerKey} from '../ui/PowerKey';
@@ -228,10 +229,10 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
             </View>
           </Pressable>
           <View style={[styles.gearOnly, cornerStyle]}>
-            {/* Same darker chassis the hero `PowerKey` beside it is told about:
-                the two corner controls have to agree on what they sit on. */}
+            {/* The gear is not told what it sits on any more: its hub is a
+                RING, not a hole punched in the chassis colour, so there is
+                nothing for a chassis to have to match (`.gearmark`). */}
             <GearButton
-              notchColor={colors.backgroundOff}
               onPress={onSettingsPress}
               accessibilityLabel={t`Settings`}
               testID={testIds.settingsGear}
@@ -292,25 +293,33 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
             {state === 'ready' ? (
               <StateRing tone="idle" borderColor={ringBorder} testID="radio-ring">
                 {/*
-                  The canvas sets this headline in `.holden` (40pt) for `en` and
-                  drops to `.holdword` (33pt) for `ru`, whose translation of
-                  "HOLD TO TALK" is far longer than the 302pt ring it sits in
-                  (`design/01 Radio.dc.html:195-224`). Every non-`en` locale
-                  takes the tighter face for the same reason.
+                  The ring's headline became the MICROPHONE on 2026-08-19
+                  (`design/01 Radio.dc.html` frames 03 / 07 and the ICON SYSTEM
+                  note). "HOLD TO TALK" was the case that proved the change:
+                  «УДЕРЖИВАЙТЕ ЧТОБЫ ГОВОРИТЬ» is so long the design had to
+                  drop the type scale from 40 to 33 and pre-break it, and on a
+                  real Samsung it still wrapped to three lines inside the ring.
+                  A glyph is the same size in every language, so the two type
+                  scales this branch used to pick between are gone with it.
 
-                  `Animated.Text` in every state, not only while the seal runs:
+                  The glyph is a CHILD of the ring, which is a fixed 302 box, so
+                  it costs the geometrically invariant column nothing -- and no
+                  sibling of the ring was added or removed to make room for it.
+
+                  It keeps `testIds.radioStateLabel`: it is what this state's
+                  label now IS, and the acceptance suite reads that node's style
+                  to prove the five states stay five distinct signatures.
+
+                  `Animated.View` in every state, not only while the seal runs:
                   swapping the component type at the start of a hold would
-                  remount the headline and flash it.
+                  remount the glyph and flash it -- the same reason the headline
+                  it replaced was always an `Animated.Text`.
                 */}
-                <Animated.Text
+                <MicMark
+                  idiom="control"
                   testID={testIds.radioStateLabel}
-                  style={[
-                    i18n.locale === 'en' ? type.hero : type.heroTight,
-                    styles.headline,
-                    sealing && {opacity: crossFade(1, 0)},
-                  ]}>
-                  <Trans>HOLD TO TALK</Trans>
-                </Animated.Text>
+                  opacity={sealing ? crossFade(1, 0) : undefined}
+                />
                 {/*
                   What the hold will do, in the key's own words -- the same
                   catalog message that is already its accessibility label,
@@ -368,6 +377,32 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
             */}
             {state === 'searching' ? null : (
               <View style={styles.hintSlot}>
+                {/*
+                  The one thing a static glyph cannot say, and the one real risk
+                  of replacing the headline with one: tap-versus-hold is
+                  invisible and unrecoverable by inspection, because a tap
+                  produces a sub-100ms transmission or nothing at all, which is
+                  indistinguishable from a broken app. So the verb stays -- the
+                  verb ALONE, since the microphone already supplies "talk".
+
+                  It is not removed, it is DEMOTED: from the loudest thing on
+                  the screen to 13pt of passive chrome, in a slot that was
+                  already reserved and sitting empty in this state, so it costs
+                  exactly zero layout. It cross-fades out with the glyph when
+                  the power-off seal takes the screen, leaving the slot reserved
+                  and empty.
+                */}
+                {state === 'ready' ? (
+                  <Animated.Text
+                    testID="ready-hold-hint"
+                    style={[
+                      type.subhint,
+                      styles.hint,
+                      sealing && {opacity: crossFade(1, 0)},
+                    ]}>
+                    <Trans>HOLD</Trans>
+                  </Animated.Text>
+                ) : null}
                 {state === 'transmitting' ? (
                   <Text style={[type.subhint, styles.txHint]}>
                     <Trans>RELEASE TO FINISH</Trans>

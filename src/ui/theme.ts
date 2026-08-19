@@ -249,17 +249,13 @@ export const type = {
     letterSpacing: 1.54,
     textTransform: 'uppercase',
   },
-  /**
-   * `.obstep` -- the onboarding step counter: regular weight at 0.22em, and the
-   * one engraved label with no `text-transform` on the canvas (its copy there
-   * is already shouted). Line-height as `type.label`'s.
+  /*
+   * `.obstep` -- the onboarding step counter -- was DELETED from the canvas on
+   * 2026-08-19 and its token with it: `.obdots` already rendered exactly what
+   * the line spelled out, so the words moved to the dot row's accessible name
+   * (`src/ui/StepDots.tsx`) rather than being restated in type. A token for a
+   * class the canvas no longer declares is drift, so there is none here.
    */
-  obStep: {
-    fontFamily: fonts.mono,
-    fontSize: 11,
-    lineHeight: 15,
-    letterSpacing: 2.42,
-  },
   /** `.btn`. */
   button: {
     fontFamily: fonts.monoMedium,
@@ -421,6 +417,38 @@ export const seal = {
   stillOpacity: 0.5,
 } as const;
 
+/**
+ * The icon system's four idioms (`design/theme.css`'s nine `--icon-*` tokens,
+ * and the ICON SYSTEM canvas note under `design/01 Radio.dc.html`).
+ *
+ * An idiom is picked by the ROLE a glyph plays, never by how big it happens to
+ * be, and the STROKE belongs to the idiom rather than to the glyph. Strokes get
+ * relatively THINNER as boxes get bigger -- 1.5 on 14 is 10.7%, 2.5 on 176 is
+ * 1.4% -- so an inline stroke may never simply be scaled up. The one place the
+ * ratio rises again is `control`: 3.5 on 160 is 2.2% against the page mark's
+ * 1.4%, because a control's own affordance has to hold its weight against a 2pt
+ * ring with a thumb landing on it.
+ *
+ * The microphone is the same glyph in `control` and `hero` -- same fractions of
+ * its box, only these two numbers change. See `src/ui/MicMark.tsx`.
+ */
+export const icon = {
+  /** Inline beside text -- the route readout, and nothing else. */
+  small: 14,
+  smallStroke: 1.5,
+  /** Glyph -> text, and the glyph is always on the left. */
+  smallGap: 9,
+  /** Persistent, never-labelled corner chrome -- the gear. */
+  chrome: 24,
+  chromeStroke: 2,
+  /** A decorative mark alone above a title -- onboarding, the success tick. */
+  hero: 176,
+  heroStroke: 2.5,
+  /** A hero glyph INSIDE something you press. Only the talk ring. */
+  control: 160,
+  controlStroke: 3.5,
+} as const;
+
 export const radii = {
   /** `.bars span`. */
   sm: 3,
@@ -464,11 +492,15 @@ export const sizes = {
   peerRow: 64,
   /** `.btn`. */
   button: 54,
-  /** `.oktick` and `.okbig`. */
-  tick: 96,
+  /**
+   * `.okbig` -- THE one success mark, 132. The canvas moved it into
+   * `design/theme.css` on 2026-08-19 and deleted the smaller `.oktick` (96)
+   * the pairing flow used to draw under a headline, so both success moments in
+   * the product are now the same glyph. `tick` is gone with it.
+   */
   tickLarge: 132,
-  /** `.obmark` glyph box. */
-  mark: 176,
+  /** `.obmark` glyph box -- the page-mark idiom's own box (`--icon-hero`). */
+  mark: icon.hero,
 } as const;
 
 /**
@@ -478,12 +510,12 @@ export const sizes = {
  * none of them belongs on a shared scale.
  */
 export const routeReadout = {
-  /** `.routeline` gap between the glyph and the line. */
-  gap: 9,
-  /** The `viewBox` the three route glyphs are drawn in. */
-  iconSize: 14,
-  /** `stroke-width` on every route glyph. */
-  strokeWidth: 1.5,
+  /** `.routeline` gap between the glyph and the line (`--icon-sm-gap`). */
+  gap: icon.smallGap,
+  /** The `viewBox` the three route glyphs are drawn in (`--icon-sm`). */
+  iconSize: icon.small,
+  /** `stroke-width` on every route glyph (`--icon-sm-stroke`). */
+  strokeWidth: icon.smallStroke,
   /** `.route` left and right, clearing the gear and the power key. */
   sideInset: 90,
   /** `.route` bottom. */
@@ -572,6 +604,12 @@ export const testIds = {
   onboardingOpenSettings: 'onboarding-open-settings',
   onboardingSkip: 'onboarding-skip',
   onboardingStart: 'onboarding-start',
+  /**
+   * The dot row. It carries the step position the deleted "STEP n OF m" line
+   * used to state in text, so a test has to reach it to prove the words moved
+   * onto the accessible name rather than vanishing.
+   */
+  onboardingSteps: 'onboarding-steps',
 } as const;
 
 /** Every screen sits on the chassis. */

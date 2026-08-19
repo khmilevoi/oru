@@ -128,7 +128,10 @@ describe('the key controls — the ones that must buzz', () => {
     expect(effects(haptic)).toEqual([]);
 
     await screen.advance(1300);
-    expect(screen.hasText('BUTTON CONNECTED')).toBe(true);
+    // The saved step is named by the shared 132 success mark now: the
+    // "BUTTON CONNECTED" headline under it was deleted on 2026-08-19 and
+    // its words moved onto the mark's accessible name.
+    expect(screen.findAll('pairing-tick')).toHaveLength(1);
     expect(effects(haptic)).toEqual([HAPTIC_EFFECTS.paired]);
 
     // Still one after further renders of the same saved step: this fires on the
@@ -284,7 +287,9 @@ describe('a haptic never breaks the interaction it decorates', () => {
     expect(screen.hasText('TRANSMITTING...')).toBe(true);
 
     await screen.pressOut(testIds.pttArea);
-    expect(screen.hasText('HOLD TO TALK')).toBe(true);
+    // Ready is named by the microphone glyph now, not by the deleted
+    // "HOLD TO TALK" headline (2026-08-19 icon change).
+    expect(screen.findAll('mic-cradle')).toHaveLength(1);
 
     screen.unmount();
   });

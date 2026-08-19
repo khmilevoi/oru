@@ -78,14 +78,23 @@ describe('onboarding — spec sections 11 and 12.1', () => {
     screen.unmount();
   });
 
-  it('shows the step counter', async () => {
+  it('announces the step position on the dot row, not in visible text', async () => {
+    // The visible "STEP n OF m" line was deleted on 2026-08-19 -- `StepDots`
+    // renders the same information, and two indicators of one thing is one too
+    // many. The words moved to the row's accessible name, so a screen reader
+    // still hears the position; this asserts the move, not just the deletion.
     const screen = await renderScreen(<OnboardingFlow onDone={jest.fn()} />, {
       scenario: 'onboarding',
     });
 
-    expect(screen.texts().join(' ')).toContain('1');
+    const steps = () =>
+      screen.find(testIds.onboardingSteps).props.accessibilityLabel;
+
+    expect(steps()).toBe('Step 1 of 3');
+    expect(screen.texts().join(' ')).not.toContain('Step 1 of 3');
+
     await screen.press(testIds.onboardingAllow);
-    expect(screen.texts().join(' ')).toContain('2');
+    expect(steps()).toBe('Step 2 of 3');
 
     screen.unmount();
   });

@@ -179,17 +179,26 @@ describe('GearButton — design/theme.css .gear', () => {
     screen.unmount();
   });
 
-  it('paints the hub in the background it is told it sits on', async () => {
+  /**
+   * This test used to assert the OPPOSITE: that the gear's hub was painted in
+   * whatever chassis colour it was told it sat on. The canvas's `.gearmark`
+   * (`design/01 Radio.dc.html` frame 14) forbids exactly that -- "NO PUNCH-OUT:
+   * THREE OF THIS SCREEN'S FIVE STATES HAVE A GRADIENT CHASSIS AND A HOLE
+   * PAINTED IN THE CHASSIS COLOUR WOULD NOT SURVIVE THERE." The hub is a RING
+   * now, so there is no hole, and `notchColor` is gone with it. The full
+   * construction is pinned in `__tests__/icon-system.test.tsx`.
+   */
+  it('punches no hole in the chassis, because a gradient would show through it', async () => {
     const screen = await renderScreen(
       <GearButton
-        notchColor={colors.backgroundOff}
         onPress={jest.fn()}
         accessibilityLabel="Settings"
         testID="gear"
       />,
     );
 
-    expect(JSON.stringify(screen.find('gear-hub').props.style)).toContain(
+    expect(screen.findAll('gear-hub')).toHaveLength(0);
+    expect(JSON.stringify(screen.find('gear-ring').props.style)).not.toContain(
       colors.backgroundOff.slice(1),
     );
 
