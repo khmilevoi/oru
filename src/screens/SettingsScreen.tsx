@@ -16,6 +16,17 @@ import type {AppLocale} from '../i18n';
 import type {AudioMode} from '../radio/radio.types';
 
 /**
+ * How much clear space the scrolling list owes the pinned `.vers` row.
+ *
+ * The row's top edge sits `24 + lineHeight` off the frame's bottom (plus the
+ * gesture bar inset, added at the call site), and being absolutely positioned
+ * it contributes no flow height at all -- so without this the last card would
+ * scroll to rest underneath it. `spacing.md` on top is the breathing room the
+ * canvas leaves between the last card and the nameplate.
+ */
+const versionClearance = spacing.lg + type.version.lineHeight + spacing.md;
+
+/**
  * Spec section 12: a single "PTT button" section, configured or not.
  *
  * A disconnected but configured button is *state*, not an error (section 13) --
@@ -53,6 +64,33 @@ export const SettingsScreen = reatomComponent<{
       // itself. Padding the frame's bottom edge as well would apply the
       // inset twice to that one row.
       edges={['top', 'left', 'right']}
+      // Three stacked sections, two of them carrying multi-line notes, is
+      // already more than a small device shows at the system font size, and
+      // nothing in the app caps font scaling. The header bar stays pinned; the
+      // sections scroll under it.
+      scrollable
+      scrollTestID={testIds.settingsScroll}
+      scrollContentStyle={{paddingBottom: versionClearance + insets.bottom}}
+      overlay={
+        <Text
+          testID={testIds.settingsVersion}
+          // `.vers` sits 24pt off the canvas frame's bottom; on a device the
+          // frame's bottom is the physical screen edge, so the home indicator
+          // / gesture bar inset is added ahead of the canvas measurement.
+          //
+          // Pinned rather than scrolled in as a trailing element: the canvas
+          // draws `.vers` absolutely against `.phone`, not at the end of the
+          // content, and it is a permanent nameplate for the build rather than
+          // a row of the settings list. `scrollContentStyle` above pays for
+          // that by keeping the list from ever sliding underneath it.
+          style={[
+            type.version,
+            styles.version,
+            {bottom: spacing.lg + insets.bottom},
+          ]}>
+          OFFLINE NEARBY PTT · V0.1
+        </Text>
+      }
       onBack={onBack}>
       <Text style={[type.label, styles.sectionLabel]}>
         <Trans>PTT button</Trans>
@@ -167,14 +205,6 @@ export const SettingsScreen = reatomComponent<{
         />
       </View>
 
-      <Text
-        testID={testIds.settingsVersion}
-        // `.vers` sits 24pt off the canvas frame's bottom; on a device the
-        // frame's bottom is the physical screen edge, so the home indicator
-        // / gesture bar inset is added ahead of the canvas measurement.
-        style={[type.version, styles.version, {bottom: spacing.lg + insets.bottom}]}>
-        OFFLINE NEARBY PTT · V0.1
-      </Text>
     </ScreenFrame>
   );
 }, 'SettingsScreen');

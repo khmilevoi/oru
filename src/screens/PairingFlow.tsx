@@ -66,23 +66,52 @@ export const PairingFlow = reatomComponent<{onClose: () => void}>(
       onClose();
     });
 
+    /**
+     * `.pfoot` -- the learn and saved steps' single key -- lifted out of the
+     * body and handed to the frame so it stays pinned while the stage above it
+     * scrolls. Nothing else in the flow pins anything at its foot: the picking
+     * step's list and the failed step's native diagnostic both run to the
+     * frame's bottom edge and scroll clear of it.
+     */
+    const footer =
+      step === 'learning' ? (
+        <View testID="pairing-foot" style={styles.foot}>
+          <ActionButton
+            label={t`Cancel`}
+            onPress={close}
+            testID={testIds.pairingCancelFooter}
+          />
+        </View>
+      ) : step === 'saved' ? (
+        <View testID="pairing-foot" style={styles.foot}>
+          <ActionButton
+            label={t`Done`}
+            tone="primary"
+            onPress={close}
+            testID={testIds.pairingDone}
+          />
+        </View>
+      ) : undefined;
+
     return (
       <ScreenFrame
         testID={testIds.pairingScreen}
         title={t`Connect PTT button`}
         backLabel={t`Cancel`}
         backTestID={testIds.pairingCancel}
-        onBack={close}>
-        {step === 'scanning' ? (
-          <>
-            <View style={styles.stage}>
-              <PingRings size="small" testID="pairing-pings" />
-              <Text style={[type.scanPairing, styles.scanText]}>
-                <Trans>SCANNING FOR BLE DEVICES...</Trans>
-              </Text>
-            </View>
-            {/* `.scanhint` is pinned to the foot of the frame, not a third row
-                of the stage (design/03 Pairing.dc.html). */}
+        // The picking step renders one row per BLE device in range -- a list
+        // whose length comes from the room, not from the design -- and the
+        // failed step renders the engine's own diagnostic, an unbounded string
+        // from native code. Both would run off the bottom of a fixed frame.
+        scrollable
+        scrollTestID="pairing-scroll"
+        footer={footer}
+        overlay={
+          step === 'scanning' ? (
+            // `.scanhint` is pinned to the foot of the frame, not a third row
+            // of the stage (design/03 Pairing.dc.html) -- so it stays outside
+            // the scroll container, where its `bottom` still measures against
+            // the frame's safe area rather than against the scrolled content.
             <Text
               testID="pairing-scan-hint"
               style={[type.caption, styles.scanHint]}>
@@ -90,7 +119,16 @@ export const PairingFlow = reatomComponent<{onClose: () => void}>(
                 Make sure the button is turned on and close to the phone.
               </Trans>
             </Text>
-          </>
+          ) : undefined
+        }
+        onBack={close}>
+        {step === 'scanning' ? (
+          <View style={styles.stage}>
+            <PingRings size="small" testID="pairing-pings" />
+            <Text style={[type.scanPairing, styles.scanText]}>
+              <Trans>SCANNING FOR BLE DEVICES...</Trans>
+            </Text>
+          </View>
         ) : null}
 
         {step === 'picking' ? (
@@ -128,62 +166,44 @@ export const PairingFlow = reatomComponent<{onClose: () => void}>(
           </View>
         ) : null}
 
+        {/* The `.pfoot` ghost Cancel of design/03 Pairing.dc.html frame 03,
+            over and above the header chevron -- both wire the same close --
+            is the frame's pinned `footer` above. */}
         {step === 'learning' ? (
-          <>
-            <View style={[styles.stage, styles.stagePair]}>
-              <StateRing tone="learning" testID="pairing-ring">
-                <Text style={[type.stateSmall, styles.learning]}>
-                  <Trans>PRESS THE PTT BUTTON</Trans>
-                </Text>
-              </StateRing>
-              <Text style={[type.learnSub, styles.learnSub]}>
-                {/* The name is quoted -- curly in en, guillemets in ru -- and
-                    the quotes live in the catalogs: they are locale copy, not
-                    layout (design/03 Pairing.dc.html). */}
-                <Trans>Listening for a signal from “{buttonName}”...</Trans>
+          <View style={[styles.stage, styles.stagePair]}>
+            <StateRing tone="learning" testID="pairing-ring">
+              <Text style={[type.stateSmall, styles.learning]}>
+                <Trans>PRESS THE PTT BUTTON</Trans>
               </Text>
-            </View>
-            {/* The `.pfoot` ghost Cancel of design/03 Pairing.dc.html frame 03,
-                over and above the header chevron -- both wire the same close. */}
-            <View testID="pairing-foot" style={styles.foot}>
-              <ActionButton
-                label={t`Cancel`}
-                onPress={close}
-                testID={testIds.pairingCancelFooter}
-              />
-            </View>
-          </>
+            </StateRing>
+            <Text style={[type.learnSub, styles.learnSub]}>
+              {/* The name is quoted -- curly in en, guillemets in ru -- and
+                  the quotes live in the catalogs: they are locale copy, not
+                  layout (design/03 Pairing.dc.html). */}
+              <Trans>Listening for a signal from “{buttonName}”...</Trans>
+            </Text>
+          </View>
         ) : null}
 
+        {/* Done sits in the `.pfoot`, not the centred stage
+            (design/03 Pairing.dc.html frame 04) -- the frame's `footer`. */}
         {step === 'saved' ? (
-          <>
-            <View style={[styles.stage, styles.stagePair]}>
-              <View testID="pairing-tick" style={styles.tick}>
-                <View style={styles.tickMark} />
-              </View>
-              <Text style={[type.stateSmall, styles.saved]}>
-                <Trans>BUTTON CONNECTED</Trans>
-              </Text>
-              <View style={styles.bindCard}>
-                <View style={styles.bindRow}>
-                  <Text style={[type.caption, styles.bindKey]}>
-                    <Trans>device</Trans>
-                  </Text>
-                  <Text style={[type.caption, styles.bindValue]}>{buttonName}</Text>
-                </View>
+          <View style={[styles.stage, styles.stagePair]}>
+            <View testID="pairing-tick" style={styles.tick}>
+              <View style={styles.tickMark} />
+            </View>
+            <Text style={[type.stateSmall, styles.saved]}>
+              <Trans>BUTTON CONNECTED</Trans>
+            </Text>
+            <View style={styles.bindCard}>
+              <View style={styles.bindRow}>
+                <Text style={[type.caption, styles.bindKey]}>
+                  <Trans>device</Trans>
+                </Text>
+                <Text style={[type.caption, styles.bindValue]}>{buttonName}</Text>
               </View>
             </View>
-            {/* Done sits in the `.pfoot`, not the centred stage
-                (design/03 Pairing.dc.html frame 04). */}
-            <View testID="pairing-foot" style={styles.foot}>
-              <ActionButton
-                label={t`Done`}
-                tone="primary"
-                onPress={close}
-                testID={testIds.pairingDone}
-              />
-            </View>
-          </>
+          </View>
         ) : null}
 
         {step === 'failed' ? (
@@ -236,7 +256,13 @@ const styles = StyleSheet.create({
   // inset itself. Without it the retry copy, and the unbounded native
   // `failure.message` diagnostic under it, run edge to edge.
   centre: {
-    flex: 1,
+    // `flexGrow`, not `flex: 1`: inside the scroll content container `flex: 1`
+    // means `flexBasis: 0` plus `flexShrink: 1`, which collapses this column to
+    // nothing as soon as the unbounded `failure.message` below makes it taller
+    // than the frame. `flexGrow: 1` still absorbs the slack and centres the
+    // composition when the copy fits, and simply keeps its natural height and
+    // scrolls when it does not.
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.lg,
@@ -264,7 +290,8 @@ const styles = StyleSheet.create({
     transform: [{rotate: '-45deg'}],
   },
   stage: {
-    flex: 1,
+    /** `flexGrow`, not `flex: 1` -- same reason as `centre` above. */
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: stage.gap,

@@ -26,12 +26,26 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
 
     if (onboardingFinished()) {
       return (
-        <ScreenFrame testID={testIds.onboardingScreen}>
+        <ScreenFrame
+          testID={testIds.onboardingScreen}
+          scrollable
+          footer={
+            <View style={styles.foot}>
+              <View style={styles.actions}>
+                <ActionButton
+                  label={t`Go on air`}
+                  tone="primary"
+                  onPress={onDone}
+                  testID={testIds.onboardingStart}
+                />
+              </View>
+            </View>
+          }>
           <StepDots total={APP_PERMISSIONS.length} current={APP_PERMISSIONS.length} />
           <View style={styles.mark}>
             <PermissionMark kind="done" />
           </View>
-          <View style={styles.foot}>
+          <View testID="onboarding-copy" style={styles.copy}>
             <Text style={[type.obTitle, styles.title]}>
               <Trans>All set</Trans>
             </Text>
@@ -41,14 +55,6 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
                 phone and put it in your pocket.
               </Trans>
             </Text>
-            <View style={styles.actions}>
-              <ActionButton
-                label={t`Go on air`}
-                tone="primary"
-                onPress={onDone}
-                testID={testIds.onboardingStart}
-              />
-            </View>
           </View>
         </ScreenFrame>
       );
@@ -89,12 +95,53 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
     }[permission ?? 'microphone'];
 
     return (
-      <ScreenFrame testID={testIds.onboardingScreen}>
+      <ScreenFrame
+        testID={testIds.onboardingScreen}
+        scrollable
+        footer={
+          <View style={styles.foot}>
+            <View style={styles.actions}>
+              {status === 'blocked' ? (
+                <ActionButton
+                  label={t`Open settings`}
+                  tone="primary"
+                  onPress={wrap(() => {
+                    void openPermissionSettings();
+                  })}
+                  testID={testIds.onboardingOpenSettings}
+                />
+              ) : (
+                <ActionButton
+                  label={status === 'denied' ? t`Try again` : t`Allow`}
+                  tone="primary"
+                  onPress={wrap(() => {
+                    void requestOnboardingPermission();
+                  })}
+                  testID={
+                    status === 'denied'
+                      ? testIds.onboardingRetry
+                      : testIds.onboardingAllow
+                  }
+                />
+              )}
+
+              {status === null ? null : (
+                <ActionButton
+                  label={t`Skip`}
+                  onPress={wrap(() => {
+                    void advanceOnboarding();
+                  })}
+                  testID={testIds.onboardingSkip}
+                />
+              )}
+            </View>
+          </View>
+        }>
         <StepDots total={APP_PERMISSIONS.length} current={step - 1} />
         <View style={styles.mark}>
           <PermissionMark kind={permission ?? 'microphone'} />
         </View>
-        <View style={styles.foot}>
+        <View testID="onboarding-copy" style={styles.copy}>
           <Text style={[type.obStep, styles.step]}>
             <Trans>
               STEP {step} OF {APP_PERMISSIONS.length}
@@ -116,42 +163,6 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
               </Trans>
             </Text>
           ) : null}
-
-          <View style={styles.actions}>
-            {status === 'blocked' ? (
-              <ActionButton
-                label={t`Open settings`}
-                tone="primary"
-                onPress={wrap(() => {
-                  void openPermissionSettings();
-                })}
-                testID={testIds.onboardingOpenSettings}
-              />
-            ) : (
-              <ActionButton
-                label={status === 'denied' ? t`Try again` : t`Allow`}
-                tone="primary"
-                onPress={wrap(() => {
-                  void requestOnboardingPermission();
-                })}
-                testID={
-                  status === 'denied'
-                    ? testIds.onboardingRetry
-                    : testIds.onboardingAllow
-                }
-              />
-            )}
-
-            {status === null ? null : (
-              <ActionButton
-                label={t`Skip`}
-                onPress={wrap(() => {
-                  void advanceOnboarding();
-                })}
-                testID={testIds.onboardingSkip}
-              />
-            )}
-          </View>
         </View>
       </ScreenFrame>
     );
@@ -160,8 +171,35 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
 );
 
 const styles = StyleSheet.create({
-  mark: {flex: 1, alignItems: 'center', justifyContent: 'center'},
-  foot: {...chrome.footer},
+  /**
+   * `flexGrow` rather than `flex: 1`. Inside a scroll content container the
+   * two differ where it matters: `flex: 1` is `flexBasis: 0` plus
+   * `flexShrink: 1`, so once the copy and the pinned actions no longer fit,
+   * this spacer is the first thing squeezed and the permission mark is clipped
+   * to nothing. `flexGrow: 1` keeps RN's default `flexBasis: auto` and
+   * `flexShrink: 0`: it still absorbs all the slack on a screen the content
+   * fits -- the centred composition the canvas drew is unchanged -- and simply
+   * keeps its natural height once there is no slack, letting the whole column
+   * scroll instead.
+   */
+  mark: {flexGrow: 1, alignItems: 'center', justifyContent: 'center'},
+  /**
+   * `.obfoot`, split in two by the scroll boundary. The copy block scrolls
+   * (it is the part that grows with the locale, the warning states and the OS
+   * font scale); the actions stay pinned. `foot`'s `paddingTop` restates the
+   * 18pt `.obfoot` gap that used to fall between the last copy row and the
+   * buttons, so with content that fits the two halves compose back into
+   * exactly the block the canvas draws.
+   */
+  copy: {
+    paddingHorizontal: chrome.footer.paddingHorizontal,
+    gap: chrome.footer.gap,
+  },
+  foot: {
+    paddingHorizontal: chrome.footer.paddingHorizontal,
+    paddingTop: chrome.footer.gap,
+    paddingBottom: chrome.footer.paddingBottom,
+  },
   step: {color: colors.textFaint},
   title: {color: colors.text},
   body: {color: colors.textMuted, maxWidth: 320},
