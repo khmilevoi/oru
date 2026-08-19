@@ -1,4 +1,14 @@
 import {context} from '@reatom/core';
+import {Settings} from 'react-native';
+
+// `Settings` reaches for its TurboModule the moment it is required, and no
+// native binary answers under Jest -- the gateway's try/catch is what absorbs
+// that in production code. Mocking the module keeps it a plain, spyable object
+// so the bridge-shaped tests below can script what a snapshot returns.
+jest.mock('react-native/Libraries/Settings/Settings', () => ({
+  __esModule: true,
+  default: {get: jest.fn(), set: jest.fn()},
+}));
 
 import {
   ONBOARDING_COMPLETED_KEY,
@@ -31,6 +41,47 @@ describe('the platform gateway', () => {
     expect(() => realPlatformGateway.onboardingCompleted()).not.toThrow();
     expect(() => realPlatformGateway.markOnboardingCompleted()).not.toThrow();
     expect(realPlatformGateway.backgroundStepSupported()).toBe(false); // Platform.OS is 'ios' under the RN jest preset
+  });
+});
+
+describe('the onboarding flag across the settings bridge', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('treats the 1 that iOS hands back after a relaunch as completed', () => {
+    // RCTJSONClean funnels every NSNumber -- booleans included -- through
+    // `doubleValue` on its way into the settings snapshot, so whatever boolean
+    // a past session stored arrives over the bridge as the JS number 1.
+    jest.spyOn(Settings, 'get').mockReturnValue(1);
+    expect(realPlatformGateway.onboardingCompleted()).toBe(true);
+  });
+
+  it('still accepts the plain boolean older installs wrote', () => {
+    jest.spyOn(Settings, 'get').mockReturnValue(true);
+    expect(realPlatformGateway.onboardingCompleted()).toBe(true);
+  });
+
+  it('does not mistake an absent or falsy snapshot value for completion', () => {
+    const get = jest.spyOn(Settings, 'get');
+    for (const value of [undefined, false, 0, '0', '']) {
+      get.mockReturnValue(value);
+      expect(realPlatformGateway.onboardingCompleted()).toBe(false);
+    }
+  });
+
+  it('survives a mark -> JSON-cleaned snapshot -> read round trip', () => {
+    // A fake NSUserDefaults snapshot doing what RCTJSONClean does to the real
+    // one on every relaunch and on every UserDefaults change notification:
+    // numbers of all stripes come back as JS numbers, strings pass unchanged.
+    const snapshot = new Map<string, unknown>();
+    jest.spyOn(Settings, 'set').mockImplementation(settings => {
+      for (const [key, value] of Object.entries(settings)) {
+        snapshot.set(key, typeof value === 'boolean' ? Number(value) : value);
+      }
+    });
+    jest.spyOn(Settings, 'get').mockImplementation(key => snapshot.get(key));
+
+    realPlatformGateway.markOnboardingCompleted();
+    expect(realPlatformGateway.onboardingCompleted()).toBe(true);
   });
 });
 
