@@ -12,6 +12,7 @@ class RadioEngineTest {
     private lateinit var transport: FakeTransport
     private lateinit var audio: FakeAudioIo
     private lateinit var ptt: FakePttSource
+    private lateinit var routing: FakeAudioRouting
     private lateinit var scheduler: TestScheduler
     private lateinit var listener: RecordingListener
     private lateinit var engine: RadioEngine
@@ -21,9 +22,10 @@ class RadioEngineTest {
         transport = FakeTransport()
         audio = FakeAudioIo()
         ptt = FakePttSource()
+        routing = FakeAudioRouting()
         scheduler = TestScheduler()
         listener = RecordingListener()
-        engine = RadioEngine(transport, audio, ptt, scheduler, streamIds = { "stream-1" })
+        engine = RadioEngine(transport, audio, ptt, routing, scheduler, streamIds = { "stream-1" })
         engine.addListener(listener)
     }
 
@@ -341,5 +343,82 @@ class RadioEngineTest {
         engine.onPeerDisconnected("nobody")
 
         assertEquals(before, listener.states.size)
+    }
+
+    @Test
+    fun `a press waits for the capture grant before opening a stream`() {
+        engine.startRadio()
+        routing.autoGrant = false
+
+        engine.startTransmit()
+
+        // Section 7: press, then tone, then talk. Peers never hear the 1-3 s of an SCO raise.
+        assertEquals(1, routing.pressCount)
+        assertTrue(transport.openedStreams.isEmpty())
+        assertFalse(listener.last.transmitting)
+
+        routing.grant()
+
+        assertEquals(listOf("stream-1"), transport.openedStreams)
+        assertTrue(audio.capturing)
+        assertTrue(listener.last.transmitting)
+    }
+
+    @Test
+    fun `a release before the grant never opens a stream`() {
+        engine.startRadio()
+        routing.autoGrant = false
+        engine.startTransmit()
+
+        engine.stopTransmit()
+        routing.grant()
+
+        assertEquals(1, routing.releaseCount)
+        assertTrue(transport.openedStreams.isEmpty())
+        assertFalse(listener.last.transmitting)
+    }
+
+    @Test
+    fun `radio activity is reported to the routing`() {
+        engine.startRadio()
+
+        engine.onIncomingAudioStarted("peer-1", "s")
+        engine.onIncomingAudioStopped("peer-1", "s")
+
+        // Section 7 queues mode switches for idle, so the policy needs both edges and no
+        // duplicates in between.
+        assertEquals(listOf(true, false), routing.radioActive)
+    }
+
+    @Test
+    fun `a published route lands in the state and rebuilds the streams`() {
+        engine.startRadio()
+        val route = AudioRoute(AudioRoute.Kind.BLUETOOTH, "Buds Pro", ModePolicy.Profile.MEDIA)
+
+        routing.publish(route)
+
+        assertEquals(route, listener.last.audioRoute)
+        assertEquals(listOf(ModePolicy.Profile.MEDIA), audio.routeChanges)
+    }
+
+    @Test
+    fun `the audio mode pin is forwarded and published`() {
+        engine.startRadio()
+
+        engine.setAudioMode(ModePolicy.AudioMode.MEDIA)
+
+        assertEquals(listOf(ModePolicy.AudioMode.MEDIA), routing.audioModes)
+        assertEquals(ModePolicy.AudioMode.MEDIA, listener.last.audioMode)
+    }
+
+    @Test
+    fun `stopping the radio keeps the pin and releases the routing`() {
+        engine.startRadio()
+        engine.setAudioMode(ModePolicy.AudioMode.VOICE)
+
+        engine.stopRadio()
+
+        assertTrue(routing.stopped)
+        assertEquals(ModePolicy.AudioMode.VOICE, listener.last.audioMode)
     }
 }

@@ -59,6 +59,14 @@ class HandlerScheduler(name: String = "oru-radio") : Scheduler {
         thread.quitSafely()
     }
 
+    /**
+     * The handler backing this scheduler, for the platform APIs that take one directly
+     * (`registerAudioDeviceCallback`, `registerReceiver`, `registerAudioPlaybackCallback`).
+     * Registering against it is what makes a platform callback arrive on this scheduler's own
+     * thread instead of the main one.
+     */
+    fun handler(): Handler = handler
+
     private fun guard(action: () -> Unit) {
         try {
             action()

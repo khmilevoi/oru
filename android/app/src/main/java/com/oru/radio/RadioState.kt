@@ -37,6 +37,10 @@ data class RadioState(
     val pttButton: PttButtonState = PttButtonState(),
     /** Non-null only while a pairing session is running (contract amendment 2026-08-14). */
     val pttPairing: PttPairingState? = null,
+    /** Spec section 8. Always present: there is always a route in use. */
+    val audioRoute: AudioRoute = AudioRoute(),
+    /** Spec section 8's persisted pin, published back so JavaScript mirrors the engine. */
+    val audioMode: ModePolicy.AudioMode = ModePolicy.AudioMode.AUTO,
 ) {
     /**
      * The bridge (P5) serializes exactly this map; the engine owns the shape. When there
@@ -56,6 +60,8 @@ data class RadioState(
                 "name" to pttButton.name,
             ),
         )
+        put("audioRoute", audioRoute.toMap())
+        put("audioMode", audioMode.wire())
         pttPairing?.let { pairing ->
             put(
                 "pttPairing",
