@@ -42,10 +42,41 @@ class AudioRouteControllerProfileTest {
     }
 
     @Test
-    fun `nothing external is communication mode on the loudspeaker`() {
-        assertEquals(listOf(AudioManager.MODE_IN_COMMUNICATION), facade.modeSets)
+    fun `nothing external stays normal mode on the loudspeaker while idle`() {
+        // The AOSP AudioService re-validates a non-privileged MODE_IN_COMMUNICATION owner
+        // every 6 s; pinning the mode for the whole idle session (2026-08-18 duck-diagnosis
+        // session) turns that revalidation into an audible setPhoneState 0<->3 ping-pong for
+        // every other app on the device. Nothing external and no burst in flight both hold:
+        // the platform mode is left alone.
+        assertTrue(facade.modeSets.isEmpty())
+        assertEquals(AudioManager.MODE_NORMAL, facade.mode)
         assertTrue(facade.communicationDeviceSelections.isEmpty())
         assertEquals(AudioRoute.Kind.SPEAKER, listener.last.kind)
+    }
+
+    @Test
+    fun `nothing external is communication mode for the duration of a press`() {
+        controller.onPttPressed()
+
+        assertEquals(AudioManager.MODE_IN_COMMUNICATION, facade.mode)
+        assertTrue(facade.communicationDeviceSelections.isEmpty())
+
+        controller.onPttReleased()
+
+        // The burst is over and there is nothing to linger for on the phone mic/speaker: the
+        // mode drops back to normal right away instead of staying pinned until the next event.
+        assertEquals(AudioManager.MODE_NORMAL, facade.mode)
+    }
+
+    @Test
+    fun `nothing external is communication mode for the duration of a receive`() {
+        controller.setRadioActive(true)
+
+        assertEquals(AudioManager.MODE_IN_COMMUNICATION, facade.mode)
+
+        controller.setRadioActive(false)
+
+        assertEquals(AudioManager.MODE_NORMAL, facade.mode)
     }
 
     @Test

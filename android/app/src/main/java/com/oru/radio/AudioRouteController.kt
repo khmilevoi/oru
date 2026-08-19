@@ -536,13 +536,26 @@ class AudioRouteController(
      * Section 11's three-row policy table, kept whole: a selected headset mic runs in
      * communication mode; an external that can only play keeps the platform in normal mode so
      * A2DP/LE is not dropped from the route; nothing external is communication mode on the
-     * loudspeaker. MEDIA is normal mode regardless (§6 profile table).
+     * loudspeaker -- but only for the duration of a burst. MEDIA is normal mode regardless
+     * (§6 profile table).
+     *
+     * The last row used to be unconditional, which pinned a phone-mic/speaker session in
+     * MODE_IN_COMMUNICATION for the whole time the radio was idle: AOSP's AudioService
+     * re-validates a non-privileged owner of that mode every 6 s, and each re-validation is a
+     * full audio-policy reconfiguration that glitches every other app's audio (2026-08-18
+     * duck-diagnosis session: a setPhoneState 0<->3 ping-pong roughly every 6.04 s). [applied]
+     * and [establishing] are folded in alongside [radioActive]/[pttHeld] even though this
+     * branch runs only when there is no candidate device, because a candidate lost on the same
+     * pass whose link is still being torn down should not drop the mode out from under it
+     * mid-teardown.
      */
     private fun wantedMode(candidate: RouteDevice?): Int = when {
         profile == ModePolicy.Profile.MEDIA -> AudioManager.MODE_NORMAL
         candidate != null -> AudioManager.MODE_IN_COMMUNICATION
         RoutePicker.outputDevice(devices, localNames) != null -> AudioManager.MODE_NORMAL
-        else -> AudioManager.MODE_IN_COMMUNICATION
+        radioActive || pttHeld || establishing != null || applied != null ->
+            AudioManager.MODE_IN_COMMUNICATION
+        else -> AudioManager.MODE_NORMAL
     }
 
     /**
