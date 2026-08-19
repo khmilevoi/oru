@@ -82,10 +82,15 @@ export type RadioNativeApi = {
  */
 export function createRadioNative(resolve: ResolveNativeRadio): RadioNativeApi {
   const invoke = async <T>(method: string, call: (native: Spec) => Promise<T>) => {
-    const native = resolve();
-    if (native instanceof Error) return native;
-
     try {
+      // Inside the `try`, not above it. `resolve()` reaches into the Turbo
+      // Module registry, and this file's promise to everything above it is
+      // that nothing throws. A resolver that threw used to *reject* `invoke`
+      // rather than return a value -- the one remaining way a caller doing
+      // `void RadioNative.x()` could still raise an unhandled rejection.
+      const native = resolve();
+      if (native instanceof Error) return native;
+
       return await call(native);
     } catch (cause) {
       return new NativeRadioCallError({method, cause});
@@ -128,17 +133,22 @@ export function createRadioNative(resolve: ResolveNativeRadio): RadioNativeApi {
     },
 
     subscribe(listener) {
-      const native = resolve();
-      if (native instanceof Error) return native;
-
       /**
        * Collected one at a time, not built as an array literal from two calls:
        * against a partially-wired native module (P5 must wire two emitters,
        * the newest part of the contract) the second registration can throw,
        * and whatever was already registered above must not leak.
+       *
+       * `resolve()` is inside the `try` for the same reason it is in `invoke`:
+       * `bootstrapApp` calls this synchronously at bundle evaluation, so a
+       * throw here would take down app entry itself rather than land in
+       * `lastRadioError` where section 13 puts it.
        */
       const subscriptions: RadioNativeSubscription[] = [];
       try {
+        const native = resolve();
+        if (native instanceof Error) return native;
+
         subscriptions.push(
           native.onStateChanged(state => listener({type: 'stateChanged', state})),
         );

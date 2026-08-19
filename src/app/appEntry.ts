@@ -1,6 +1,7 @@
 import {AppState, DevSettings, NativeModules} from 'react-native';
 import {bind} from '@reatom/core';
 
+import {detach} from './detach';
 import {initI18n} from '../i18n';
 import {lastRadioError, radio, radioEventListener} from '../radio/radio.model';
 import {localeOverride} from './locale.model';
@@ -29,7 +30,18 @@ export type BootstrapHost = {
   devMenu?: DevMenuHost;
 };
 
-export type Bootstrapped = {locale: AppLocale; teardown: () => void};
+export type Bootstrapped = {
+  locale: AppLocale;
+  /**
+   * Settles when the fire-and-forget work below has finished, and resolves to
+   * whatever that work failed with. **Never rejects** -- that is the whole
+   * point of it existing. Nothing in the app awaits it (bootstrap is still
+   * fire-and-forget by design); it is the handle that makes the guarantee
+   * testable instead of merely intended.
+   */
+  ready: Promise<readonly Error[]>;
+  teardown: () => void;
+};
 
 /**
  * Spec section 12.2: "On startup `i18n.loadAndActivate()` selects the system
@@ -104,7 +116,12 @@ export function bootstrapApp(host: BootstrapHost = {}): Bootstrapped {
   // stored — re-activates the catalog in place within the bootstrap
   // microtasks. Fire-and-forget on purpose: `restore()` returns absence and
   // failure as values, and either one simply leaves the system choice standing.
-  void localeOverride.restore();
+  //
+  // `detach`, not `void`: a bundle newer than the installed native binary is a
+  // normal state during development, and `wrap()` rejects on a context reset
+  // (Fast Refresh) however total the Turbo Module boundary below it is. Either
+  // one, voided, is an `Uncaught (in promise)` the user is shown for nothing.
+  const restored = detach(localeOverride.restore());
 
   registerMockScenarioDevMenu(host.devMenu ?? DevSettings);
 
@@ -120,14 +137,20 @@ export function bootstrapApp(host: BootstrapHost = {}): Bootstrapped {
   const lifecycle = appState.addEventListener(
     'change',
     bind((state: string) => {
-      void applyAppLifecycle(toAppLifecycle(state));
+      // Every foreground transition re-syncs the mirror, so this is the
+      // highest-frequency detached promise in the app -- and the one most
+      // likely to be in flight when a Fast Refresh resets the context.
+      void detach(applyAppLifecycle(toAppLifecycle(state)));
     }),
   );
 
-  void radio.sync();
+  const synced = detach(radio.sync());
 
   return {
     locale,
+    ready: Promise.all([restored, synced]).then(settled =>
+      settled.filter((value): value is Error => value instanceof Error),
+    ),
     teardown() {
       lifecycle.remove();
       if (!(subscription instanceof Error)) subscription.remove();
