@@ -1,3 +1,6 @@
+import React from 'react';
+import {StyleSheet, Text} from 'react-native';
+
 import {
   colors,
   fonts,
@@ -7,6 +10,8 @@ import {
   testIds,
   type,
 } from '../src/ui/theme';
+import {RouteReadout} from '../src/ui/RouteReadout';
+import {renderScreen} from '../jest/renderScreen';
 
 describe('theme tokens for the section 8 surfaces', () => {
   it('carries the canvas .routeline metrics', () => {
@@ -48,5 +53,84 @@ describe('theme tokens for the section 8 surfaces', () => {
     expect(testIds.audioMode).toBe('audio-mode');
     expect(testIds.radioScreen).toBe('radio-screen');
     expect(testIds.settingsScreen).toBe('settings-screen');
+  });
+});
+
+describe('RouteReadout', () => {
+  const read = async (
+    route: Parameters<typeof RouteReadout>[0]['route'],
+    locale?: 'en' | 'ru',
+  ) => {
+    const screen = await renderScreen(
+      <RouteReadout route={route} testID={testIds.audioRoute} />,
+      locale ? {locale} : {},
+    );
+    const text = screen.texts().join('');
+    screen.unmount();
+    return text;
+  };
+
+  // Every string below is read off design/01 Radio.dc.html frame 08.
+  it('renders the speaker route the way the canvas states it', async () => {
+    expect(await read({kind: 'speaker', mode: 'voice'})).toBe('Speaker · radio');
+  });
+
+  it('renders wired and usb identically -- "usb routes render like wired"', async () => {
+    expect(await read({kind: 'wired', mode: 'voice'})).toBe('Headphones · radio');
+    expect(await read({kind: 'usb', mode: 'voice'})).toBe('Headphones · radio');
+  });
+
+  it('shows the Bluetooth headset name as reported', async () => {
+    expect(await read({kind: 'bluetooth', label: 'AirPods', mode: 'voice'})).toBe(
+      'AirPods · radio',
+    );
+    expect(await read({kind: 'bluetooth', label: 'AirPods', mode: 'media'})).toBe(
+      'AirPods · music, phone mic',
+    );
+  });
+
+  it('falls back to the generic accessory word for a nameless headset', async () => {
+    expect(await read({kind: 'bluetooth', mode: 'voice'})).toBe(
+      'Headphones · radio',
+    );
+  });
+
+  it('renders in Russian', async () => {
+    expect(await read({kind: 'speaker', mode: 'voice'}, 'ru')).toBe(
+      'Динамик · рация',
+    );
+    expect(await read({kind: 'wired', mode: 'voice'}, 'ru')).toBe(
+      'Наушники · рация',
+    );
+    expect(
+      await read({kind: 'bluetooth', label: 'AirPods', mode: 'media'}, 'ru'),
+    ).toBe('AirPods · музыка, микрофон телефона');
+  });
+
+  it('is an indicator, never a picker: it carries no press handler', async () => {
+    const screen = await renderScreen(
+      <RouteReadout
+        route={{kind: 'speaker', mode: 'voice'}}
+        testID={testIds.audioRoute}
+      />,
+    );
+    const node = screen.find(testIds.audioRoute);
+
+    expect(node.props.onPress).toBeUndefined();
+    expect(node.props.accessibilityRole).not.toBe('button');
+    screen.unmount();
+  });
+
+  it('uppercases the line the way the canvas does', async () => {
+    const screen = await renderScreen(
+      <RouteReadout
+        route={{kind: 'speaker', mode: 'voice'}}
+        testID={testIds.audioRoute}
+      />,
+    );
+    const label = screen.find(testIds.audioRoute).findByType(Text);
+
+    expect(StyleSheet.flatten(label.props.style).textTransform).toBe('uppercase');
+    screen.unmount();
   });
 });
