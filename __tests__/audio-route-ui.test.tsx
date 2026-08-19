@@ -11,6 +11,7 @@ import {
   type,
 } from '../src/ui/theme';
 import {RouteReadout} from '../src/ui/RouteReadout';
+import {SegmentedControl} from '../src/ui/SegmentedControl';
 import {renderScreen} from '../jest/renderScreen';
 
 describe('theme tokens for the section 8 surfaces', () => {
@@ -131,6 +132,96 @@ describe('RouteReadout', () => {
     const label = screen.find(testIds.audioRoute).findByType(Text);
 
     expect(StyleSheet.flatten(label.props.style).textTransform).toBe('uppercase');
+    screen.unmount();
+  });
+});
+
+describe('SegmentedControl', () => {
+  const options = [
+    {value: 'auto', label: 'Auto'},
+    {value: 'voice', label: 'Radio'},
+    {value: 'media', label: 'Music'},
+  ] as const;
+
+  it('renders every option and derives an id per option', async () => {
+    const screen = await renderScreen(
+      <SegmentedControl
+        options={options}
+        value="auto"
+        onChange={jest.fn()}
+        testID="audio-mode"
+      />,
+    );
+
+    expect(screen.hasText('Auto')).toBe(true);
+    expect(screen.hasText('Radio')).toBe(true);
+    expect(screen.hasText('Music')).toBe(true);
+    expect(screen.findAll('audio-mode-auto')).toHaveLength(1);
+    expect(screen.findAll('audio-mode-voice')).toHaveLength(1);
+    expect(screen.findAll('audio-mode-media')).toHaveLength(1);
+
+    screen.unmount();
+  });
+
+  it('reports the selected option through accessibility state', async () => {
+    const screen = await renderScreen(
+      <SegmentedControl
+        options={options}
+        value="voice"
+        onChange={jest.fn()}
+        testID="audio-mode"
+      />,
+    );
+
+    expect(screen.find('audio-mode-voice').props.accessibilityState).toEqual({
+      selected: true,
+    });
+    expect(screen.find('audio-mode-auto').props.accessibilityState).toEqual({
+      selected: false,
+    });
+
+    screen.unmount();
+  });
+
+  it('paints the selected segment the way the canvas does', async () => {
+    const screen = await renderScreen(
+      <SegmentedControl
+        options={options}
+        value="voice"
+        onChange={jest.fn()}
+        testID="audio-mode"
+      />,
+    );
+
+    const selected = StyleSheet.flatten(
+      screen.find('audio-mode-voice').findByType(Text).props.style,
+    );
+    const unselected = StyleSheet.flatten(
+      screen.find('audio-mode-auto').findByType(Text).props.style,
+    );
+
+    expect(selected.color).toBe(colors.textInverse);
+    expect(selected.fontFamily).toBe(fonts.monoMedium);
+    expect(unselected.color).toBe(colors.textMuted);
+    expect(unselected.fontFamily).toBe(fonts.mono);
+
+    screen.unmount();
+  });
+
+  it('reports the option the user pressed', async () => {
+    const onChange = jest.fn();
+    const screen = await renderScreen(
+      <SegmentedControl
+        options={options}
+        value="auto"
+        onChange={onChange}
+        testID="audio-mode"
+      />,
+    );
+
+    await screen.press('audio-mode-media');
+
+    expect(onChange).toHaveBeenCalledWith('media');
     screen.unmount();
   });
 });
