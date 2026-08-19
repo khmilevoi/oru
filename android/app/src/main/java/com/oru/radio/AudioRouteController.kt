@@ -166,6 +166,8 @@ class AudioRouteController(
         demoted.clear()
         reassertCount = 0
         modeRequested = null
+        deviceEventAtMs = null
+        noisyUntilMs = 0L
         facade.setMode(AudioManager.MODE_NORMAL)
         pttHeld = false
         radioActive = false
@@ -173,6 +175,11 @@ class AudioRouteController(
         facade.stop()
         listener = null
         published = null
+        // Deliberately not reset here: `profile` and ModePolicy's own internal audio-mode pin.
+        // The pin surviving a stop()/start() cycle is not incidental -- it is the only correct
+        // option, because ModePolicy has no reset method, and resetting `profile` alone would
+        // make the next start()'s wantedMode() compute against the wrong profile until the
+        // first fresh policy decision corrected it.
         logger.log("route: stop t=${clock()}ms")
     }
 
@@ -528,6 +535,15 @@ class AudioRouteController(
                 if (facade.mode() != wanted) {
                     modeRequested = wanted
                     modeSettleDeadlineMs = clock() + MODE_SETTLE_TIMEOUT_MS
+                    // Cancel any outstanding backstop before arming this one -- otherwise a
+                    // wanted mode that changes again while a setMode is still pending against
+                    // some third platform mode (e.g. MODE_IN_CALL during a phone-call
+                    // interruption) orphans the first backstop while it is still scheduled; it
+                    // then fires later and nulls this field out from under the second one, so
+                    // stop()'s clearModeBackstop() no longer reaches it. Only the timer is
+                    // cancelled here, not clearModeBackstop() -- that would also null
+                    // modeSettleDeadlineMs, which this branch is in the middle of setting.
+                    modeBackstop?.cancel()
                     modeBackstop = scheduler.schedule(MODE_SETTLE_TIMEOUT_MS) {
                         modeBackstop = null
                         reevaluate()

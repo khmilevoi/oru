@@ -421,4 +421,37 @@ class RadioEngineTest {
         assertTrue(routing.stopped)
         assertEquals(ModePolicy.AudioMode.VOICE, listener.last.audioMode)
     }
+
+    @Test
+    fun `the safety cap release is not repeated when the button is released afterwards`() {
+        engine.startRadio()
+        engine.startTransmit()
+
+        scheduler.advance(RadioConfig.MAX_TRANSMIT_MS)
+        assertFalse(engine.getState().transmitting)
+        assertEquals(1, routing.releaseCount)
+
+        // The physical release arrives after the cap already tore the transmission down. One
+        // press must still be answered by exactly one release.
+        engine.stopTransmit()
+
+        assertEquals(1, routing.releaseCount)
+        assertFalse(engine.getState().transmitting)
+    }
+
+    @Test
+    fun `a second startTransmit while a grant is still pending is ignored`() {
+        engine.startRadio()
+        routing.autoGrant = false
+        engine.startTransmit()
+
+        engine.startTransmit()
+
+        assertEquals(1, routing.pressCount)
+        assertTrue(transport.openedStreams.isEmpty())
+
+        routing.grant()
+
+        assertEquals(listOf("stream-1"), transport.openedStreams)
+    }
 }

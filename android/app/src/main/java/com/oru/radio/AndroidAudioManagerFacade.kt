@@ -62,6 +62,14 @@ class AndroidAudioManagerFacade(
     private var playbackCallback: AudioManager.AudioPlaybackCallback? = null
     private var otherAudioActive = false
 
+    /**
+     * The grant tone's generator, live between [playGrantTone] and its release -- by the
+     * delayed release below on the normal path, or immediately by [stop] when the session
+     * ends first. Tracked so [stop] can honour the interface's "releases the grant tone"
+     * contract instead of leaving it to the delayed release alone.
+     */
+    private var toneGenerator: ToneGenerator? = null
+
     private val headsetProfileListener = object : BluetoothProfile.ServiceListener {
         override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
             if (profile != BluetoothProfile.HEADSET) return
@@ -164,6 +172,10 @@ class AndroidAudioManagerFacade(
         headsetProxy = null
         bluetoothAdapter = null
         otherAudioActive = false
+        // Honours the interface's "and releases the grant tone": clearing the field here, not
+        // just releasing it, is what stops the delayed release below from releasing it again.
+        toneGenerator?.release()
+        toneGenerator = null
     }
 
     override fun devices(): List<RouteDevice> {
@@ -213,26 +225,48 @@ class AndroidAudioManagerFacade(
             }
             ?: manager.availableCommunicationDevices.firstOrNull { it.type == device.type }
             ?: return false
-        return manager.setCommunicationDevice(target)
+        return try {
+            manager.setCommunicationDevice(target)
+        } catch (error: SecurityException) {
+            // A mid-session BLUETOOTH_CONNECT revocation must not throw off the route thread:
+            // `false` reads to the controller as "the platform refused it", which spends an
+            // establish attempt and demotes the device after the second -- a per-device
+            // failure, not a whole-session one.
+            Log.w(TAG, "route: BLUETOOTH_CONNECT denied; cannot set communication device", error)
+            false
+        }
     }
 
     override fun clearCommunicationDevice() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-        audioManager?.clearCommunicationDevice()
+        try {
+            audioManager?.clearCommunicationDevice()
+        } catch (error: SecurityException) {
+            Log.w(TAG, "route: BLUETOOTH_CONNECT denied; cannot clear communication device", error)
+        }
     }
 
     @Suppress("DEPRECATION")
     override fun startVoiceLink(device: RouteDevice) {
         val manager = audioManager ?: return
-        manager.startBluetoothSco()
-        manager.isBluetoothScoOn = true
+        try {
+            manager.startBluetoothSco()
+            manager.isBluetoothScoOn = true
+        } catch (error: SecurityException) {
+            // The link never comes up; the establish timeout fails the device on its own.
+            Log.w(TAG, "route: BLUETOOTH_CONNECT denied; cannot start the voice link", error)
+        }
     }
 
     @Suppress("DEPRECATION")
     override fun stopVoiceLink() {
         val manager = audioManager ?: return
-        manager.isBluetoothScoOn = false
-        manager.stopBluetoothSco()
+        try {
+            manager.isBluetoothScoOn = false
+            manager.stopBluetoothSco()
+        } catch (error: SecurityException) {
+            Log.w(TAG, "route: BLUETOOTH_CONNECT denied; cannot stop the voice link", error)
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -295,8 +329,22 @@ class AndroidAudioManagerFacade(
             Log.w(TAG, "route: no tone generator", error)
             return
         }
+        toneGenerator = generator
         generator.startTone(ToneGenerator.TONE_PROP_BEEP, TONE_MS)
-        handler.postDelayed({ generator.release() }, TONE_RELEASE_DELAY_MS)
+        handler.postDelayed(
+            {
+                // Only release through this path if [generator] is still the current one:
+                // identity, not just non-null, because `stop()` may already have released and
+                // cleared it, or a later grant tone may have replaced it with a newer generator
+                // that has its own delayed release pending. Either way, releasing here would
+                // release the wrong instance -- once twice, once too early.
+                if (toneGenerator === generator) {
+                    generator.release()
+                    toneGenerator = null
+                }
+            },
+            TONE_RELEASE_DELAY_MS,
+        )
     }
 
     // --- internals -----------------------------------------------------------------------
