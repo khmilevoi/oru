@@ -24,12 +24,34 @@ public final class HeartbeatLogger {
     /// AVAudioEngine is actually running.
     public var isEngineRunning: (() -> Bool)?
 
+    /// §5: other audio is sampled "on the existing heartbeat tick". Installed
+    /// by `AlwaysHotBackgroundManager.activate()` and cleared by its
+    /// `deactivate()` — so, unlike `sessionActive`, it survives an
+    /// interruption and is only ever absent before the first activation or
+    /// after the radio has fully stopped. Called on the main queue, like every
+    /// other timer callback here; the manager hops onto its own queue. Set
+    /// only through `setOnTick(_:)`, which hops onto main itself, because this
+    /// is written from the engine queue and read from the timer's main queue.
+    private var onTick: (() -> Void)?
+
+    /// All timer state lives on the main queue — see `start`/`stop`/`record`.
+    /// `onTick` is a closure, not a `Bool` like `sessionActive`: an
+    /// unsynchronized read here would race the closure box's retain/release,
+    /// not just observe a stale value, so it gets the same main-queue
+    /// discipline as the rest of this class's mutable state.
+    public func setOnTick(_ onTick: (() -> Void)?) {
+        DispatchQueue.main.async {
+            self.onTick = onTick
+        }
+    }
+
     private let log = Logger(
         subsystem: RadioConfig.Logging.subsystem,
         category: "heartbeat"
     )
     private let lock = NSLock()
     private var lastInputBufferAt: Date?
+    private var stopwatch = RouteSwitchStopwatch()
     private var timer: DispatchSourceTimer?
     private let formatter = ISO8601DateFormatter()
 
@@ -39,12 +61,33 @@ public final class HeartbeatLogger {
             .appendingPathComponent("heartbeat.log")
     }
 
-    /// Called from the audio input tap on every buffer. Only a timestamp store:
-    /// the tap thread must never touch files or os_log.
+    /// Called from the audio input tap on every buffer. Only a timestamp store
+    /// and one comparison: the tap thread must never touch files or os_log.
+    /// `record` hops to the main queue, and the stopwatch answers at most once
+    /// per route switch, so at most one line per switch is written from here.
     public func noteInputBuffer() {
         lock.lock()
         lastInputBufferAt = Date()
+        let line = stopwatch.noteAudio(atMs: Self.monotonicMs())
         lock.unlock()
+        if let line {
+            record(line)
+        }
+    }
+
+    /// §10: "device-event → audio-on-new-route". Called by
+    /// `AlwaysHotBackgroundManager` when a device appears or disappears; the
+    /// next input buffer closes the measurement.
+    public func markRouteChange(reason: String) {
+        lock.lock()
+        stopwatch.markRouteChange(reason: reason, atMs: Self.monotonicMs())
+        lock.unlock()
+    }
+
+    /// Monotonic, like every other deadline in this radio: a system clock
+    /// change must not turn a switch latency into a negative number.
+    private static func monotonicMs() -> Int64 {
+        Int64(DispatchTime.now().uptimeNanoseconds / 1_000_000)
     }
 
     /// All timer state lives on the main queue — also the one place
@@ -110,6 +153,7 @@ public final class HeartbeatLogger {
             """
         append(line)
         log.notice("[heartbeat] \(line, privacy: .public)")
+        onTick?()
     }
 
     private func append(_ line: String) {

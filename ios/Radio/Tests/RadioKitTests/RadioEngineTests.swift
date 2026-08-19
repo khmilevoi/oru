@@ -359,4 +359,18 @@ final class RadioEngineTests: XCTestCase {
 
         XCTAssertTrue(ptt.didForget)
     }
+
+    func testAnEngineRebuildRequestReachesTheAudioPort() {
+        // §5: the session observes AVAudioEngineConfigurationChange and
+        // mediaServicesWereReset; the engine graph they refer to belongs to
+        // AudioIO, so the request travels session -> engine -> audio.
+        engine.startRadio()
+        flush()
+
+        background.requestEngineRebuild(recreate: false)
+        background.requestEngineRebuild(recreate: true)
+        flush()
+
+        XCTAssertEqual(audio.rebuilds, [false, true])
+    }
 }

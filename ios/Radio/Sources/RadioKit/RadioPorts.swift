@@ -45,6 +45,22 @@ public protocol AudioIO: AnyObject {
     func beginIncoming(peerId: String)
     func enqueue(frame: Data, from peerId: String)
     func endIncoming(peerId: String)
+
+    /// §5's `AVAudioEngineConfigurationChange` rebuild: stop, disconnect the
+    /// nodes, re-query every format from the hardware, reconnect, restart,
+    /// reinstall the tap that was on the input. Formats are never cached across
+    /// it. `recreate` additionally throws the `AVAudioEngine` itself away and
+    /// builds a new one — Apple QA1749's answer to `mediaServicesWereReset`.
+    ///
+    /// Returns immediately: the work happens on the implementation's own queue,
+    /// so no call chain from the engine queue can block on it. A failure is
+    /// logged and never raised — §2 goal 3: a route change must not become
+    /// `status: 'error'`.
+    func rebuildEngine(recreate: Bool)
+
+    /// D2's talk-permit tone. Scheduled, not awaited: §7 gates transmission on
+    /// the tone being granted, not on its decay.
+    func playGrantTone()
 }
 
 public protocol AudioIODelegate: AnyObject {
@@ -86,6 +102,15 @@ public protocol BackgroundSession: AnyObject {
     func requestBeginTransmitting()
     func stopTransmitting()
     func setReceiving(_ receiving: Bool)
+
+    /// §5/§7: apply one of the two static session configurations, whole and
+    /// diff-only. The merged §7 policy is the only thing that asks. On iOS a
+    /// voice-link raise and a mode switch are the same call, which is why there
+    /// is one method and not three.
+    ///
+    /// Called from the engine queue, like every other method here, and must
+    /// never dispatch synchronously back onto it.
+    func applyProfile(_ profile: ModePolicy.Profile)
 }
 
 public protocol BackgroundSessionDelegate: AnyObject {
@@ -98,6 +123,28 @@ public protocol BackgroundSessionDelegate: AnyObject {
     func backgroundSessionDidRequestTransmitStart(_ session: BackgroundSession)
     func backgroundSessionDidRequestTransmitStop(_ session: BackgroundSession)
     func backgroundSession(_ session: BackgroundSession, didFail error: RadioError)
+
+    /// §8's `audioRoute` and §7's two route predicates, in one value. Delivered
+    /// on the engine queue, diff-only: an unchanged route is not republished.
+    func backgroundSession(
+        _ session: BackgroundSession,
+        routeDidChange snapshot: AudioRouteSnapshot
+    )
+    /// §5's other-audio detection (`isOtherAudioPlaying` on the heartbeat tick
+    /// and on every route change, `silenceSecondaryAudioHint` as an edge).
+    /// Diff-only, raw and undebounced: the 2 s / 30 s dwell belongs to
+    /// `ModePolicy`, so both platforms debounce identically.
+    func backgroundSession(
+        _ session: BackgroundSession,
+        otherAudioActiveDidChange active: Bool
+    )
+    /// §5: the audio graph must be rebuilt. `recreate` means the
+    /// `AVAudioEngine` itself is dead (media services reset) and a new one is
+    /// needed. The session observes this; `AudioIO` owns the graph.
+    func backgroundSession(
+        _ session: BackgroundSession,
+        didRequestEngineRebuild recreate: Bool
+    )
 }
 
 // MARK: - Clock
@@ -106,8 +153,13 @@ public protocol RadioCancellable: AnyObject {
     func cancel()
 }
 
-/// Injected so the 120 s safety cap is testable without waiting 120 s.
+/// Injected so the 120 s safety cap is testable without waiting 120 s, and so
+/// the §7 policy's deadlines are testable without waiting 30 s.
 public protocol RadioClock: AnyObject {
+    /// Absolute monotonic milliseconds — what `ModePolicy` takes on every call.
+    /// Never a wall clock: a system time change must not move a dwell deadline.
+    var nowMs: Int64 { get }
+
     func schedule(after seconds: TimeInterval, _ block: @escaping () -> Void) -> RadioCancellable
 }
 
@@ -116,6 +168,10 @@ public final class DispatchRadioClock: RadioClock {
 
     public init(queue: DispatchQueue) {
         self.queue = queue
+    }
+
+    public var nowMs: Int64 {
+        Int64(DispatchTime.now().uptimeNanoseconds / 1_000_000)
     }
 
     public func schedule(

@@ -80,6 +80,12 @@ public struct RadioState: Equatable {
     public var transmitting: Bool
     public var receiving: Bool
     public var pttButton: PttButtonState
+    /// §8, always present: there is always a route in use.
+    public var audioRoute: AudioRoute
+    /// §8's persisted setting, published back so JavaScript mirrors the engine
+    /// rather than guessing. Never the same thing as `audioRoute.mode`: `auto`
+    /// is not a profile.
+    public var audioMode: AudioModeSetting
     public var pttPairing: PttPairingState?
 
     public init(
@@ -88,6 +94,8 @@ public struct RadioState: Equatable {
         transmitting: Bool = false,
         receiving: Bool = false,
         pttButton: PttButtonState = PttButtonState(),
+        audioRoute: AudioRoute = AudioRoute(),
+        audioMode: AudioModeSetting = .auto,
         pttPairing: PttPairingState? = nil
     ) {
         self.status = status
@@ -95,6 +103,8 @@ public struct RadioState: Equatable {
         self.transmitting = transmitting
         self.receiving = receiving
         self.pttButton = pttButton
+        self.audioRoute = audioRoute
+        self.audioMode = audioMode
         self.pttPairing = pttPairing
     }
 
@@ -104,7 +114,9 @@ public struct RadioState: Equatable {
             "nearbyCount": nearbyCount,
             "transmitting": transmitting,
             "receiving": receiving,
-            "pttButton": pttButton.asDictionary
+            "pttButton": pttButton.asDictionary,
+            "audioRoute": audioRoute.asDictionary,
+            "audioMode": audioMode.rawValue
         ]
         if let pttPairing {
             dictionary["pttPairing"] = pttPairing.asDictionary

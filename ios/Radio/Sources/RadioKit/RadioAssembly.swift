@@ -17,7 +17,10 @@ public final class RadioAssembly {
         )
         let audio = AudioEngine(queue: DispatchQueue(label: "com.oru.radio.audio"))
         let ptt = PttManager(queue: DispatchQueue(label: "com.oru.radio.ptt"))
-        let background = AlwaysHotBackgroundManager()
+        // §5: every session observer re-posts onto this queue, which is the
+        // engine's — that shared serial queue is what closes the data race the
+        // previous session manager had on its own state.
+        let background = AlwaysHotBackgroundManager(queue: engineQueue)
 
         self.ptt = ptt
         engine = RadioEngine(

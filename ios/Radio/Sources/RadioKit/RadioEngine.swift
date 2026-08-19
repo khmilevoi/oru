@@ -30,6 +30,23 @@ public final class RadioEngine {
     /// sampled every 50 frames so no line is formatted per frame.
     private var rxFrameCounts: [String: Int] = [:]
     private var observers: [String: (RadioEvent) -> Void] = [:]
+    /// §7, merged from P1 and never edited here. Replaced wholesale on
+    /// `stopRadio` — it holds dwell and PTT state that must not survive a power
+    /// cycle, and P1's file owns its own reset semantics (there are none).
+    private var policy = ModePolicy()
+    /// The policy's `nextWakeupMs`, as one cancellable timer. nil obliges us to
+    /// cancel, not merely to skip arming.
+    private var policyTimer: RadioCancellable?
+    /// What was last handed to `background.applyProfile`. §5 applies diff-only.
+    private var appliedProfile: ModePolicy.Profile = .voice
+    /// A press is outstanding. Distinct from `state.transmitting`, because §7
+    /// puts a raise (up to 4 s) between the press and the microphone.
+    private var isPttHeld = false
+    /// A `raiseVoiceLink` is in flight and a route change must answer it.
+    private var isAwaitingVoiceLink = false
+    /// §8's persisted setting. `RadioAssembly` supplies the production store;
+    /// tests inject one against a private `UserDefaults` suite.
+    private let audioModeStore: AudioModeStore
 
     public init(
         transport: RadioTransport,
@@ -37,7 +54,8 @@ public final class RadioEngine {
         ptt: PttSource,
         background: BackgroundSession,
         clock: RadioClock,
-        queue: DispatchQueue
+        queue: DispatchQueue,
+        audioModeStore: AudioModeStore = AudioModeStore()
     ) {
         self.transport = transport
         self.audio = audio
@@ -45,6 +63,7 @@ public final class RadioEngine {
         self.background = background
         self.clock = clock
         self.queue = queue
+        self.audioModeStore = audioModeStore
 
         transport.delegate = self
         audio.delegate = self
@@ -88,6 +107,11 @@ public final class RadioEngine {
 
         ptt.start()
         background.activate()
+        // The route and the other-audio state arrive from the session's own
+        // publication (they are delivered on this queue, after this returns).
+        state.audioMode = audioModeStore.load()
+        performLocked(policy.setAudioMode(state.audioMode.policyMode, nowMs: clock.nowMs))
+        performLocked(policy.setRadioActive(false, nowMs: clock.nowMs))
 
         do {
             try audio.startPlayback()
@@ -114,7 +138,17 @@ public final class RadioEngine {
         receivingPeers.removeAll()
         rxFrameCounts.removeAll()
         isStarted = false
-        state = RadioState(status: .starting, pttButton: ptt.buttonState)
+        policyTimer?.cancel()
+        policyTimer = nil
+        policy = ModePolicy()
+        appliedProfile = .voice
+        isPttHeld = false
+        isAwaitingVoiceLink = false
+        state = RadioState(
+            status: .starting,
+            pttButton: ptt.buttonState,
+            audioMode: audioModeStore.load()
+        )
         emitStateLocked()
         log.info("radio stopped")
     }
@@ -131,11 +165,13 @@ public final class RadioEngine {
 
     private func startTransmitLocked() {
         guard isStarted, state.status != .error else { return }
-        guard !state.transmitting, !isAwaitingAudioSession else { return }
+        guard !state.transmitting, !isAwaitingAudioSession, !isPttHeld else { return }
 
-        isAwaitingAudioSession = true
+        isPttHeld = true
+        // Armed at the press, not at the microphone: §7 puts a raise of up to
+        // 4 s in between, and a stuck button during a raise is still stuck.
         armSafetyCapLocked()
-        background.requestBeginTransmitting()
+        performLocked(policy.pttPressed(nowMs: clock.nowMs))
         log.info("transmit requested")
     }
 
@@ -165,11 +201,17 @@ public final class RadioEngine {
 
         state.transmitting = true
         emitStateLocked()
+        syncRadioActiveLocked()
         log.info("transmitting \(streamId, privacy: .public)")
     }
 
     private func stopTransmitLocked() {
         cancelSafetyCapLocked()
+        if isPttHeld {
+            isPttHeld = false
+            isAwaitingVoiceLink = false
+            performLocked(policy.pttReleased(nowMs: clock.nowMs))
+        }
         guard state.transmitting || isAwaitingAudioSession else { return }
 
         isAwaitingAudioSession = false
@@ -190,6 +232,7 @@ public final class RadioEngine {
             state.transmitting = false
             emitStateLocked()
         }
+        syncRadioActiveLocked()
         log.info("transmit stopped")
     }
 
@@ -251,6 +294,92 @@ public final class RadioEngine {
         }
     }
 
+    /// §8's setting. Stores it natively and applies it — `specs/NativeRadio.ts`
+    /// requires both, and requires the state emission the callers read.
+    public func setAudioMode(_ setting: AudioModeSetting) {
+        queue.async {
+            self.audioModeStore.save(setting)
+            self.state.audioMode = setting
+            self.emitStateLocked()
+            self.performLocked(
+                self.policy.setAudioMode(setting.policyMode, nowMs: self.clock.nowMs)
+            )
+        }
+    }
+
+    // MARK: - Mode policy (§7)
+
+    /// One decision, performed. `ModePolicy.swift` states the iOS rule this
+    /// follows: on iOS `raiseVoiceLink`/`dropVoiceLink` and a `Decision.profile`
+    /// change are the same `setCategory` call, so the profile diff is applied
+    /// first and the raise/drop is treated as satisfied by it.
+    private func performLocked(_ decision: ModePolicy.Decision) {
+        if decision.profile != appliedProfile {
+            appliedProfile = decision.profile
+            background.applyProfile(decision.profile)
+            // §8's `mode` is the *effective* profile, so it moves with the
+            // apply and not with the user's pin.
+            state.audioRoute.mode = AudioRoute.Mode(decision.profile)
+            emitStateLocked()
+        }
+
+        for action in decision.actions {
+            switch action {
+            case .raiseVoiceLink:
+                // The session work is the profile apply above; all that is left
+                // is to remember that a route change owes us an answer.
+                isAwaitingVoiceLink = true
+            case .dropVoiceLink:
+                isAwaitingVoiceLink = false
+            case .playGrantTone:
+                audio.playGrantTone()
+            case let .startCapture(source):
+                isAwaitingVoiceLink = false
+                // §5 has no second microphone mechanism and wants none: the
+                // applied configuration decides which mic the input node
+                // resolves to, and the policy restored the base configuration
+                // before emitting this. The source is recorded as evidence.
+                // An exhaustive switch, not a `source == .routeDefault ? :`
+                // ternary: `MicSource` is merged, read-only P1 vocabulary, so
+                // a third case added there must fail this file to compile
+                // rather than silently fall into "phone".
+                let micLabel: String
+                switch source {
+                case .routeDefault:
+                    micLabel = "route"
+                case .phoneFallback:
+                    micLabel = "phone"
+                }
+                HeartbeatLogger.shared.record("tx mic=\(micLabel)")
+                isAwaitingAudioSession = true
+                background.requestBeginTransmitting()
+            }
+        }
+
+        scheduleTickLocked(decision.nextWakeupMs)
+    }
+
+    private func scheduleTickLocked(_ nextWakeupMs: Int64?) {
+        policyTimer?.cancel()
+        policyTimer = nil
+        guard let nextWakeupMs else { return }
+        let delay = max(0, Double(nextWakeupMs - clock.nowMs) / 1_000)
+        policyTimer = clock.schedule(after: delay) { [weak self] in
+            guard let self else { return }
+            self.queue.async {
+                self.performLocked(self.policy.tick(nowMs: self.clock.nowMs))
+            }
+        }
+    }
+
+    /// §7's radio-idle gate. Fed from the engine's own truth rather than from
+    /// the button: a transmission also ends on the 120 s safety cap.
+    private func syncRadioActiveLocked() {
+        performLocked(
+            policy.setRadioActive(state.transmitting || state.receiving, nowMs: clock.nowMs)
+        )
+    }
+
     // MARK: - Emission
 
     private func emitStateLocked() {
@@ -305,6 +434,7 @@ extension RadioEngine: RadioTransportDelegate {
             guard !self.state.receiving else { return }
             self.state.receiving = true
             self.emitStateLocked()
+            self.syncRadioActiveLocked()
         }
     }
 
@@ -341,6 +471,7 @@ extension RadioEngine: RadioTransportDelegate {
             self.background.setReceiving(false)
             self.state.receiving = false
             self.emitStateLocked()
+            self.syncRadioActiveLocked()
         }
     }
 
@@ -422,5 +553,52 @@ extension RadioEngine: BackgroundSessionDelegate {
         didFail error: RadioError
     ) {
         queue.async { self.failLocked(error, fatal: false) }
+    }
+
+    /// §8's route, fed to the §7 policy. Task 6 publishes it into `RadioState`.
+    public func backgroundSession(
+        _ session: BackgroundSession,
+        routeDidChange snapshot: AudioRouteSnapshot
+    ) {
+        queue.async {
+            if self.state.audioRoute.kind != snapshot.kind
+                || self.state.audioRoute.label != snapshot.label {
+                self.state.audioRoute.kind = snapshot.kind
+                self.state.audioRoute.label = snapshot.label
+                self.emitStateLocked()
+            }
+            self.performLocked(
+                self.policy.setRouteRequiresVoiceLink(
+                    snapshot.requiresVoiceLink, nowMs: self.clock.nowMs
+                )
+            )
+            guard self.isAwaitingVoiceLink else { return }
+            if snapshot.providesVoiceLink {
+                // §7: the tone waits for the headset mic path to be confirmed.
+                self.performLocked(self.policy.voiceLinkEstablished(nowMs: self.clock.nowMs))
+            } else if !snapshot.requiresVoiceLink {
+                // The accessory the raise targeted is gone. `ModePolicy`
+                // requires this to be reported, or it waits out the whole 4 s.
+                self.performLocked(self.policy.voiceLinkFailed(nowMs: self.clock.nowMs))
+            }
+        }
+    }
+
+    public func backgroundSession(
+        _ session: BackgroundSession,
+        otherAudioActiveDidChange active: Bool
+    ) {
+        queue.async {
+            self.performLocked(self.policy.setOtherAudioActive(active, nowMs: self.clock.nowMs))
+        }
+    }
+
+    /// §5's rebuild travels session → engine → audio: the session is what
+    /// observes the notification, `AudioIO` is what owns the graph.
+    public func backgroundSession(
+        _ session: BackgroundSession,
+        didRequestEngineRebuild recreate: Bool
+    ) {
+        queue.async { self.audio.rebuildEngine(recreate: recreate) }
     }
 }

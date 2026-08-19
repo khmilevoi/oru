@@ -222,12 +222,32 @@ describe('RadioEngine (spec sections 6.3, 9.4, 13)', () => {
     expect(engine).not.toMatch(/=\s*120\b/);
   });
 
+  // P3 ios-routing task 5: the request now travels through the merged §7
+  // mode policy's `.startCapture` action inside `performLocked`, which sets
+  // `isAwaitingAudioSession = true` in the same breath it asks the
+  // background session -- a delegate round trip separates that call from
+  // `beginTransmitLocked`, the only place that opens the microphone, so a
+  // whole-file text-order comparison of the two call sites no longer holds.
+  // The invariant now lives as a data dependency: the microphone only opens
+  // once the flag the request set is true.
   it('asks the background session before it opens the microphone', () => {
-    const request = engine.indexOf('background.requestBeginTransmitting()');
-    const capture = engine.indexOf('audio.startCapture()');
+    const performLocked = engine.slice(engine.indexOf('private func performLocked('));
+    const startCaptureCase = performLocked.slice(
+      performLocked.indexOf('case let .startCapture(source):'),
+    );
+    const setAwaiting = startCaptureCase.indexOf('isAwaitingAudioSession = true');
+    const request = startCaptureCase.indexOf('background.requestBeginTransmitting()');
+    expect(setAwaiting).toBeGreaterThan(-1);
     expect(request).toBeGreaterThan(-1);
+
+    const beginTransmitLocked = engine.slice(
+      engine.indexOf('private func beginTransmitLocked('),
+    );
+    const guardAwaiting = beginTransmitLocked.indexOf('guard isAwaitingAudioSession');
+    const capture = beginTransmitLocked.indexOf('audio.startCapture()');
+    expect(guardAwaiting).toBeGreaterThan(-1);
     expect(capture).toBeGreaterThan(-1);
-    expect(request).toBeLessThan(capture);
+    expect(guardAwaiting).toBeLessThan(capture);
   });
 
   it('announces transmissions with the control protocol', () => {
@@ -403,8 +423,19 @@ describe('AlwaysHotBackgroundManager (spec section 10.2)', () => {
   });
 
   it('configures a voice-chat session for play and record', () => {
-    expect(background).toContain('.playAndRecord');
-    expect(background).toContain('.voiceChat');
+    // §5 (Task 1) moved the session-configuration table out of this file and
+    // into AudioSessionConfiguration.swift's static `.voice` configuration;
+    // this file only applies it, via `AudioSessionConfiguration.of(...)`.
+    // §5 (Task 4): the profile to apply now arrives as an
+    // `AudioSessionAction.applyConfiguration(profile)` from the reaction
+    // table, performed in `perform(_:)`, rather than read from a stored
+    // `appliedProfile` field.
+    const configuration = source('AudioSessionConfiguration.swift');
+    expect(configuration).toContain('.playAndRecord');
+    expect(configuration).toContain('.voiceChat');
+    expect(background).toContain(
+      'applyConfigurationLocked(AudioSessionConfiguration.of(profile), on: session)',
+    );
   });
 
   it('activates the session itself and tells the engine', () => {
@@ -415,13 +446,32 @@ describe('AlwaysHotBackgroundManager (spec section 10.2)', () => {
   // The whole point of always-hot: the session is activated once and never
   // released between transmissions, which is what keeps the process alive
   // while the screen is locked. Only `deactivate()` may stand it down.
+  //
+  // §5 (Task 4): the release itself no longer lives inline in `deactivate()`
+  // -- `deactivate()` posts `.deactivationRequested` onto the reaction table,
+  // and the table's only `.deactivate` action (performed in `perform(_:)`)
+  // is what actually calls `setActive(false, options: .notifyOthersOnDeactivation)`.
+  // The invariant becomes: `deactivate()` is the only path that reaches
+  // `.deactivationRequested`, and the release call site sits inside the
+  // `.deactivate` action case, appearing exactly once in the file.
   it('releases the session only when the radio stops', () => {
-    const deactivate = background.indexOf('public func deactivate()');
-    const nextMember = background.indexOf('public func requestBeginTransmitting()');
+    const deactivateMethod = background.indexOf('public func deactivate()');
+    const requestBeginTransmitting = background.indexOf(
+      'public func requestBeginTransmitting()',
+    );
+    const deactivationRequested = background.indexOf(
+      'handleLocked(.deactivationRequested)',
+    );
+    expect(deactivateMethod).toBeGreaterThan(-1);
+    expect(requestBeginTransmitting).toBeGreaterThan(deactivateMethod);
+    expect(deactivationRequested).toBeGreaterThan(deactivateMethod);
+    expect(deactivationRequested).toBeLessThan(requestBeginTransmitting);
+    const deactivateCase = background.indexOf('case .deactivate:');
+    const nextCase = background.indexOf('case .maximizeInputGain:');
     const release = background.indexOf('.notifyOthersOnDeactivation');
-    expect(deactivate).toBeGreaterThan(-1);
-    expect(release).toBeGreaterThan(deactivate);
-    expect(release).toBeLessThan(nextMember);
+    expect(deactivateCase).toBeGreaterThan(-1);
+    expect(release).toBeGreaterThan(deactivateCase);
+    expect(release).toBeLessThan(nextCase);
     expect(background.split('.notifyOthersOnDeactivation')).toHaveLength(2);
   });
 
@@ -538,7 +588,9 @@ describe('assembly and spike hooks (spec section 15, phase 0)', () => {
     expect(assembly).toContain('NearbyManager(');
     expect(assembly).toContain('AudioEngine(');
     expect(assembly).toContain('PttManager(');
-    expect(assembly).toContain('AlwaysHotBackgroundManager()');
+    // §5 (Task 4): the manager now takes the shared engine queue, so every
+    // notification handler can hop onto it before touching state.
+    expect(assembly).toContain('AlwaysHotBackgroundManager(queue: engineQueue)');
     expect(assembly).toContain('DispatchRadioClock(');
   });
 

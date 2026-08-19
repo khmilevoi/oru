@@ -160,7 +160,9 @@ public final class SpikeCommandServer {
             nearby=\(state.nearbyCount) \
             tx=\(state.transmitting) \
             rx=\(state.receiving) \
-            button=\(state.pttButton.configured)/\(state.pttButton.connected)
+            button=\(state.pttButton.configured)/\(state.pttButton.connected) \
+            route=\(state.audioRoute.kind.rawValue)/\(state.audioRoute.mode.rawValue) \
+            audioMode=\(state.audioMode.rawValue)
             """
         if let pairing = state.pttPairing {
             let candidates = pairing.candidates

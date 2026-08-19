@@ -86,6 +86,19 @@ final class FakeAudio: AudioIO {
     func endIncoming(peerId: String) {
         incoming.removeAll { $0 == peerId }
     }
+
+    /// One entry per rebuild request, `true` when the whole AVAudioEngine was
+    /// to be thrown away.
+    private(set) var rebuilds: [Bool] = []
+    private(set) var grantTones = 0
+
+    func rebuildEngine(recreate: Bool) {
+        rebuilds.append(recreate)
+    }
+
+    func playGrantTone() {
+        grantTones += 1
+    }
 }
 
 final class FakePtt: PttSource {
@@ -162,6 +175,30 @@ final class FakeBackground: BackgroundSession {
         receivingFlags.append(receiving)
     }
 
+    /// Every profile the engine asked for, in order. `applyProfile` is
+    /// deliberately not diff-filtered here: the fake records the request, the
+    /// real manager decides whether it changes anything.
+    private(set) var appliedProfiles: [ModePolicy.Profile] = []
+
+    func applyProfile(_ profile: ModePolicy.Profile) {
+        appliedProfiles.append(profile)
+    }
+
+    /// Stands in for a route change the session observed and classified.
+    func publishRoute(_ snapshot: AudioRouteSnapshot) {
+        delegate?.backgroundSession(self, routeDidChange: snapshot)
+    }
+
+    /// Stands in for `isOtherAudioPlaying` changing.
+    func publishOtherAudio(_ active: Bool) {
+        delegate?.backgroundSession(self, otherAudioActiveDidChange: active)
+    }
+
+    /// Stands in for AVAudioEngineConfigurationChange / mediaServicesWereReset.
+    func requestEngineRebuild(recreate: Bool) {
+        delegate?.backgroundSession(self, didRequestEngineRebuild: recreate)
+    }
+
     /// Stands in for the system handing us an active audio session.
     func grantAudioSession() {
         delegate?.backgroundSessionDidActivateAudio(self)
@@ -172,6 +209,16 @@ final class ManualClock: RadioClock {
     private var pending: [(id: Int, seconds: TimeInterval, block: () -> Void)] = []
     private var nextId = 0
     private(set) var scheduledDelays: [TimeInterval] = []
+
+    /// The monotonic clock the engine reads. Tests set it, then fire.
+    var nowMs: Int64 = 0
+
+    /// How many timers are currently armed and un-fired. A live gauge of the
+    /// fake's own bookkeeping, distinct from `scheduledDelays` (an append-only
+    /// history that does not shrink on cancellation) — this is what a test
+    /// reads to confirm a wakeup is genuinely pending, or genuinely gone,
+    /// without reaching for the engine's private `policyTimer`.
+    var pendingCount: Int { pending.count }
 
     func schedule(
         after seconds: TimeInterval,
@@ -190,6 +237,19 @@ final class ManualClock: RadioClock {
         for entry in due {
             entry.block()
         }
+    }
+
+    /// Fires only the soonest pending timer. A PTT press arms two — the 120 s
+    /// safety cap and the policy's next wakeup — and a test that wants the
+    /// policy deadline must not also trip the cap.
+    func fireEarliest() {
+        guard
+            let index = pending.indices.min(by: { pending[$0].seconds < pending[$1].seconds })
+        else {
+            return
+        }
+        let entry = pending.remove(at: index)
+        entry.block()
     }
 
     fileprivate func cancel(id: Int) {

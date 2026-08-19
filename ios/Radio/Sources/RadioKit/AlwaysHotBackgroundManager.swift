@@ -1,6 +1,9 @@
 import AVFoundation
 import Foundation
 import os
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// The iOS background architecture (spec section 10.2), and the only
 /// `BackgroundSession` there is. The app activates a `.playAndRecord` session
@@ -9,60 +12,56 @@ import os
 /// background audio under the `audio` UIBackgroundMode — so the process legally
 /// keeps running while locked, no entitlement required.
 ///
-/// It started as Spike Test #1, the alternative to the system PushToTalk
-/// framework; on 2026-08-18 it became the architecture and PushToTalk was
-/// deleted, because `com.apple.developer.push-to-talk` requires a paid Apple
-/// Developer account and on-device runs confirmed this path works.
+/// Since the 2026-08-18 seamless-headphone-audio design (§5) this class holds no
+/// decisions at all. Six notifications arrive on whatever thread the system
+/// chose; each is re-posted onto the engine queue, turned into an
+/// `AudioSessionEvent`, and answered by `AudioSessionReactor.react` with the
+/// next status and a list of actions. This class performs those actions and
+/// nothing else. That is what closes the data race on `isActive`/`currentProfile`
+/// the previous version had: the status is one value, mutated on one queue.
 public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
 
     public weak var delegate: BackgroundSessionDelegate?
 
-    private var isActive = false
-    /// The profile the latest detection pass decided; diagnostic — device
-    /// add/remove always re-runs the full two-phase detection, because whether
-    /// a new device is HFP can only be learned under the permissive category.
-    private var currentProfile: AudioSessionProfile?
-    /// Recursion guard: our own setCategory/setPreferredInput calls emit route
-    /// change notifications; while this is set they must not trigger another
-    /// re-apply.
-    private var isApplyingProfile = false
+    /// The `RadioEngine` queue. Every notification handler hops onto it before
+    /// touching anything; every `BackgroundSession` method is already called on
+    /// it, so none of them may dispatch back onto it synchronously.
+    private let queue: DispatchQueue
+    private var status = AudioSessionStatus()
+    /// Diff state for the two upward channels. `nil` means "never reported", so
+    /// the first sample always goes up.
+    private var lastRouteSnapshot: AudioRouteSnapshot?
+    private var lastOtherAudioActive: Bool?
+    private var isObserving = false
+    /// Bumped by `activate()` and `deactivate()`. Every deferred continuation —
+    /// the activation retry's `asyncAfter` and each notification handler's
+    /// `queue.async` hop — captures the generation in force when it was
+    /// created and checks it again once it actually runs, so a retry armed (or
+    /// a notification already in flight) before a `deactivate()` cannot land on
+    /// a radio the user has since stopped, and a stale `.appDidBecomeActive`
+    /// from before an `activate()` cannot double-run recovery.
+    private var generation = 0
     private let log = Logger(
         subsystem: RadioConfig.Logging.subsystem,
         category: "background"
     )
 
-    public override init() {
+    public init(queue: DispatchQueue) {
+        self.queue = queue
         super.init()
     }
 
     // MARK: - BackgroundSession
 
     public func activate() {
-        let session = AVAudioSession.sharedInstance()
-        do {
-            // Category first, then active — activating under the platform
-            // default category leaves AVAudioEngine with no real input/output
-            // route once the category does switch (the exact crash documented
-            // in AudioEngine.prepareEngineOnMainThread). The detection flow
-            // owns activation itself, because phase 2 of the profile decision
-            // can only be read AFTER activating; AudioEngine's startPlayback()
-            // deliberately skips its own setCategory in this mode.
-            try detectAndApplyProfile(on: session)
-        } catch {
-            delegate?.backgroundSession(
-                self,
-                didFail: .backgroundFailed("always-hot activation: \(error)")
-            )
-            return
+        generation += 1
+        observeNotifications()
+        HeartbeatLogger.shared.setOnTick { [weak self] in
+            self?.queue.async { self?.sampleOtherAudioLocked() }
         }
-
-        isActive = true
-        maximizeInputGain(session)
-        observeInterruptions()
-        observeRouteChanges()
-        HeartbeatLogger.shared.sessionActive = true
         HeartbeatLogger.shared.start()
-        log.info("always-hot audio session active")
+        handleLocked(.activationRequested)
+        log.info("always-hot audio session activating")
         // The port's activation callback. Harmless at this point (nothing is
         // awaiting the session yet), delivered because the contract says the
         // engine learns about activation from here and nowhere else.
@@ -70,24 +69,20 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
     }
 
     public func deactivate() {
+        generation += 1
         NotificationCenter.default.removeObserver(self)
+        isObserving = false
+        HeartbeatLogger.shared.setOnTick(nil)
         HeartbeatLogger.shared.sessionActive = false
         HeartbeatLogger.shared.stop()
-        isActive = false
-        currentProfile = nil
-        do {
-            try AVAudioSession.sharedInstance().setActive(
-                false,
-                options: .notifyOthersOnDeactivation
-            )
-        } catch {
-            log.error("deactivation failed: \(error, privacy: .public)")
-        }
+        lastRouteSnapshot = nil
+        lastOtherAudioActive = nil
+        handleLocked(.deactivationRequested)
         delegate?.backgroundSessionDidDeactivateAudio(self)
     }
 
     public func requestBeginTransmitting() {
-        guard isActive else {
+        guard status.isActive else {
             delegate?.backgroundSession(
                 self,
                 didFail: .backgroundFailed("always-hot session not active")
@@ -109,6 +104,187 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
     public func setReceiving(_ receiving: Bool) {
         // The port exists so an implementation can activate the session for
         // playback; here it is always active, so there is nothing to do.
+    }
+
+    public func applyProfile(_ profile: ModePolicy.Profile) {
+        handleLocked(.profileRequested(profile))
+    }
+
+    // MARK: - The table
+
+    /// Caller is on `queue`.
+    private func handleLocked(_ event: AudioSessionEvent) {
+        let reaction = AudioSessionReactor.react(to: event, from: status)
+        status = reaction.status
+        HeartbeatLogger.shared.sessionActive = status.isActive
+        performLocked(reaction.actions)
+    }
+
+    /// Performs actions in the order the table listed them. `.activate` is the
+    /// one action that may not resolve inline: when the session is busy the
+    /// activation is retried later, and everything after it in the list has to
+    /// wait for that outcome — the table puts the recovery rebuild after
+    /// `.activate` precisely because an engine cannot start against a session
+    /// that is not active yet. Caller is on `queue`.
+    private func performLocked(_ actions: [AudioSessionAction]) {
+        for (index, action) in actions.enumerated() {
+            guard case .activate = action else {
+                perform(action)
+                continue
+            }
+            activateLocked(
+                retriesLeft: RadioConfig.Session.activationRetryLimit,
+                then: Array(actions.dropFirst(index + 1))
+            )
+            return
+        }
+    }
+
+    /// Caller is on `queue`.
+    private func perform(_ action: AudioSessionAction) {
+        let session = AVAudioSession.sharedInstance()
+        switch action {
+        case let .applyConfiguration(profile):
+            applyConfigurationLocked(AudioSessionConfiguration.of(profile), on: session)
+        case .activate:
+            // Unreachable: `performLocked` intercepts `.activate` itself so it
+            // can carry the rest of the list across a retry. Kept in the
+            // switch (no `default:`) so a new table action stays a compile
+            // error here.
+            assertionFailure("`.activate` must be handled by performLocked, not perform")
+        case .deactivate:
+            do {
+                try session.setActive(false, options: .notifyOthersOnDeactivation)
+            } catch {
+                log.error("deactivation failed: \(error, privacy: .public)")
+            }
+        case .maximizeInputGain:
+            maximizeInputGain(session)
+        case .syncSpeakerOverride:
+            syncSpeakerOverrideLocked(on: session)
+        case .publishRoute:
+            publishRouteLocked(on: session)
+        case .sampleOtherAudio:
+            sampleOtherAudioLocked()
+        case .rebuildEngine:
+            delegate?.backgroundSession(self, didRequestEngineRebuild: false)
+        case .recreateEngine:
+            delegate?.backgroundSession(self, didRequestEngineRebuild: true)
+        }
+    }
+
+    // MARK: - Actions
+
+    /// §5's "applied whole (diff-only: skip if already applied)". The diff is
+    /// also the recursion guard the old `isApplyingProfile` flag used to be:
+    /// our own `setCategory` emits a `.categoryChange`, whose row re-applies
+    /// the current configuration — and finds it already in force, so it stops.
+    private func applyConfigurationLocked(
+        _ configuration: AudioSessionConfiguration,
+        on session: AVAudioSession
+    ) {
+        guard
+            !configuration.matches(
+                category: session.category,
+                mode: session.mode,
+                options: session.categoryOptions
+            )
+        else {
+            return
+        }
+        do {
+            try session.setCategory(
+                configuration.category,
+                mode: configuration.mode,
+                options: configuration.options
+            )
+            HeartbeatLogger.shared.record("session config \(configuration.logName)")
+        } catch {
+            // Never fatal: the session keeps whatever it had, and the next
+            // route change or recovery tries again.
+            HeartbeatLogger.shared.record(
+                "session config \(configuration.logName) FAILED: \(error)"
+            )
+        }
+    }
+
+    /// §5's `setActive` with retry on `.isBusy` (0.5 s × 3, Signal's pattern).
+    /// Never blocks the queue — the radio's own work runs on it. `tail` is the
+    /// remainder of the reaction's action list that follows this `.activate`
+    /// in the table — see `performLocked`. Caller is on `queue`.
+    private func activateLocked(retriesLeft: Int, then tail: [AudioSessionAction]) {
+        do {
+            try AVAudioSession.sharedInstance().setActive(true)
+            handleLocked(.activationSucceeded)
+            performLocked(tail)
+        } catch let error as NSError
+            where error.code == AVAudioSession.ErrorCode.isBusy.rawValue && retriesLeft > 0 {
+            HeartbeatLogger.shared.record(
+                "session busy, retrying activation (\(retriesLeft) left)"
+            )
+            let expectedGeneration = generation
+            queue.asyncAfter(deadline: .now() + RadioConfig.Session.activationRetryDelay) {
+                [weak self] in
+                guard let self, self.generation == expectedGeneration else { return }
+                self.activateLocked(retriesLeft: retriesLeft - 1, then: tail)
+            }
+        } catch {
+            // Expected while backgrounded: iOS refuses activation from there.
+            // Wanted visible in the log, not swallowed. §2 goal 3: the rebuild
+            // fails too, loudly, and the next recovery retries — so the tail
+            // still runs here, inline, rather than being dropped.
+            HeartbeatLogger.shared.record("session activation FAILED: \(error)")
+            handleLocked(.activationFailed)
+            performLocked(tail)
+        }
+    }
+
+    /// §5's on-demand speaker, and the wired-headphones fix: `.speaker` only
+    /// when the outputs are solely the built-in receiver, `.none` the moment any
+    /// external output is present. A pure function of the current outputs —
+    /// never of a classification. Failure is logged, not fatal: audio still
+    /// flows out of the receiver.
+    private func syncSpeakerOverrideLocked(on session: AVAudioSession) {
+        let override = AudioSessionConfiguration.speakerOverride(
+            forOutputs: AudioPort.ports(from: session.currentRoute.outputs)
+        )
+        do {
+            try session.overrideOutputAudioPort(override)
+        } catch {
+            HeartbeatLogger.shared.record("speaker override FAILED: \(error)")
+        }
+    }
+
+    /// §8's route, classified and handed upward, diff-only.
+    private func publishRouteLocked(on session: AVAudioSession) {
+        let route = session.currentRoute
+        let snapshot = AudioRouteClassifier.snapshot(
+            outputs: AudioPort.ports(from: route.outputs),
+            inputs: AudioPort.ports(from: route.inputs)
+        )
+        guard snapshot != lastRouteSnapshot else { return }
+        lastRouteSnapshot = snapshot
+        HeartbeatLogger.shared.record(
+            "route kind=\(snapshot.kind.rawValue) "
+                + "label=\(snapshot.label ?? "-") "
+                + "voiceLink=\(snapshot.requiresVoiceLink ? "required" : "no")"
+                + "/\(snapshot.providesVoiceLink ? "live" : "no") "
+                + "in=\(AudioRouteFormatter.portTypes(route.inputs)) "
+                + "out=\(AudioRouteFormatter.portTypes(route.outputs))"
+        )
+        delegate?.backgroundSession(self, routeDidChange: snapshot)
+    }
+
+    /// §5's other-audio detection. Our own playback is not "other audio" — the
+    /// API already excludes the querying session — so this is exactly D1's
+    /// "whether another app is playing audio".
+    private func sampleOtherAudioLocked() {
+        guard status.isActive else { return }
+        let active = AVAudioSession.sharedInstance().isOtherAudioPlaying
+        guard active != lastOtherAudioActive else { return }
+        lastOtherAudioActive = active
+        HeartbeatLogger.shared.record("other audio active=\(active)")
+        delegate?.backgroundSession(self, otherAudioActiveDidChange: active)
     }
 
     /// Quiet-transmit investigation (2026-08-17): iPhone→Android audio is
@@ -143,150 +319,94 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
         }
     }
 
-    // MARK: - Session profile (two-phase detection fix, 2026-08-17)
+    // MARK: - Observers (§5)
 
-    /// Runs the two-step state machine from `AudioSessionProfile` against the
-    /// live session — DETECTION BEFORE NARROWING, because iOS only exposes
-    /// Bluetooth ports in `availableInputs`/`currentRoute` when the current
-    /// category options allow them (the first single-shot version read them
-    /// under narrow options and a connected headset stayed invisible forever).
-    /// Ends with the session ACTIVE under the decided profile, the speaker
-    /// override synced, and the decision in heartbeat.log.
-    private func detectAndApplyProfile(on session: AVAudioSession) throws {
-        isApplyingProfile = true
-        defer { isApplyingProfile = false }
-
-        // Phase 1: permissive category so HFP inputs become visible at all.
-        try session.setCategory(
-            .playAndRecord,
-            mode: .voiceChat,
-            options: AudioSessionProfile.permissiveDetectionOptions
-        )
-        let inputs = session.availableInputs ?? []
-        if let profile = AudioSessionProfile.afterPermissiveDetection(
-            availableInputs: inputs.map(\.portType)
-        ) {
-            // HFP found: the permissive options already equal the HFP
-            // profile's options, so no second setCategory — pin the input so
-            // the route survives iOS's mid-session second-guessing, activate.
-            if let hfp = inputs.first(where: { $0.portType == .bluetoothHFP }) {
-                try session.setPreferredInput(hfp)
-            }
-            try session.setActive(true)
-            finishProfile(profile, on: session)
-            return
-        }
-
-        // Phase 2: no HFP input exists — narrow to A2DP and activate; with
-        // A2DP allowed and headphones connected, activation routes to them
-        // automatically, so only the post-activation route tells built-in
-        // from A2DP.
-        try session.setPreferredInput(nil)
-        try session.setCategory(
-            .playAndRecord,
-            mode: .voiceChat,
-            options: AudioSessionProfile.bluetoothA2DP.categoryOptions
-        )
-        try session.setActive(true)
-        let profile = AudioSessionProfile.afterA2DPActivation(
-            currentOutputs: session.currentRoute.outputs.map(\.portType)
-        )
-        finishProfile(profile, on: session)
-    }
-
-    /// Shared tail of both phases: record the profile, sync the speaker
-    /// override, and log the decision with the resolved route so the next
-    /// hardware run is attributable.
-    private func finishProfile(
-        _ profile: AudioSessionProfile,
-        on session: AVAudioSession
-    ) {
-        currentProfile = profile
-        syncSpeakerOverride(for: profile, on: session)
-        let route = session.currentRoute
-        HeartbeatLogger.shared.record(
-            "session profile \(profile.logName) "
-                + "inputs=\(AudioRouteFormatter.portTypes(route.inputs)) "
-                + "outputs=\(AudioRouteFormatter.portTypes(route.outputs))"
-        )
-    }
-
-    /// The on-demand replacement for `.defaultToSpeaker`: `.speaker` for the
-    /// built-in profile, and — just as important — `.none` for the Bluetooth
-    /// profiles, so a re-detection that lands on BT clears a speaker override
-    /// left by an earlier built-in pass instead of stomping the headset.
-    /// Failure is logged, not fatal: audio still flows out of the receiver.
-    private func syncSpeakerOverride(
-        for profile: AudioSessionProfile,
-        on session: AVAudioSession
-    ) {
-        do {
-            try session.overrideOutputAudioPort(
-                profile.wantsSpeakerOverride ? .speaker : .none
-            )
-        } catch {
-            HeartbeatLogger.shared.record("speaker override FAILED: \(error)")
-        }
-    }
-
-    // MARK: - Route changes
-
-    private func observeRouteChanges() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleRouteChange(_:)),
-            name: AVAudioSession.routeChangeNotification,
-            object: AVAudioSession.sharedInstance()
-        )
-    }
-
-    /// Every change lands in heartbeat.log. Only a device appearing or
-    /// disappearing re-runs the DETECTION SEQUENCE — a deliberate exception
-    /// to "never re-setCategory mid-session". There is no cheap "would the
-    /// profile change?" pre-check: knowing whether the new device is HFP
-    /// requires the permissive phase-1 category first (a headset connecting
-    /// mid-session is invisible until then — the original hardware bug), so
-    /// the whole two-phase flow runs again. `.override` and `.categoryChange`
-    /// never re-apply: those are the echoes of our own calls, and reacting to
-    /// them would loop; `isApplyingProfile` additionally guards against
-    /// re-entry from the notifications our own detection emits.
-    @objc private func handleRouteChange(_ notification: Notification) {
+    /// Six registrations for §5's four observers plus its two named triggers.
+    /// Every one of them does the same two things: turn the notification into an
+    /// event, and hop onto the engine queue. No handler reads or writes manager
+    /// state on the thread the system delivered it on.
+    private func observeNotifications() {
+        guard !isObserving else { return }
+        isObserving = true
+        let center = NotificationCenter.default
         let session = AVAudioSession.sharedInstance()
-        let route = session.currentRoute
+
+        center.addObserver(
+            self, selector: #selector(handleRouteChange(_:)),
+            name: AVAudioSession.routeChangeNotification, object: session
+        )
+        center.addObserver(
+            self, selector: #selector(handleInterruption(_:)),
+            name: AVAudioSession.interruptionNotification, object: session
+        )
+        // `object: nil` on purpose: whether these two are actually posted with
+        // the shared session as their object is only provable on a device, and
+        // a missed `mediaServicesWereReset` is a permanently dead radio that
+        // needs an app restart. `object: nil` can at worst deliver an extra
+        // event, and both handlers only post onto the settled table, which is
+        // idempotent — the asymmetry decides it.
+        center.addObserver(
+            self, selector: #selector(handleMediaServicesReset(_:)),
+            name: AVAudioSession.mediaServicesWereResetNotification, object: nil
+        )
+        center.addObserver(
+            self, selector: #selector(handleSilenceSecondaryAudioHint(_:)),
+            name: AVAudioSession.silenceSecondaryAudioHintNotification, object: nil
+        )
+        // `object: nil` on purpose: the notification carries the AVAudioEngine
+        // that changed, and `AudioIO` replaces that object outright after a
+        // media-services reset. An observer registered against one instance
+        // would go deaf exactly when it matters most. There is one engine in
+        // this process.
+        center.addObserver(
+            self, selector: #selector(handleEngineConfigurationChange(_:)),
+            name: .AVAudioEngineConfigurationChange, object: nil
+        )
+        #if canImport(UIKit)
+        center.addObserver(
+            self, selector: #selector(handleAppDidBecomeActive(_:)),
+            name: UIApplication.didBecomeActiveNotification, object: nil
+        )
+        #endif
+    }
+
+    @objc private func handleRouteChange(_ notification: Notification) {
         let reasonRaw = notification.userInfo?[AVAudioSessionRouteChangeReasonKey]
             as? UInt ?? 0
         let reason = AVAudioSession.RouteChangeReason(rawValue: reasonRaw) ?? .unknown
+        let route = AVAudioSession.sharedInstance().currentRoute
         HeartbeatLogger.shared.record(
             "route: reason=\(AudioRouteFormatter.name(of: reason)) "
                 + "in=\(AudioRouteFormatter.portTypes(route.inputs)) "
                 + "out=\(AudioRouteFormatter.portTypes(route.outputs))"
         )
-
-        guard reason == .oldDeviceUnavailable || reason == .newDeviceAvailable else {
-            return
+        if reason == .newDeviceAvailable || reason == .oldDeviceUnavailable {
+            // §10: starts the switch-latency measurement. It is closed by the
+            // first buffer either tap delivers afterwards — which is precisely
+            // "audio on the new route", because no tap delivers while the
+            // engine is stopped for a rebuild.
+            HeartbeatLogger.shared.markRouteChange(
+                reason: AudioRouteFormatter.name(of: reason)
+            )
         }
-        guard isActive, !isApplyingProfile else { return }
-
-        do {
-            try detectAndApplyProfile(on: session)
-        } catch {
-            HeartbeatLogger.shared.record("route profile re-detect FAILED: \(error)")
+        let expectedGeneration = generation
+        queue.async { [weak self] in
+            guard let self, self.generation == expectedGeneration else { return }
+            self.handleLocked(.routeChanged(reason: reason))
         }
     }
 
-    // MARK: - Interruptions
-
-    /// The session is ours, not the system's, so a phone call or Siri can
-    /// snatch it away, and every occurrence must land in heartbeat.log:
-    /// reactivation failing while backgrounded is the failure mode this
-    /// architecture has to be watched for.
-    private func observeInterruptions() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleInterruption(_:)),
-            name: AVAudioSession.interruptionNotification,
-            object: AVAudioSession.sharedInstance()
-        )
+    @objc private func handleEngineConfigurationChange(_ notification: Notification) {
+        // §5: a route change that alters the hardware sample rate (built-in
+        // 48 kHz ↔ HFP 8/16 kHz) stops AVAudioEngine silently, and the
+        // keep-alive tap dies with it — which is how a headset connecting while
+        // the phone is locked used to suspend the whole radio.
+        HeartbeatLogger.shared.record("engine configuration changed")
+        let expectedGeneration = generation
+        queue.async { [weak self] in
+            guard let self, self.generation == expectedGeneration else { return }
+            self.handleLocked(.engineConfigurationChanged)
+        }
     }
 
     @objc private func handleInterruption(_ notification: Notification) {
@@ -297,29 +417,57 @@ public final class AlwaysHotBackgroundManager: NSObject, BackgroundSession {
 
         switch type {
         case .began:
-            HeartbeatLogger.shared.sessionActive = false
             HeartbeatLogger.shared.record("interruption began")
+            let expectedGeneration = generation
+            queue.async { [weak self] in
+                guard let self, self.generation == expectedGeneration else { return }
+                self.handleLocked(.interruptionBegan)
+            }
         case .ended:
             let optionsRaw = notification.userInfo?[AVAudioSessionInterruptionOptionKey]
                 as? UInt ?? 0
             let options = AVAudioSession.InterruptionOptions(rawValue: optionsRaw)
-            guard options.contains(.shouldResume) else {
-                HeartbeatLogger.shared.record("interruption ended, no shouldResume")
-                return
-            }
-            do {
-                try AVAudioSession.sharedInstance().setActive(true)
-                HeartbeatLogger.shared.sessionActive = true
-                HeartbeatLogger.shared.record("interruption ended, reactivated")
-            } catch {
-                // Expected while backgrounded: iOS refuses activation from the
-                // background. Wanted visible in the log, not swallowed.
-                HeartbeatLogger.shared.record(
-                    "interruption ended, reactivation FAILED: \(error)"
-                )
+            // `shouldResume` is logged, not obeyed: it is advice about resuming
+            // playback, and this session is the app's lifeline. §5 recovers on
+            // `.ended` and, because `.ended` is not guaranteed at all, on
+            // foregrounding too.
+            HeartbeatLogger.shared.record(
+                "interruption ended, shouldResume=\(options.contains(.shouldResume))"
+            )
+            let expectedGeneration = generation
+            queue.async { [weak self] in
+                guard let self, self.generation == expectedGeneration else { return }
+                self.handleLocked(.interruptionEnded)
             }
         @unknown default:
             break
         }
     }
+
+    @objc private func handleMediaServicesReset(_ notification: Notification) {
+        HeartbeatLogger.shared.record("media services were reset")
+        let expectedGeneration = generation
+        queue.async { [weak self] in
+            guard let self, self.generation == expectedGeneration else { return }
+            self.handleLocked(.mediaServicesWereReset)
+        }
+    }
+
+    @objc private func handleSilenceSecondaryAudioHint(_ notification: Notification) {
+        let expectedGeneration = generation
+        queue.async { [weak self] in
+            guard let self, self.generation == expectedGeneration else { return }
+            self.handleLocked(.silenceSecondaryAudioHint)
+        }
+    }
+
+    #if canImport(UIKit)
+    @objc private func handleAppDidBecomeActive(_ notification: Notification) {
+        let expectedGeneration = generation
+        queue.async { [weak self] in
+            guard let self, self.generation == expectedGeneration else { return }
+            self.handleLocked(.appDidBecomeActive)
+        }
+    }
+    #endif
 }

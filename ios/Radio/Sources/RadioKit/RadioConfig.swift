@@ -33,6 +33,15 @@ public enum RadioConfig {
         /// How often the keep-alive tap writes an `idle level` line, so the
         /// idle mic floor and the transmit level can be compared.
         public static let idleMeterSeconds: TimeInterval = 30
+        /// D2's talk-permit tone: "press → tone → talk", in every mode. 1 kHz
+        /// is the LMR convention and sits in the middle of what an 8 kHz HFP
+        /// link reproduces, so the tone survives the narrowest route the radio
+        /// ever uses.
+        public static let grantToneFrequency: Double = 1_000
+        public static let grantToneDurationMs: Int = 120
+        /// Well below full scale: the tone plays into whatever the user is
+        /// wearing, at whatever volume they chose for voice.
+        public static let grantToneAmplitude: Double = 0.35
     }
 
     public enum Transmit {
@@ -66,6 +75,21 @@ public enum RadioConfig {
     public enum Background {
         /// How often the always-hot heartbeat appends a line to heartbeat.log.
         public static let heartbeatSeconds: TimeInterval = 10
+    }
+
+    /// The always-hot session's own knobs (spec section 5 of the 2026-08-18
+    /// seamless-headphone-audio design).
+    public enum Session {
+        /// Interruption and foreground recovery retry `setActive(true)` when
+        /// the system answers `.isBusy` — the interrupting app has not finished
+        /// letting go yet. Signal's pattern: 0.5 s apart, three times.
+        public static let activationRetryDelay: TimeInterval = 0.5
+        public static let activationRetryLimit = 3
+
+        /// §8's persisted setting. The native side owns the storage — there is
+        /// no JavaScript store in this app and adding one would move
+        /// package.json for no benefit (the `PttBindingStore` precedent).
+        public static let audioModeDefaultsKey = "radio.audio.mode"
     }
 
     public enum Spike {
