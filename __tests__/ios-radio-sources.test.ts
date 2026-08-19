@@ -222,12 +222,32 @@ describe('RadioEngine (spec sections 6.3, 9.4, 13)', () => {
     expect(engine).not.toMatch(/=\s*120\b/);
   });
 
+  // P3 ios-routing task 5: the request now travels through the merged §7
+  // mode policy's `.startCapture` action inside `performLocked`, which sets
+  // `isAwaitingAudioSession = true` in the same breath it asks the
+  // background session -- a delegate round trip separates that call from
+  // `beginTransmitLocked`, the only place that opens the microphone, so a
+  // whole-file text-order comparison of the two call sites no longer holds.
+  // The invariant now lives as a data dependency: the microphone only opens
+  // once the flag the request set is true.
   it('asks the background session before it opens the microphone', () => {
-    const request = engine.indexOf('background.requestBeginTransmitting()');
-    const capture = engine.indexOf('audio.startCapture()');
+    const performLocked = engine.slice(engine.indexOf('private func performLocked('));
+    const startCaptureCase = performLocked.slice(
+      performLocked.indexOf('case let .startCapture(source):'),
+    );
+    const setAwaiting = startCaptureCase.indexOf('isAwaitingAudioSession = true');
+    const request = startCaptureCase.indexOf('background.requestBeginTransmitting()');
+    expect(setAwaiting).toBeGreaterThan(-1);
     expect(request).toBeGreaterThan(-1);
+
+    const beginTransmitLocked = engine.slice(
+      engine.indexOf('private func beginTransmitLocked('),
+    );
+    const guardAwaiting = beginTransmitLocked.indexOf('guard isAwaitingAudioSession');
+    const capture = beginTransmitLocked.indexOf('audio.startCapture()');
+    expect(guardAwaiting).toBeGreaterThan(-1);
     expect(capture).toBeGreaterThan(-1);
-    expect(request).toBeLessThan(capture);
+    expect(guardAwaiting).toBeLessThan(capture);
   });
 
   it('announces transmissions with the control protocol', () => {

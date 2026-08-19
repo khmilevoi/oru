@@ -210,6 +210,9 @@ final class ManualClock: RadioClock {
     private var nextId = 0
     private(set) var scheduledDelays: [TimeInterval] = []
 
+    /// The monotonic clock the engine reads. Tests set it, then fire.
+    var nowMs: Int64 = 0
+
     func schedule(
         after seconds: TimeInterval,
         _ block: @escaping () -> Void
@@ -227,6 +230,19 @@ final class ManualClock: RadioClock {
         for entry in due {
             entry.block()
         }
+    }
+
+    /// Fires only the soonest pending timer. A PTT press arms two — the 120 s
+    /// safety cap and the policy's next wakeup — and a test that wants the
+    /// policy deadline must not also trip the cap.
+    func fireEarliest() {
+        guard
+            let index = pending.indices.min(by: { pending[$0].seconds < pending[$1].seconds })
+        else {
+            return
+        }
+        let entry = pending.remove(at: index)
+        entry.block()
     }
 
     fileprivate func cancel(id: Int) {

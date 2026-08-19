@@ -153,8 +153,13 @@ public protocol RadioCancellable: AnyObject {
     func cancel()
 }
 
-/// Injected so the 120 s safety cap is testable without waiting 120 s.
+/// Injected so the 120 s safety cap is testable without waiting 120 s, and so
+/// the §7 policy's deadlines are testable without waiting 30 s.
 public protocol RadioClock: AnyObject {
+    /// Absolute monotonic milliseconds — what `ModePolicy` takes on every call.
+    /// Never a wall clock: a system time change must not move a dwell deadline.
+    var nowMs: Int64 { get }
+
     func schedule(after seconds: TimeInterval, _ block: @escaping () -> Void) -> RadioCancellable
 }
 
@@ -163,6 +168,10 @@ public final class DispatchRadioClock: RadioClock {
 
     public init(queue: DispatchQueue) {
         self.queue = queue
+    }
+
+    public var nowMs: Int64 {
+        Int64(DispatchTime.now().uptimeNanoseconds / 1_000_000)
     }
 
     public func schedule(
