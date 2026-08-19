@@ -48,9 +48,11 @@ carries the full implementer contract: geometry, derived breakpoints, timings, e
 abort, completion, reduced motion, and the RN primitives it is restricted to (no new
 dependency — an SVG dash-offset ring is noted as the ruled-out alternative).
 
-**Both 2026-08-19 changes are local only — not yet pushed back to the ORU project; they
-need a DesignSync push** (`02 Settings.dc.html`, `01 Radio.dc.html`, `theme.css`) before the
-canvas project and this export match again.
+Both 2026-08-19 changes were pushed back to the ORU project via DesignSync the same day
+(`02 Settings.dc.html`, `01 Radio.dc.html`, `theme.css`). The remote was read first and
+carried no edits of its own since the 2026-08-18 push, so nothing was clobbered; the write
+was verified by re-fetching `theme.css` and confirming it carries the `--seal-*` tokens.
+The canvas project and this export match again.
 
 Spec §12.1 (`docs/superpowers/specs/2026-08-13-offline-nearby-ptt-design.md`) points at this
 canvas as the source of the visual design, but until now it was never exported — the P6 UI
