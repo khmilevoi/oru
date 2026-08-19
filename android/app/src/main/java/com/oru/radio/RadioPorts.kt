@@ -56,6 +56,22 @@ interface AudioIo {
     fun release()
 }
 
+/**
+ * Section 6/7 callbacks out of the route controller. They arrive on the `audio-route`
+ * thread; `RadioEngine` re-posts them onto its own scheduler exactly as it does transport
+ * and PTT callbacks.
+ */
+interface AudioRouteListener {
+    /** The route actually in force changed — publish it and rebuild the audio streams. */
+    fun onAudioRouteChanged(route: AudioRoute)
+
+    /**
+     * Section 7: the talk-permit tone has played and capture may start now. [mic] is
+     * `PHONE_FALLBACK` when the headset link never came up for this transmission.
+     */
+    fun onCaptureGranted(mic: ModePolicy.MicSource)
+}
+
 interface PttSource {
     fun start(listener: PttListener)
     fun stop()
