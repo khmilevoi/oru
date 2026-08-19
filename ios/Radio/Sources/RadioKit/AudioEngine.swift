@@ -307,9 +307,12 @@ extension AudioEngine {
     private func installCaptureTapLocked() throws {
         let input = engine.inputNode
         let inputFormat = input.outputFormat(forBus: 0)
-        guard inputFormat.sampleRate > 0 else {
-            throw RadioError.audioFailed("no usable microphone format")
-        }
+        // Throws rather than letting `installTap` raise an uncatchable ObjC
+        // exception on a format the node cached from a route that is gone.
+        try InputFormatPolicy.validate(
+            inputFormat,
+            sessionSampleRate: AVAudioSession.sharedInstance().sampleRate
+        )
         try rebuildConverterLocked(for: inputFormat)
         // Quiet-transmit investigation: `.voiceChat` puts voice processing on
         // the SESSION, but a plain inputNode tap only gets the node's AGC when
@@ -452,9 +455,14 @@ extension AudioEngine {
 
         let input = engine.inputNode
         let inputFormat = input.outputFormat(forBus: 0)
-        guard inputFormat.sampleRate > 0 else {
-            throw RadioError.audioFailed("no usable microphone format")
-        }
+        // The 2026-08-19 crash site. Throws rather than letting `installTap`
+        // raise an uncatchable ObjC exception on a format the node cached from
+        // a route that is gone; the rebuild path logs it and the next route
+        // event retries.
+        try InputFormatPolicy.validate(
+            inputFormat,
+            sessionSampleRate: AVAudioSession.sharedInstance().sampleRate
+        )
 
         // Idle-floor metering for the quiet-transmit investigation. The var is
         // captured by reference; tap callbacks arrive serially, so no lock.
@@ -488,9 +496,20 @@ extension AudioEngine {
     /// §5's engine rebuild. Ordered the way AVAudioEngine requires it: taps
     /// come off before anything is disconnected (a tap left on a node that is
     /// about to be disconnected is a documented crash), the graph is torn down,
-    /// the hardware is re-queried by touching the I/O nodes, everything is
-    /// reconnected, the tap goes back on at the format the hardware reports NOW,
-    /// and only then does the engine start.
+    /// the I/O nodes are re-materialized, everything is reconnected, the tap
+    /// goes back on at the format the input node reports NOW, and only then does
+    /// the engine start.
+    ///
+    /// Only `recreate: true` genuinely re-queries the hardware. Touching
+    /// `engine.inputNode` below CREATES the node on a fresh engine but does not
+    /// re-resolve it on an engine that already has one: after a route change
+    /// that engine's input node goes on reporting the dead route's format, and
+    /// installing a tap at it raises an ObjC exception Swift cannot catch
+    /// ("Failed to create tap due to format mismatch", -10868), which aborts the
+    /// process — the 2026-08-19 crash. That is why the configuration-change row
+    /// of the reaction table asks for `.recreateEngine`, and why
+    /// `InputFormatPolicy` refuses a stale format on every path that still
+    /// reuses an engine.
     ///
     /// `prepare()` is not called and no main-queue hop is needed: the documented
     /// `inputNode != nullptr || outputNode != nullptr` assertion fires when

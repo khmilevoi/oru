@@ -162,7 +162,15 @@ public enum AudioSessionReactor {
             guard next.isActive else {
                 return AudioSessionReaction(status: next, actions: [])
             }
-            return AudioSessionReaction(status: next, actions: [.rebuildEngine, .publishRoute])
+            // `.recreateEngine`, not `.rebuildEngine` (2026-08-19 device crash):
+            // this event means the hardware format moved, and an AVAudioEngine
+            // that has already resolved its input node keeps reporting the dead
+            // route's format — re-touching `engine.inputNode` does not re-query
+            // the hardware. Reinstalling a tap at that stale format raises an
+            // ObjC exception Swift cannot catch ("Failed to create tap due to
+            // format mismatch", -10868) and the process aborts. A fresh engine
+            // is the only thing that asks the hardware again.
+            return AudioSessionReaction(status: next, actions: [.recreateEngine, .publishRoute])
 
         case .interruptionBegan:
             next.isActive = false

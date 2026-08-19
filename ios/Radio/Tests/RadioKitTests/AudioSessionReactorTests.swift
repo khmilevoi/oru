@@ -152,12 +152,20 @@ final class AudioSessionReactorTests: XCTestCase {
 
     // MARK: - Engine configuration
 
-    func testAnEngineConfigurationChangeRebuildsAndRepublishes() {
+    func testAnEngineConfigurationChangeRecreatesTheEngineAndRepublishes() {
         // §5: the one thing nothing observed before. A route change that alters
         // the hardware sample rate stops AVAudioEngine silently, and the
         // keep-alive tap dies with it — which suspends the whole radio.
+        //
+        // `.recreateEngine`, not `.rebuildEngine` (2026-08-19 device crash): an
+        // AVAudioEngine that has already resolved its input node keeps
+        // reporting the DEAD route's format — touching `engine.inputNode` again
+        // does not re-query the hardware. Reinstalling a tap at that stale
+        // format raises an ObjC exception Swift cannot catch ("Failed to create
+        // tap due to format mismatch", -10868) and the process aborts. Only a
+        // fresh AVAudioEngine asks the hardware again.
         XCTAssertEqual(
-            react(.engineConfigurationChanged, active).actions, [.rebuildEngine, .publishRoute]
+            react(.engineConfigurationChanged, active).actions, [.recreateEngine, .publishRoute]
         )
     }
 
