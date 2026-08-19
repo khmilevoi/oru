@@ -34,12 +34,33 @@ export type PttPairingState = {
   candidates: PttCandidate[];
 };
 
+/** Spec section 8. `usb` renders like `wired`; only `bluetooth` carries a name. */
+export type AudioRouteKind = 'speaker' | 'wired' | 'bluetooth' | 'usb';
+
+/** The two audio profiles of section 7. Never `auto` — `auto` is not a profile. */
+export type AudioProfileMode = 'voice' | 'media';
+
+/** The persisted section 8 setting. `auto` runs the policy; the others pin it. */
+export type AudioMode = 'auto' | 'voice' | 'media';
+
+export type AudioRoute = {
+  kind: AudioRouteKind;
+  /** The accessory's own name, for Bluetooth routes only. */
+  label?: string;
+  /** The profile the engine is actually running. The UI renders it, never computes it. */
+  mode: AudioProfileMode;
+};
+
 export type RadioState = {
   status: RadioStatus;
   nearbyCount: number;
   transmitting: boolean;
   receiving: boolean;
   pttButton: PttButtonState;
+  /** Spec section 8. Always present: there is always a route in use. */
+  audioRoute: AudioRoute;
+  /** Spec section 8. Persisted natively and mirrored here through `stateChanged`. */
+  audioMode: AudioMode;
   /**
    * Present only while a pairing session is running, so an absent field is the
    * normal state. Riding on `RadioState` is what makes `getState()` resume
@@ -72,4 +93,6 @@ export const initialRadioState: RadioState = {
   transmitting: false,
   receiving: false,
   pttButton: {configured: false, connected: false},
+  audioRoute: {kind: 'speaker', mode: 'voice'},
+  audioMode: 'auto',
 };

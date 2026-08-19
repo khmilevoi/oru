@@ -13,6 +13,7 @@ jest.mock('../src/radio/radio.native', () => ({
     configurePtt: jest.fn(),
     selectPttCandidate: jest.fn(),
     forgetPtt: jest.fn(),
+    setAudioMode: jest.fn(),
     subscribe: jest.fn(),
   },
 }));
@@ -40,6 +41,8 @@ const readyState: RadioState = {
   transmitting: false,
   receiving: false,
   pttButton: {configured: true, connected: true, name: 'PTT Button'},
+  audioRoute: {kind: 'speaker', mode: 'voice'},
+  audioMode: 'auto',
 };
 
 const scanningState: RadioState = {

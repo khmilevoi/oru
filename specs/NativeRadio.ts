@@ -28,12 +28,41 @@ export type NativePttPairingState = {
   candidates: Array<NativePttCandidate>;
 };
 
+/**
+ * Spec section 8. Codegen handles a typed alias whose fields are string-literal
+ * unions and one optional string, exactly as `NativePttPairingState` above
+ * proves, so this shape crosses the bridge intact.
+ *
+ * `mode` is the *effective* audio profile the engine is running — never the
+ * user's `audioMode` pin, which is a separate field because `auto` is not a
+ * profile. The UI renders this; it never computes it (section 7 is the
+ * platforms' pure policy).
+ */
+export type NativeAudioRoute = {
+  kind: 'speaker' | 'wired' | 'bluetooth' | 'usb';
+  /**
+   * The accessory's own name, as the platform reports it, for Bluetooth
+   * routes. Absent for every other kind, and absent rather than empty when a
+   * Bluetooth device reports no name.
+   */
+  label?: string;
+  mode: 'voice' | 'media';
+};
+
 export type NativeRadioState = {
   status: 'off' | 'starting' | 'ready' | 'error';
   nearbyCount: number;
   transmitting: boolean;
   receiving: boolean;
   pttButton: NativePttButtonState;
+  /** Spec section 8. Always present: there is always a route in use. */
+  audioRoute: NativeAudioRoute;
+  /**
+   * Spec section 8's persisted setting, published back so JavaScript mirrors
+   * the engine rather than guessing. `auto` runs the section 7 policy;
+   * `voice`/`media` pin the profile.
+   */
+  audioMode: 'auto' | 'voice' | 'media';
   /**
    * Present only while a pairing session is running. Codegen handles an
    * optional alias, a string-literal union and an array of a typed alias, so
@@ -101,6 +130,18 @@ export interface Spec extends TurboModule {
   selectPttCandidate(deviceId: string): Promise<void>;
   /** Must emit `onStateChanged` before resolving — see the note on `start()` above. */
   forgetPtt(): Promise<void>;
+
+  /**
+   * Spec section 8. Stores the setting natively (UserDefaults /
+   * SharedPreferences, the `PttBindingStore` pattern) and applies it. Must
+   * emit `onStateChanged` before resolving — see the note on `start()` above:
+   * the model never writes its mirror from this call's return value.
+   *
+   * Typed `string` and not the union because Codegen accepts string-literal
+   * unions in *type aliases*, not in method parameters. `radio.native.ts`
+   * narrows it on the way in.
+   */
+  setAudioMode(mode: string): Promise<void>;
 
   /**
    * Section 6.1's `RadioNativeEvent` union, split in two: Codegen generates a

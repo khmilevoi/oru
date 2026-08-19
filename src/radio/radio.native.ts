@@ -5,7 +5,7 @@ import {parsePttConfiguration} from '../ptt/ptt.binding';
 import type {PttBindingParseError} from '../ptt/ptt.binding';
 import type {PttConfiguration} from '../ptt/ptt.types';
 import type {Spec} from '../../specs/NativeRadio';
-import type {RadioNativeEvent, RadioState} from './radio.types';
+import type {AudioMode, RadioNativeEvent, RadioState} from './radio.types';
 
 /**
  * Spec section 6.1. The single place in the TypeScript layer that knows a
@@ -57,6 +57,11 @@ export type RadioNativeApi = {
   >;
   selectPttCandidate(deviceId: string): Promise<NativeRadioError | null>;
   forgetPtt(): Promise<NativeRadioError | null>;
+  /**
+   * Section 8. Fire-and-forget: the engine stores the setting and republishes
+   * the state, so the caller never writes the mirror from this result.
+   */
+  setAudioMode(mode: AudioMode): Promise<NativeRadioError | null>;
   subscribe(
     listener: (event: RadioNativeEvent) => void,
   ): NativeRadioError | RadioNativeSubscription;
@@ -97,6 +102,9 @@ export function createRadioNative(resolve: ResolveNativeRadio): RadioNativeApi {
       invokeVoid('selectPttCandidate', native =>
         native.selectPttCandidate(deviceId),
       ),
+
+    setAudioMode: mode =>
+      invokeVoid('setAudioMode', native => native.setAudioMode(mode)),
 
     getState: () => invoke('getState', native => native.getState()),
 

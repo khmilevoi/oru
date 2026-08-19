@@ -47,6 +47,8 @@ const clone = (state: NativeRadioState): NativeRadioState => ({
   transmitting: state.transmitting,
   receiving: state.receiving,
   pttButton: {...state.pttButton},
+  audioRoute: {...state.audioRoute},
+  audioMode: state.audioMode,
   ...(state.pttPairing
     ? {
         pttPairing: {
@@ -84,6 +86,8 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
     transmitting: false,
     receiving: false,
     pttButton: {...MOCK_SCRIPTS[scenario].button, connected: false},
+    audioRoute: {kind: 'speaker', mode: 'voice'},
+    audioMode: 'auto',
   };
 
   const publishState = () => {
@@ -128,6 +132,8 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
       transmitting: state.transmitting,
       receiving: state.receiving,
       pttButton: {...state.pttButton},
+      audioRoute: {kind: 'speaker', mode: 'voice'},
+      audioMode: 'auto',
     };
     reject?.(reason);
   };
@@ -163,6 +169,8 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
     transmitting: false,
     receiving: false,
     pttButton: preservedButton(),
+    audioRoute: {kind: 'speaker', mode: 'voice'},
+    audioMode: 'auto',
   });
 
   const radio: MockRadio = {
@@ -297,6 +305,11 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
       );
     },
 
+    async setAudioMode(mode: string) {
+      apply({audioMode: mode as NativeRadioState['audioMode']});
+      publishState();
+    },
+
     async forgetPtt() {
       state = {
         ...state,
@@ -336,6 +349,8 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
         transmitting: false,
         receiving: false,
         pttButton: {...MOCK_SCRIPTS[scenario].button, connected: false},
+        audioRoute: {kind: 'speaker', mode: 'voice'},
+        audioMode: 'auto',
       };
       publishState();
     },

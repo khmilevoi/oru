@@ -23,6 +23,8 @@ const nativeState: NativeRadioState = {
   transmitting: false,
   receiving: true,
   pttButton: {configured: true, connected: true, name: 'PTT Button'},
+  audioRoute: {kind: 'speaker', mode: 'voice'},
+  audioMode: 'auto',
 };
 
 const pairingState: NativeRadioState = {
@@ -64,6 +66,7 @@ function fakeModule(overrides: Partial<Spec> = {}): Spec {
     configurePtt: jest.fn(async () => nativeConfiguration),
     selectPttCandidate: jest.fn(async () => undefined),
     forgetPtt: jest.fn(async () => undefined),
+    setAudioMode: jest.fn(async () => undefined),
     onStateChanged: jest.fn(() => fakeSubscription().subscription),
     onError: jest.fn(() => fakeSubscription().subscription),
     ...overrides,
