@@ -70,15 +70,28 @@ public struct AudioSessionConfiguration: Equatable {
     /// §5's on-demand speaker, and the wired-headphones fix.
     ///
     /// The rule is a pure function of the CURRENT OUTPUTS and nothing else:
-    /// `.speaker` only when the outputs are solely `builtInReceiver`, `.none`
-    /// whenever any other output is present. It deliberately does not consult
+    /// `.speaker` when the outputs are solely built-in — `builtInReceiver` or
+    /// `builtInSpeaker` — `.none` whenever any external output is present, or
+    /// the route is empty. It deliberately does not consult
     /// `AudioRouteClassifier` — the old code decided the override from a
     /// collapsed classification, which is precisely how wired headphones came
     /// to be overridden to the loudspeaker.
+    ///
+    /// `builtInSpeaker` counts as built-in, not just `builtInReceiver`, because
+    /// applying this very answer via `overrideOutputAudioPort(.speaker)` moves
+    /// `currentRoute.outputs` from `[builtInReceiver]` to `[builtInSpeaker]`.
+    /// This function is re-evaluated against that consequence on every
+    /// `.categoryChange` and app-foreground reaction, so if `builtInSpeaker`
+    /// answered `.none` the override would oscillate on every re-evaluation:
+    /// applied, then immediately cleared. Treating it as built-in makes the
+    /// answer idempotent — the override, once in force for an all-built-in
+    /// route, stays in force.
     public static func speakerOverride(
         forOutputs outputs: [AudioPort]
     ) -> AVAudioSession.PortOverride {
         guard !outputs.isEmpty else { return .none }
-        return outputs.allSatisfy { $0.type == .builtInReceiver } ? .speaker : .none
+        return outputs.allSatisfy { $0.type == .builtInReceiver || $0.type == .builtInSpeaker }
+            ? .speaker
+            : .none
     }
 }

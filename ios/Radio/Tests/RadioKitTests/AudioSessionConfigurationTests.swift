@@ -153,9 +153,39 @@ final class AudioSessionConfigurationTests: XCTestCase {
         )
     }
 
-    func testTheSpeakerItselfNeedsNoOverride() {
+    func testTheSpeakerOverrideIsIdempotentOnceApplied() {
+        // `overrideOutputAudioPort(.speaker)` moves `currentRoute.outputs` from
+        // `[builtInReceiver]` to `[builtInSpeaker]`. If `builtInSpeaker`
+        // answered `.none` here, every re-evaluation after the override took
+        // effect would immediately clear it again.
         XCTAssertEqual(
             AudioSessionConfiguration.speakerOverride(forOutputs: [port(.builtInSpeaker)]),
+            .speaker
+        )
+    }
+
+    func testReEvaluatingAfterTheOverrideTakesEffectStaysAtSpeaker() {
+        // Feed the function its own consequence: the answer for a
+        // receiver-only route, applied, produces a speaker-only route: assert
+        // that re-evaluating against that route answers `.speaker` again
+        // rather than oscillating back to `.none`.
+        let firstAnswer = AudioSessionConfiguration.speakerOverride(
+            forOutputs: [port(.builtInReceiver)]
+        )
+        XCTAssertEqual(firstAnswer, .speaker)
+
+        let routeAfterApplyingTheOverride = [port(.builtInSpeaker)]
+        XCTAssertEqual(
+            AudioSessionConfiguration.speakerOverride(forOutputs: routeAfterApplyingTheOverride),
+            .speaker
+        )
+    }
+
+    func testASpeakerAlongsideAnExternalOutputStillClearsTheOverride() {
+        XCTAssertEqual(
+            AudioSessionConfiguration.speakerOverride(
+                forOutputs: [port(.builtInSpeaker), port(.headphones)]
+            ),
             AVAudioSession.PortOverride.none
         )
     }

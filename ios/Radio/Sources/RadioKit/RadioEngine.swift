@@ -30,12 +30,6 @@ public final class RadioEngine {
     /// sampled every 50 frames so no line is formatted per frame.
     private var rxFrameCounts: [String: Int] = [:]
     private var observers: [String: (RadioEvent) -> Void] = [:]
-    /// The current route as the session classified it (§8). Task 5 feeds it to
-    /// the §7 policy; Task 6 publishes it.
-    private var routeSnapshot = AudioRouteSnapshot(
-        kind: .speaker, label: nil, requiresVoiceLink: false, providesVoiceLink: false
-    )
-    private var isOtherAudioActive = false
     /// §7, merged from P1 and never edited here. Replaced wholesale on
     /// `stopRadio` — it holds dwell and PTT state that must not survive a power
     /// cycle, and P1's file owns its own reset semantics (there are none).
@@ -150,10 +144,6 @@ public final class RadioEngine {
         appliedProfile = .voice
         isPttHeld = false
         isAwaitingVoiceLink = false
-        routeSnapshot = AudioRouteSnapshot(
-            kind: .speaker, label: nil, requiresVoiceLink: false, providesVoiceLink: false
-        )
-        isOtherAudioActive = false
         state = RadioState(
             status: .starting,
             pttButton: ptt.buttonState,
@@ -571,7 +561,6 @@ extension RadioEngine: BackgroundSessionDelegate {
         routeDidChange snapshot: AudioRouteSnapshot
     ) {
         queue.async {
-            self.routeSnapshot = snapshot
             if self.state.audioRoute.kind != snapshot.kind
                 || self.state.audioRoute.label != snapshot.label {
                 self.state.audioRoute.kind = snapshot.kind
@@ -600,7 +589,6 @@ extension RadioEngine: BackgroundSessionDelegate {
         otherAudioActiveDidChange active: Bool
     ) {
         queue.async {
-            self.isOtherAudioActive = active
             self.performLocked(self.policy.setOtherAudioActive(active, nowMs: self.clock.nowMs))
         }
     }
