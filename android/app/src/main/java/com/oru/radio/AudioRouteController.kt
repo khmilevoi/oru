@@ -145,6 +145,7 @@ class AudioRouteController(
         establishing = null
         attempts.clear()
         demoted.clear()
+        reassertCount = 0
         modeRequested = null
         facade.setMode(AudioManager.MODE_NORMAL)
         facade.stop()
@@ -222,6 +223,14 @@ class AudioRouteController(
         // `inForce` to still be the candidate the controller currently wants tells that
         // self-triggered echo apart from the platform genuinely overriding a device we still
         // want.
+        //
+        // In production `addOnCommunicationDeviceChangedListener` is asynchronous, so the echo
+        // for the controller's own switch arrives only after `routeCommunicationTo` has already
+        // assigned `establishing` — by then it is caught by the earlier
+        // `device?.id == target.id` confirmation branch above, before this guard is ever
+        // reached. This guard is therefore inert on real hardware: it exists solely to exclude
+        // the fake's synchronous self-triggered echo in tests, and never weakens genuine
+        // interference detection.
         val stillWanted = inForce != null && inForce.id == pickCandidate()?.id
         if (inForce != null && device?.id != inForce.id && stillWanted) {
             if (reassertCount < MAX_COMMUNICATION_DEVICE_REASSERTS) {
@@ -492,8 +501,10 @@ class AudioRouteController(
      * blacklist" holds either way.
      */
     private fun demote(device: RouteDevice, reason: String) {
-        cancelEstablishTimeout()
-        if (establishing?.id == device.id) establishing = null
+        if (establishing?.id == device.id) {
+            cancelEstablishTimeout()
+            establishing = null
+        }
         if (applied?.id == device.id) applied = null
         facade.stopVoiceLink()
         demoted.add(device.key)
