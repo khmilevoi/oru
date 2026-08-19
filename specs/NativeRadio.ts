@@ -159,6 +159,24 @@ export interface Spec extends TurboModule {
   setAppLocale(locale: string): Promise<void>;
 
   /**
+   * Haptic feedback for the handful of controls `src/app/haptics.ts` calls
+   * key. Like `setAppLocale` this is a leaf with no engine behind it and no
+   * `onStateChanged` echo — it plays one effect and resolves.
+   *
+   * Takes the *effect* (`impactLight` … `notificationSuccess`), never the
+   * intent: which interaction deserves which feel is product policy, and it
+   * stays in one readable TypeScript file so it can be re-tuned without a
+   * native release. Native code owns only the translation from an effect name
+   * to `UIImpactFeedbackGenerator` / `HapticFeedbackConstants`, which is the
+   * part that genuinely cannot live in JavaScript.
+   *
+   * An unrecognised effect resolves silently rather than rejecting. Feedback
+   * is decoration: no interaction may fail because the buzz did not. Typed
+   * `string` and not a union for the same Codegen reason as `setAudioMode`.
+   */
+  performHaptic(effect: string): Promise<void>;
+
+  /**
    * Section 6.1's `RadioNativeEvent` union, split in two: Codegen generates a
    * union of object types as an untyped map, which would erase every field.
    * `radio.native.ts` re-tags these back into the single union. There is no

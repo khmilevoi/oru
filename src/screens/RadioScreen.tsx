@@ -25,6 +25,7 @@ import {
   washes,
 } from '../ui/theme';
 import {lastRadioError, radio, screenState} from '../radio/radio.model';
+import {haptics} from '../app/haptics';
 
 /**
  * Spec section 13. Selected by `status: 'error'` rather than by `screenState`,
@@ -116,7 +117,12 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
     const state = screenState();
 
     if (state === 'off') {
+      // Both the hero key and the whole-screen tap share this, so the buzz is
+      // wired once here rather than at each. In production only one of them
+      // ever runs for a given touch -- the inner `PowerKey` becomes the
+      // responder and the outer `Pressable` never sees the press.
       const startRadio = wrap(() => {
+        haptics.powerOn();
         void radio.start();
       });
 
@@ -179,10 +185,16 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
           testID={testIds.pttArea}
           accessibilityRole="button"
           accessibilityLabel={t`Push to talk`}
+          // The two edges of a transmission are given deliberately different
+          // effects, not one shared buzz: this is the control the user works
+          // without looking, so the feedback has to say *which* edge it just
+          // crossed. See `src/app/haptics.ts` for the whole policy.
           onPressIn={wrap(() => {
+            haptics.transmitStart();
             void radio.pressPtt();
           })}
           onPressOut={wrap(() => {
+            haptics.transmitEnd();
             void radio.releasePtt();
           })}
           style={styles.fill}>
@@ -287,7 +299,13 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
             <PowerKey
               variant="corner"
               holdToConfirm
+              // On `onActivate`, which a hold only reaches once it completes,
+              // so an aborted shut-off stays silent -- the canvas asks for the
+              // close to be "ANNOUNCED BY THAT FLASH AND A HAPTIC"
+              // (design/01 Radio.dc.html:446), and announcing a shut-off that
+              // did not happen would undo the guard the hold exists to be.
               onActivate={wrap(() => {
+                haptics.powerOff();
                 void radio.stop();
               })}
               accessibilityLabel={t`Hold to turn the radio off`}

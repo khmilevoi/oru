@@ -69,6 +69,13 @@ export type RadioNativeApi = {
    */
   getAppLocale(): Promise<NativeRadioError | string | null>;
   setAppLocale(locale: string): Promise<NativeRadioError | null>;
+  /**
+   * Plays one haptic effect. The failure comes back as a value like everything
+   * else here, and `src/app/haptics.ts` — the only caller — discards it: a
+   * device with no haptic engine, or a binary older than this bundle, has to
+   * feel like nothing happened rather than break the press it decorates.
+   */
+  performHaptic(effect: string): Promise<NativeRadioError | null>;
   subscribe(
     listener: (event: RadioNativeEvent) => void,
   ): NativeRadioError | RadioNativeSubscription;
@@ -117,6 +124,12 @@ export function createRadioNative(resolve: ResolveNativeRadio): RadioNativeApi {
 
     setAppLocale: locale =>
       invokeVoid('setAppLocale', native => native.setAppLocale(locale)),
+
+    // `invoke` already turns a missing method into a returned value: calling
+    // `undefined(...)` throws inside its try, which is exactly the JS-bundle-
+    // newer-than-the-binary case this method has to survive.
+    performHaptic: effect =>
+      invokeVoid('performHaptic', native => native.performHaptic(effect)),
 
     getState: () => invoke('getState', native => native.getState()),
 

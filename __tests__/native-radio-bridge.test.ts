@@ -65,7 +65,7 @@ describe('the Android Turbo Module (spec section 6.1)', () => {
     );
   });
 
-  it('implements all eleven amended section 6.1 and 12.2 methods', () => {
+  it('implements all twelve amended section 6.1 and 12.2 methods', () => {
     [
       'start',
       'stop',
@@ -78,6 +78,7 @@ describe('the Android Turbo Module (spec section 6.1)', () => {
       'setAudioMode',
       'getAppLocale',
       'setAppLocale',
+      'performHaptic',
     ].forEach(method => {
       expect(module()).toMatch(new RegExp(`override fun ${method}\\(`));
     });
@@ -150,7 +151,7 @@ describe('the iOS Turbo Module (spec section 6.1)', () => {
     expect(objcpp()).toMatch(/NativeRadioSpecJSI>\(params\)/);
   });
 
-  it('implements all eleven amended section 6.1 and 12.2 selectors', () => {
+  it('implements all twelve amended section 6.1 and 12.2 selectors', () => {
     [
       '- (void)start:(RCTPromiseResolveBlock)resolve',
       '- (void)stop:(RCTPromiseResolveBlock)resolve',
@@ -163,6 +164,7 @@ describe('the iOS Turbo Module (spec section 6.1)', () => {
       '- (void)setAudioMode:(NSString *)mode',
       '- (void)getAppLocale:(RCTPromiseResolveBlock)resolve',
       '- (void)setAppLocale:(NSString *)locale',
+      '- (void)performHaptic:(NSString *)effect',
     ].forEach(selector => expect(objcpp()).toContain(selector));
   });
 

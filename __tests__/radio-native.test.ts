@@ -69,6 +69,7 @@ function fakeModule(overrides: Partial<Spec> = {}): Spec {
     setAudioMode: jest.fn(async () => undefined),
     getAppLocale: jest.fn(async () => null),
     setAppLocale: jest.fn(async () => undefined),
+    performHaptic: jest.fn(async () => undefined),
     onStateChanged: jest.fn(() => fakeSubscription().subscription),
     onError: jest.fn(() => fakeSubscription().subscription),
     ...overrides,

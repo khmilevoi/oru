@@ -144,6 +144,18 @@ RCT_EXPORT_MODULE(NativeRadio)
   resolve(nil);
 }
 
+// Always resolves, never rejects: an effect this binary does not recognise, or
+// a device with no haptic engine, has to feel like nothing happened rather
+// than surface an error into the press it decorates.
+- (void)performHaptic:(NSString *)effect
+              resolve:(RCTPromiseResolveBlock)resolve
+               reject:(RCTPromiseRejectBlock)reject
+{
+  [self attachIfNeeded];
+  [ORURadioBridge.shared performHaptic:effect];
+  resolve(nil);
+}
+
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
     (const facebook::react::ObjCTurboModule::InitParams &)params
 {

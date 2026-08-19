@@ -30,6 +30,7 @@ class NativeRadioModule(private val reactContext: ReactApplicationContext) :
     private val store = SharedPreferencesPttBindingStore(reactContext)
     private val audioModeStore = SharedPreferencesAudioModeStore(reactContext)
     private val appLocaleStore = SharedPreferencesAppLocaleStore(reactContext)
+    private val haptics = HapticPlayer(reactContext)
 
     private val core = RadioBridgeCore(
         output = object : RadioBridgeOutput {
@@ -199,6 +200,20 @@ class NativeRadioModule(private val reactContext: ReactApplicationContext) :
     override fun setAppLocale(locale: String, promise: Promise) {
         attach()
         appLocaleStore.save(locale)
+        promise.resolve(null)
+    }
+
+    /**
+     * Haptic feedback for the key controls. Always resolves, never rejects: an unrecognised
+     * effect, or a device with no haptic hardware, has to feel like nothing happened rather
+     * than surface an error into the press it decorates. See [HapticPlayer] for why this
+     * takes the `performHapticFeedback` path and not the Vibrator.
+     *
+     * No `attach()`: this touches neither the engine nor the event emitters, and a buzz
+     * must never be the thing that starts the radio listener.
+     */
+    override fun performHaptic(effect: String, promise: Promise) {
+        haptics.play(effect)
         promise.resolve(null)
     }
 }

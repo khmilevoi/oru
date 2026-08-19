@@ -359,6 +359,16 @@ export function createMockRadio(options: MockRadioOptions = {}): MockRadio {
       appLocale = locale;
     },
 
+    /**
+     * A no-op with a real signature. There is nothing to simulate — a
+     * simulator has no haptic engine either — and nothing about a buzz ever
+     * reaches `state`, so this deliberately does not `publishState()`. Tests
+     * that care which effect a control plays spy on this method
+     * (`__tests__/haptics.test.tsx`); every other test is unaffected by
+     * screens that now call it.
+     */
+    async performHaptic(_effect: string) {},
+
     onStateChanged(handler) {
       stateListeners.add(handler);
       return {

@@ -21,6 +21,7 @@ import {
   testIds,
   type,
 } from '../ui/theme';
+import {haptics} from '../app/haptics';
 import {radio} from '../radio/radio.model';
 import {
   pairingCandidates,
@@ -60,6 +61,18 @@ export const PairingFlow = reatomComponent<{onClose: () => void}>(
       // Opened once per mount: the flow is a screen, and re-running it on every
       // render would restart the scan under the user's finger.
     }, []);
+
+    /**
+     * The one haptic in this flow, and the one here that answers a wait rather
+     * than a press: the user has been holding a button in front of a scanning
+     * phone and is waiting to be told it took. Keyed on the step so it fires
+     * on the *transition* into `saved` and not on every later render of it;
+     * `Cancel`, `Retry`, `Done` and the candidate rows stay silent, per the
+     * policy in `src/app/haptics.ts`.
+     */
+    useEffect(() => {
+      if (step === 'saved') haptics.paired();
+    }, [step]);
 
     const close = wrap(() => {
       void resetPairing();
