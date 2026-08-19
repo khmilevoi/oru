@@ -81,6 +81,7 @@ describe('specs/NativeRadio.ts is a valid Turbo Module spec', () => {
       'setAudioMode',
       'getAppLocale',
       'setAppLocale',
+      'performHaptic',
     ]);
   });
 

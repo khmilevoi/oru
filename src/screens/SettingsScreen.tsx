@@ -81,6 +81,15 @@ export const SettingsScreen = reatomComponent<{
             </View>
             <View style={styles.actions}>
               <View style={styles.action}>
+                {/* Deliberately no haptic, even though this drives the very
+                    same pressPtt/releasePtt as the main talk area. Its job is
+                    to prove the *external* button works, and it is pressed
+                    while looking at this screen -- a phone buzz would be a
+                    second sensation competing with the one under test, and the
+                    eyes-free confirmation the talk area's haptic exists for
+                    does not apply here. Nothing else on this screen buzzes
+                    either; see src/app/haptics.ts for the full policy and
+                    __tests__/haptics.test.tsx for the pin that keeps it so. */}
                 <ActionButton
                   label={t`Test`}
                   accessibilityLabel={t`Hold to transmit`}

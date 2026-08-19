@@ -1,5 +1,10 @@
 import Foundation
 import RadioKit
+// For `performHaptic` below, and for nothing else. This is the app module, not
+// the RadioKit package -- the engine itself stays free of UIKit, which
+// `__tests__/ios-radio-sources.test.ts` enforces for every file under
+// `ios/Radio/Sources/RadioKit`.
+import UIKit
 
 /// Spec section 6.1, on iOS. The twin of `com.oru.bridge.RadioBridgeCore`: every
 /// decision the bridge makes lives here, and `NativeRadioModule.mm` does nothing
@@ -277,6 +282,35 @@ public final class RadioBridge: NSObject {
 
     @objc public func setAppLocale(_ locale: String) {
         UserDefaults.standard.set(locale, forKey: Self.appLocaleKey)
+    }
+
+    // MARK: - Haptic feedback for the key controls
+
+    /// Plays one effect named by `src/app/haptics.ts`. Which control deserves
+    /// which effect is product policy and stays in TypeScript; this end knows
+    /// only how to make the four effects happen.
+    ///
+    /// `UIFeedbackGenerator` already honours the user's system haptic setting
+    /// and Low Power Mode, so there is deliberately no check here asking
+    /// whether feedback is wanted — reimplementing that is how you get it
+    /// wrong. Generators must be created and fired on the main thread, hence
+    /// the hop. An unrecognised name is ignored rather than trapped, so a JS
+    /// bundle newer than this binary degrades to silence.
+    @objc public func performHaptic(_ effect: String) {
+        DispatchQueue.main.async {
+            switch effect {
+            case "impactLight":
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            case "impactMedium":
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            case "impactHeavy":
+                UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+            case "notificationSuccess":
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            default:
+                break
+            }
+        }
     }
 
     // MARK: - Engine events
