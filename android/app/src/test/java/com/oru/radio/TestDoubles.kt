@@ -82,8 +82,14 @@ class FakeAudioIo : AudioIo {
     // erased JVM signature clashes with the explicit override below.
     var capturedFailureListener: ((String, String) -> Unit)? = null
 
+    val routeChanges = mutableListOf<ModePolicy.Profile>()
+
     override fun setFailureListener(listener: (code: String, message: String) -> Unit) {
         capturedFailureListener = listener
+    }
+
+    override fun onRouteChanged(profile: ModePolicy.Profile) {
+        routeChanges.add(profile)
     }
 
     override fun startCapture(sink: TransmissionSink) {
@@ -149,6 +155,57 @@ class FakePttSource(private var state: PttButtonState = PttButtonState()) : PttS
     override fun forget() {
         forgotten = true
         state = PttButtonState()
+    }
+}
+
+class FakeAudioRouting : AudioRouting {
+    var listener: AudioRouteListener? = null
+    var started = false
+    var stopped = false
+    var pressCount = 0
+    var releaseCount = 0
+    val radioActive = mutableListOf<Boolean>()
+    val audioModes = mutableListOf<ModePolicy.AudioMode>()
+
+    /**
+     * Answers a press with an immediate grant, the way any route with a live mic does. Set to
+     * false to hold the press in the raise, which is the section 7 path a Bluetooth Classic
+     * headset on the MEDIA profile takes.
+     */
+    var autoGrant = true
+
+    override fun start(listener: AudioRouteListener) {
+        this.listener = listener
+        started = true
+    }
+
+    override fun stop() {
+        stopped = true
+    }
+
+    override fun setAudioMode(mode: ModePolicy.AudioMode) {
+        audioModes.add(mode)
+    }
+
+    override fun setRadioActive(active: Boolean) {
+        radioActive.add(active)
+    }
+
+    override fun onPttPressed() {
+        pressCount++
+        if (autoGrant) grant()
+    }
+
+    override fun onPttReleased() {
+        releaseCount++
+    }
+
+    fun grant(mic: ModePolicy.MicSource = ModePolicy.MicSource.ROUTE_DEFAULT) {
+        listener?.onCaptureGranted(mic)
+    }
+
+    fun publish(route: AudioRoute) {
+        listener?.onAudioRouteChanged(route)
     }
 }
 

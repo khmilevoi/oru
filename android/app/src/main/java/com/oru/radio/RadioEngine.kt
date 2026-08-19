@@ -22,9 +22,10 @@ class RadioEngine(
     private val transport: Transport,
     private val audio: AudioIo,
     private val ptt: PttSource,
+    private val routing: AudioRouting,
     private val scheduler: Scheduler,
     private val streamIds: () -> String = { UUID.randomUUID().toString() },
-) : TransportListener, PttListener {
+) : TransportListener, PttListener, AudioRouteListener {
 
     private val listeners = CopyOnWriteArrayList<RadioEngineListener>()
     private val peers = LinkedHashSet<String>()
@@ -36,6 +37,8 @@ class RadioEngine(
     private var currentStreamId: String? = null
     private var currentSink: TransmissionSink? = null
     private var safetyCap: Cancellable? = null
+    /** A press whose capture the section 7 policy has not granted yet. */
+    private var transmitRequested = false
 
     fun addListener(listener: RadioEngineListener) {
         listeners.add(listener)
@@ -54,6 +57,7 @@ class RadioEngine(
         if (running) return@execute
         running = true
         audio.setFailureListener { code, message -> scheduler.execute { fail(code, message) } }
+        routing.start(this)
         transport.start(this)
         ptt.start(this)
         update { it.copy(status = RadioStatus.READY, pttButton = ptt.snapshot()) }
@@ -67,9 +71,10 @@ class RadioEngine(
         peers.clear()
         ptt.stop()
         transport.stop()
+        routing.stop()
         audio.release()
         running = false
-        update { RadioState() }
+        update { RadioState(audioMode = it.audioMode) }
     }
 
     fun startTransmit() = scheduler.execute { startTransmitNow() }
@@ -151,20 +156,42 @@ class RadioEngine(
 
     // --- internals ----------------------------------------------------------------------
 
+    /**
+     * Section 7: a press asks the routing for permission, it does not take it. The transport
+     * stream opens in [beginCapture], once the grant tone has played — so peers never receive
+     * the 1–3 s of an SCO raise as dead air, and the UI never claims to be transmitting into
+     * a microphone that is not live yet.
+     */
     private fun startTransmitNow() {
-        if (!running || state.status == RadioStatus.ERROR || currentStreamId != null) return
+        if (!running || state.status == RadioStatus.ERROR) return
+        if (currentStreamId != null || transmitRequested) return
+        transmitRequested = true
+        routing.onPttPressed()
+    }
 
+    private fun beginCapture(mic: ModePolicy.MicSource) {
+        if (!transmitRequested || currentStreamId != null) return
+        if (!running || state.status == RadioStatus.ERROR) {
+            transmitRequested = false
+            return
+        }
         val streamId = streamIds()
         val sink = transport.openTransmission(streamId)
         currentStreamId = streamId
         currentSink = sink
         audio.startCapture(sink)
-        // Stuck-button protection (spec section 9.4): a hold never lasts past 120 s.
+        // Stuck-button protection (spec section 9.4) starts with the audio, not with the press:
+        // a raise that takes 3 s must not eat 3 s of the 120 s budget.
         safetyCap = scheduler.schedule(RadioConfig.MAX_TRANSMIT_MS) { stopTransmitNow() }
         update { it.copy(transmitting = true) }
     }
 
     private fun stopTransmitNow() {
+        val wasRequested = transmitRequested
+        transmitRequested = false
+        // Every press must be answered by exactly one release, including the presses that
+        // never became a transmission — the policy has no watchdog on an unreleased one.
+        if (wasRequested) routing.onPttReleased()
         val streamId = currentStreamId ?: return
         safetyCap?.cancel()
         safetyCap = null
@@ -179,6 +206,25 @@ class RadioEngine(
         currentStreamId = null
         transport.closeTransmission(streamId)
         update { it.copy(transmitting = false) }
+    }
+
+    // --- routing callbacks ----------------------------------------------------------------
+
+    override fun onAudioRouteChanged(route: AudioRoute) = scheduler.execute {
+        // Section 6 stream survival: the streams rebuild on the next frame with this
+        // profile's attributes, and their error runs reset.
+        audio.onRouteChanged(route.mode)
+        update { it.copy(audioRoute = route) }
+    }
+
+    override fun onCaptureGranted(mic: ModePolicy.MicSource) = scheduler.execute {
+        beginCapture(mic)
+    }
+
+    /** Section 8's pin. Persisted by the bridge; applied here. */
+    fun setAudioMode(mode: ModePolicy.AudioMode) = scheduler.execute {
+        routing.setAudioMode(mode)
+        update { it.copy(audioMode = mode) }
     }
 
     /** An error event on its own: something failed, the radio keeps working. */
@@ -216,7 +262,11 @@ class RadioEngine(
     private fun update(transform: (RadioState) -> RadioState) {
         val next = transform(state)
         if (next == state) return
+        val wasActive = state.receiving || state.transmitting
         state = next
+        val isActive = next.receiving || next.transmitting
+        // Section 7 queues mode switches for radio-idle; this is the edge it queues on.
+        if (isActive != wasActive) routing.setRadioActive(isActive)
         listeners.forEach { it.onStateChanged(next) }
     }
 }

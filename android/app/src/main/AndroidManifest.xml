@@ -8,7 +8,7 @@
     <!-- AudioManager.setMode() is gated on this one: without it AudioService's
          checkAudioSettingsPermission() makes the call a silent no-op, and the radio never
          gets the shared echo-cancelled voice route or the call-stream volume keys it asks
-         for in RadioForegroundService.setCommunicationMode(). Install-time, so nothing has
+         for in AudioRouteController.applyProfile(). Install-time, so nothing has
          to request it at runtime. -->
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 

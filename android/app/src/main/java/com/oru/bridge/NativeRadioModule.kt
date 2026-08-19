@@ -6,7 +6,9 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.oru.radio.RadioController
 import com.oru.radio.RadioEngineListener
 import com.oru.radio.RadioState
+import com.oru.radio.SharedPreferencesAudioModeStore
 import com.oru.radio.SharedPreferencesPttBindingStore
+import com.oru.radio.audioModeFromWire
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -26,6 +28,7 @@ class NativeRadioModule(private val reactContext: ReactApplicationContext) :
     NativeRadioSpec(reactContext) {
 
     private val store = SharedPreferencesPttBindingStore(reactContext)
+    private val audioModeStore = SharedPreferencesAudioModeStore(reactContext)
 
     private val core = RadioBridgeCore(
         output = object : RadioBridgeOutput {
@@ -33,6 +36,7 @@ class NativeRadioModule(private val reactContext: ReactApplicationContext) :
             override fun emitError(code: String, message: String) = publishError(code, message)
         },
         storedConfiguration = { store.load() },
+        storedAudioMode = { audioModeStore.load() },
     )
 
     // The two generated emitters are `protected` on NativeRadioSpec, so they are
@@ -161,14 +165,23 @@ class NativeRadioModule(private val reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Spec section 8, stubbed. Accepts the call so the regenerated spec
-     * compiles and resolves immediately; it stores nothing and changes nothing.
-     * P4 replaces this with the SharedPreferences write and the profile apply,
-     * and with the `onStateChanged` emission `specs/NativeRadio.ts` requires of
-     * every mutating method.
+     * Spec section 8. Stores the pin natively (the `PttBindingStore` pattern) and applies it.
+     *
+     * `radio.native.ts` narrows the string on the way in, but an unknown value still degrades
+     * to `auto` rather than throwing across the bridge.
+     *
+     * With the radio off there is no engine to apply it to, so the store write plus a
+     * re-publish is the whole operation — the same shape `forgetPtt` uses. With the radio on,
+     * the engine publishes the new pin through `onStateChanged` as it applies it; a pin set to
+     * the value it already had changes no state and therefore emits nothing, which is correct:
+     * the JavaScript mirror already holds that value.
      */
     override fun setAudioMode(mode: String, promise: Promise) {
         attach()
+        val parsed = audioModeFromWire(mode)
+        audioModeStore.save(parsed)
+        val engine = RadioController.engine()
+        if (engine == null) core.refresh() else engine.setAudioMode(parsed)
         promise.resolve(null)
     }
 }

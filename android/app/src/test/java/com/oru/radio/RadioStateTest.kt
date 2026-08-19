@@ -65,4 +65,28 @@ class RadioStateTest {
             PttPairingPhase.entries.map { it.wire },
         )
     }
+
+    @Test
+    fun `toMap carries the audio route and the pin`() {
+        val map = RadioState(
+            audioRoute = AudioRoute(AudioRoute.Kind.BLUETOOTH, "Buds Pro", ModePolicy.Profile.MEDIA),
+            audioMode = ModePolicy.AudioMode.MEDIA,
+        ).toMap()
+
+        assertEquals(
+            mapOf("kind" to "bluetooth", "label" to "Buds Pro", "mode" to "media"),
+            map["audioRoute"],
+        )
+        assertEquals("media", map["audioMode"])
+    }
+
+    @Test
+    fun `a route with no label omits the key entirely`() {
+        @Suppress("UNCHECKED_CAST")
+        val route = RadioState().toMap()["audioRoute"] as Map<String, Any?>
+
+        assertEquals("speaker", route["kind"])
+        assertEquals("voice", route["mode"])
+        assertFalse(route.containsKey("label"))
+    }
 }

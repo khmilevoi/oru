@@ -1,9 +1,12 @@
 package com.oru.bridge
 
+import com.oru.radio.AudioRoute
+import com.oru.radio.ModePolicy
 import com.oru.radio.PttBinding
 import com.oru.radio.PttConfiguration
 import com.oru.radio.PttPairingPhase
 import com.oru.radio.RadioState
+import com.oru.radio.wire
 
 /**
  * Everything the Turbo Module hands back to JavaScript. An interface, so
@@ -14,26 +17,6 @@ interface RadioBridgeOutput {
     fun emitState(state: Map<String, Any?>)
     fun emitError(code: String, message: String)
 }
-
-/**
- * Spec section 8, as a compile-keeping stub.
- *
- * The Codegen spec now publishes `audioRoute` and `audioMode`, and JavaScript
- * types both as required, so every projection must carry them or the screens
- * read `undefined` through a type that promises otherwise. P4 replaces this
- * constant with the real `AudioRouteController` output and the real
- * SharedPreferences-backed setting; until then the bridge reports the honest
- * pre-routing truth -- loudspeaker, voice profile, no pin -- and stores nothing.
- *
- * `label` is deliberately absent rather than null: section 8 makes it optional
- * and only a Bluetooth route has one, the same rule `pttButton.name` follows.
- */
-private val PLACEHOLDER_AUDIO_ROUTE: Map<String, Any?> = mapOf(
-    "kind" to "speaker",
-    "mode" to "voice",
-)
-
-private const val PLACEHOLDER_AUDIO_MODE = "auto"
 
 /**
  * The whole of the Android bridge's logic, with no Android and no React Native
@@ -59,6 +42,13 @@ private const val PLACEHOLDER_AUDIO_MODE = "auto"
 class RadioBridgeCore(
     private val output: RadioBridgeOutput,
     private val storedConfiguration: () -> PttConfiguration?,
+    /**
+     * Spec section 8's pin, read from the native store. The engine publishes its own copy
+     * while it is running; this is what the `off`, `starting` and `error` projections
+     * report, so a JavaScript context that attaches to a powered-down radio still mirrors
+     * the setting the user chose.
+     */
+    private val storedAudioMode: () -> ModePolicy.AudioMode,
 ) {
 
     private class PairingRequest(
@@ -199,20 +189,12 @@ class RadioBridgeCore(
 
     private fun project(): Map<String, Any?> {
         val state = lastEngineState
-        val projected = when {
+        return when {
             failed -> offState() + ("status" to "error")
             !running -> offState()
             state == null -> offState() + ("status" to "starting")
             else -> withoutNulls(state.toMap())
         }
-
-        // Added here, after `withoutNulls`, rather than inside `offState()` and
-        // `RadioState.toMap()`: `toMap()` lives in `com.oru.radio`, which this
-        // plan does not own, and one place is one place to delete when P4
-        // publishes the real route.
-        return projected +
-            ("audioRoute" to PLACEHOLDER_AUDIO_ROUTE) +
-            ("audioMode" to PLACEHOLDER_AUDIO_MODE)
     }
 
     /**
@@ -234,6 +216,11 @@ class RadioBridgeCore(
             "transmitting" to false,
             "receiving" to false,
             "pttButton" to button,
+            // Nothing is running, so nothing is routed anywhere: the loudspeaker on the voice
+            // profile is the honest pre-start answer, and it is what the engine's own default
+            // RadioState reports too.
+            "audioRoute" to AudioRoute().toMap(),
+            "audioMode" to storedAudioMode().wire(),
         )
     }
 

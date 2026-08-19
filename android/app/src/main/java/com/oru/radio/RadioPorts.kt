@@ -48,12 +48,59 @@ interface AudioIo {
      * status (spec section 13). May be called from an audio thread.
      */
     fun setFailureListener(listener: (code: String, message: String) -> Unit)
+
+    /**
+     * Section 6: the applied route or profile changed. Capture and playback rebuild their
+     * `AudioRecord`/`AudioTrack` at the next loop iteration with [profile]'s attributes and
+     * reset their consecutive-error counters. Called from the engine's scheduler thread; the
+     * audio threads observe it through volatile state, never by blocking.
+     */
+    fun onRouteChanged(profile: ModePolicy.Profile)
     fun startCapture(sink: TransmissionSink)
     fun stopCapture()
     fun openPlayback(peerId: String)
     fun playFrame(peerId: String, frame: ByteArray)
     fun closePlayback(peerId: String)
     fun release()
+}
+
+/**
+ * Section 6's routing, as the engine drives it. One implementation
+ * ([AudioRouteController]) and one test double.
+ *
+ * Every method returns immediately: the controller posts onto its own thread, so nothing
+ * here ever blocks the engine's.
+ */
+interface AudioRouting {
+    fun start(listener: AudioRouteListener)
+    fun stop()
+
+    /** Section 8's persisted setting. `AUTO` runs the section 7 policy; the others pin it. */
+    fun setAudioMode(mode: ModePolicy.AudioMode)
+
+    /** The radio is receiving or transmitting: section 7 queues switches for idle. */
+    fun setRadioActive(active: Boolean)
+
+    /** Section 7: press then tone then talk. Capture starts on [AudioRouteListener.onCaptureGranted]. */
+    fun onPttPressed()
+
+    fun onPttReleased()
+}
+
+/**
+ * Section 6/7 callbacks out of the route controller. They arrive on the `audio-route`
+ * thread; `RadioEngine` re-posts them onto its own scheduler exactly as it does transport
+ * and PTT callbacks.
+ */
+interface AudioRouteListener {
+    /** The route actually in force changed — publish it and rebuild the audio streams. */
+    fun onAudioRouteChanged(route: AudioRoute)
+
+    /**
+     * Section 7: the talk-permit tone has played and capture may start now. [mic] is
+     * `PHONE_FALLBACK` when the headset link never came up for this transmission.
+     */
+    fun onCaptureGranted(mic: ModePolicy.MicSource)
 }
 
 interface PttSource {
