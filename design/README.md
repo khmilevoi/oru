@@ -100,10 +100,8 @@ build it, the 24 below it and where the gesture-bar inset goes, and the history;
 annotates `.vers` with the same in short. Nothing else in either file changed, and no token
 moved.
 
-`02 Settings.dc.html` and `theme.css` are **owed a DesignSync push** — the branch that made
-this change has no DesignSync tool, so the main session pushes them. Read the remote first:
-the last write was the 2026-08-19 talk-ring correction, and anything on the remote newer
-than that is someone else's and must not be clobbered.
+`02 Settings.dc.html` and `theme.css` were pushed on 2026-08-19 by the main session, in the
+same write as the icon change recorded below.
 
 **2026-08-19 — icons over words.** The product owner: *"Instead of HOLD TO TALK I want
 an icon — it is more laconic and simpler. And in the design generally, try to use icons
@@ -177,9 +175,13 @@ over-builds: the ready ring already sits inside a pressable declaring
 screen reader has ever announced `HOLD TO TALK`. **The glyph costs nothing in accessible
 name — and must not be given a redundant one of its own.**
 
-All five files (`theme.css`, `01 Radio`, `02 Settings`, `03 Pairing`, `04 Onboarding`) are
-**owed a DesignSync push**; the branch that made the change has no DesignSync tool, so the
-main session pushes and verifies, reading the remote first as on the earlier pushes.
+All five files (`theme.css`, `01 Radio`, `02 Settings`, `03 Pairing`, `04 Onboarding`) were
+pushed to the ORU project on 2026-08-19 by the main session, together with the version
+nameplate change above — the branches that made both changes had no DesignSync tool. The
+remote `theme.css` was read first and still matched the talk-ring push, carrying no edits
+of anyone else's, so nothing was clobbered; the write was verified by re-fetching
+`03 Pairing.dc.html` and confirming it carries the signal bars, the relocated scanning dot
+and the shared `.okbig`. `05 Icon.dc.html` is another session's file and was left alone.
 
 Spec §12.1 (`docs/superpowers/specs/2026-08-13-offline-nearby-ptt-design.md`) points at this
 canvas as the source of the visual design, but until now it was never exported — the P6 UI
