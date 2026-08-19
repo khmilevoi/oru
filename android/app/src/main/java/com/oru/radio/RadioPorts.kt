@@ -57,6 +57,29 @@ interface AudioIo {
 }
 
 /**
+ * Section 6's routing, as the engine drives it. One implementation
+ * ([AudioRouteController]) and one test double.
+ *
+ * Every method returns immediately: the controller posts onto its own thread, so nothing
+ * here ever blocks the engine's.
+ */
+interface AudioRouting {
+    fun start(listener: AudioRouteListener)
+    fun stop()
+
+    /** Section 8's persisted setting. `AUTO` runs the section 7 policy; the others pin it. */
+    fun setAudioMode(mode: ModePolicy.AudioMode)
+
+    /** The radio is receiving or transmitting: section 7 queues switches for idle. */
+    fun setRadioActive(active: Boolean)
+
+    /** Section 7: press then tone then talk. Capture starts on [AudioRouteListener.onCaptureGranted]. */
+    fun onPttPressed()
+
+    fun onPttReleased()
+}
+
+/**
  * Section 6/7 callbacks out of the route controller. They arrive on the `audio-route`
  * thread; `RadioEngine` re-posts them onto its own scheduler exactly as it does transport
  * and PTT callbacks.

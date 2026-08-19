@@ -24,7 +24,7 @@ class AudioRouteController(
     private val clock: () -> Long,
     private val policy: ModePolicy,
     private val logger: RouteLogger,
-) : AudioFacadeListener {
+) : AudioRouting, AudioFacadeListener {
 
     companion object {
         /** Section 6: device lists flap during Bluetooth profile negotiation. */
@@ -72,6 +72,19 @@ class AudioRouteController(
 
     /** A voice link the platform accepted but has not yet confirmed. */
     private var establishing: RouteDevice? = null
+
+    private var policyWakeup: Cancellable? = null
+
+    /** Last value handed to the policy, so an unchanged route is not re-announced. */
+    private var routeRequiresVoiceLink = false
+
+    /**
+     * Set inside [onDeviceEvent] when a raise's target disappears mid-establishment, and
+     * consumed at the end of [onDevicesChanged]'s handler: [ModePolicy] must be told the
+     * raise failed rather than be left to wait out its own 4 s grant timeout. Deferred past
+     * [onDeviceEvent] because [reevaluate] there is not yet done rebuilding the device list.
+     */
+    private var pendingLinkLoss = false
 
     /**
      * Platform interference — a cleared or replaced communication device — seen within the
@@ -121,7 +134,7 @@ class AudioRouteController(
 
     // --- lifecycle -------------------------------------------------------------------------
 
-    fun start(listener: AudioRouteListener) = post {
+    override fun start(listener: AudioRouteListener) = post {
         if (started) return@post
         started = true
         this.listener = listener
@@ -130,13 +143,15 @@ class AudioRouteController(
         reevaluate()
     }
 
-    fun stop() = post {
+    override fun stop() = post {
         if (!started) return@post
         started = false
         debounce?.cancel()
         debounce = null
         cancelEstablishTimeout()
         clearModeBackstop()
+        policyWakeup?.cancel()
+        policyWakeup = null
         if (applied != null || establishing != null) {
             facade.stopVoiceLink()
             facade.clearCommunicationDevice()
@@ -159,6 +174,27 @@ class AudioRouteController(
      * platform callback — but a test that changes the world without an event does.
      */
     fun reevaluateNow() = post { reevaluate() }
+
+    // --- policy inputs -----------------------------------------------------------------------
+
+    override fun setAudioMode(mode: ModePolicy.AudioMode) = post {
+        logger.log("route: audio mode t=${clock()}ms -> $mode")
+        apply(policy.setAudioMode(mode, clock()))
+    }
+
+    override fun setRadioActive(active: Boolean) = post {
+        apply(policy.setRadioActive(active, clock()))
+    }
+
+    override fun onPttPressed() = post {
+        logger.log("route: ptt pressed t=${clock()}ms profile=$profile")
+        apply(policy.pttPressed(clock()))
+    }
+
+    override fun onPttReleased() = post {
+        logger.log("route: ptt released t=${clock()}ms")
+        apply(policy.pttReleased(clock()))
+    }
 
     // --- platform callbacks ------------------------------------------------------------------
 
@@ -186,6 +222,10 @@ class AudioRouteController(
                 debounce = null
                 reevaluate()
             }
+        }
+        if (pendingLinkLoss) {
+            pendingLinkLoss = false
+            apply(policy.voiceLinkFailed(clock()))
         }
     }
 
@@ -281,7 +321,59 @@ class AudioRouteController(
     override fun onOtherAudioActiveChanged(active: Boolean) = post {
         if (!started) return@post
         logger.log("route: other audio t=${clock()}ms -> $active")
+        // Raw and undebounced on purpose: the 2 s / 30 s dwell lives in the shared policy so
+        // both platforms debounce identically.
+        apply(policy.setOtherAudioActive(active, clock()))
+    }
+
+    // --- the decision funnel ------------------------------------------------------------------
+
+    /**
+     * The one place a [ModePolicy.Decision] reaches the platform.
+     *
+     * The profile is applied *before* the actions, so an action that assumes the new profile
+     * — the grant tone on the media path, capture over a link the raise just brought up —
+     * sees it in force. `RaiseVoiceLink` and `DropVoiceLink` need no separate handling: the
+     * policy already reports VOICE as the requested profile while it holds a link, so
+     * [reevaluate] raises and drops it as an ordinary profile apply.
+     */
+    private fun apply(decision: ModePolicy.Decision) {
+        if (decision.profile != profile) {
+            logger.log("route: profile t=${clock()}ms $profile -> ${decision.profile}")
+            profile = decision.profile
+        }
+        scheduleWakeup(decision.nextWakeupMs)
         reevaluate()
+        decision.actions.forEach(::perform)
+    }
+
+    private fun perform(action: ModePolicy.Action) {
+        when (action) {
+            // Satisfied by the profile apply above.
+            ModePolicy.Action.RaiseVoiceLink, ModePolicy.Action.DropVoiceLink -> Unit
+            ModePolicy.Action.PlayGrantTone -> {
+                logger.log("route: grant tone t=${clock()}ms profile=$profile")
+                facade.playGrantTone(profile)
+            }
+            is ModePolicy.Action.StartCapture -> {
+                logger.log("route: capture granted t=${clock()}ms mic=${action.mic}")
+                listener?.onCaptureGranted(action.mic)
+            }
+        }
+    }
+
+    /**
+     * The policy owns no timer; this is the one it asks for. Re-read after every decision:
+     * a null obliges the caller to cancel the outstanding timer, not merely to skip a new one.
+     */
+    private fun scheduleWakeup(atMs: Long?) {
+        policyWakeup?.cancel()
+        policyWakeup = null
+        val at = atMs ?: return
+        policyWakeup = scheduler.schedule((at - clock()).coerceAtLeast(0L)) {
+            policyWakeup = null
+            if (started) apply(policy.tick(clock()))
+        }
     }
 
     // --- the funnel ---------------------------------------------------------------------------
@@ -300,6 +392,7 @@ class AudioRouteController(
             if (establishing?.id == device.id) {
                 cancelEstablishTimeout()
                 establishing = null
+                pendingLinkLoss = true
             }
         }
     }
@@ -323,21 +416,32 @@ class AudioRouteController(
     private fun evaluateOnce() {
         if (!started) return
         devices = facade.devices().filterNot(RoutePicker::isWatch)
-        val candidate = pickCandidate()
-        applyProfile(candidate)
+        val requires = RoutePicker.requiresVoiceLink(voiceCandidate())
+        if (requires != routeRequiresVoiceLink) {
+            routeRequiresVoiceLink = requires
+            // apply() re-enters reevaluate, so this pass is stale; the loop runs again.
+            apply(policy.setRouteRequiresVoiceLink(requires, clock()))
+            return
+        }
+        applyProfile(pickCandidate())
         publish(routeInForce())
     }
 
     /**
-     * The input-capable external the radio should run through, or null for the phone mic.
-     * MEDIA has none by definition (§6: "none — headset stays on A2DP").
+     * The best input-capable external available, regardless of the current profile. The
+     * policy needs this one — "would reaching the accessory's mic need a BT-Classic link?" is
+     * a question about the hardware, not about the profile, and answering it from the MEDIA
+     * candidate (always null) would make the policy flap straight back to VOICE.
      */
-    private fun pickCandidate(): RouteDevice? {
+    private fun voiceCandidate(): RouteDevice? {
         if (noisyGuardActive()) return null
-        if (profile == ModePolicy.Profile.MEDIA) return null
         return RoutePicker.inputCandidates(devices, facade.connectedHfpAddresses())
             .firstOrNull { it.key !in demoted }
     }
+
+    /** What this profile should actually select. MEDIA selects nothing: the headset stays on A2DP. */
+    private fun pickCandidate(): RouteDevice? =
+        if (profile == ModePolicy.Profile.MEDIA) null else voiceCandidate()
 
     /**
      * Section 11's three-row policy table, kept whole: a selected headset mic runs in
@@ -465,6 +569,9 @@ class AudioRouteController(
         applied = device
         attempts.remove(device.key)
         logger.log("route: established t=${clock()}ms ${device.productName}")
+        // Reported unconditionally: the policy ignores an outcome it is not waiting for, so
+        // the controller needs no "was this raise mine?" bookkeeping.
+        apply(policy.voiceLinkEstablished(clock()))
     }
 
     /**
@@ -484,11 +591,11 @@ class AudioRouteController(
             "route: establishment failed t=${clock()}ms ${device.productName} " +
                 "attempt=$count/$MAX_ESTABLISH_ATTEMPTS reason=$reason",
         )
-        if (count >= MAX_ESTABLISH_ATTEMPTS) {
-            demote(device, reason)
-        } else {
-            reevaluateAgain = true
-        }
+        if (count >= MAX_ESTABLISH_ATTEMPTS) demote(device, reason)
+        // apply() re-enters reevaluate(); since this runs from inside the loop, that sets
+        // reevaluateAgain instead of recursing, which is what re-drives the retry (or, once
+        // demoted, the fallback) without a bare `reevaluateAgain = true` here.
+        apply(policy.voiceLinkFailed(clock()))
     }
 
     /**
