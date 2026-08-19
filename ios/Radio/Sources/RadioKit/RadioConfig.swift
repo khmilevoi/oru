@@ -85,6 +85,11 @@ public enum RadioConfig {
         /// letting go yet. Signal's pattern: 0.5 s apart, three times.
         public static let activationRetryDelay: TimeInterval = 0.5
         public static let activationRetryLimit = 3
+
+        /// §8's persisted setting. The native side owns the storage — there is
+        /// no JavaScript store in this app and adding one would move
+        /// package.json for no benefit (the `PttBindingStore` precedent).
+        public static let audioModeDefaultsKey = "radio.audio.mode"
     }
 
     public enum Spike {

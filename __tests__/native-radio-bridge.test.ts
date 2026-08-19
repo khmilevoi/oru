@@ -162,18 +162,40 @@ describe('the iOS Turbo Module (spec section 6.1)', () => {
     ].forEach(selector => expect(objcpp()).toContain(selector));
   });
 
-  it('projects the section 8 placeholder route without touching RadioKit', () => {
+  // P3 ios-routing task 6: RadioKit now classifies the route and persists the
+  // mode setting for real, so the bridge's section 8 compile-keeping
+  // placeholders (`placeholderAudioRoute`, `placeholderAudioMode`) are gone.
+  // The invariant they protected -- the bridge carries no routing logic of
+  // its own -- still holds: `projectLocked()` forwards RadioKit's own
+  // `RadioState.asDictionary`, only optimistically overriding `audioMode`
+  // while a `setAudioMode` call is in flight, and the off-state fallback
+  // reads the real `AudioModeStore`/`AudioRoute()` rather than a literal.
+  it('projects the real section 8 route/mode through RadioState, not a bridge-side stub', () => {
     const swift = read('ios/Oru/RadioBridge.swift');
 
-    expect(swift).toContain('placeholderAudioRoute');
-    expect(swift).toMatch(/"kind": "speaker"/);
-    expect(swift).toMatch(/"mode": "voice"/);
-    // Asserts on the constant name, not the literal "auto": a source-grep for
-    // the literal is satisfied by a doc comment as readily as by the
-    // projecting code, and proves nothing about what gets projected.
-    expect(swift).toContain('placeholderAudioMode = "auto"');
-    expect(swift).toMatch(/"audioMode": placeholderAudioMode/);
-    // The real classification is P3's; the stub carries no routing logic.
+    expect(swift).not.toContain('placeholderAudioRoute');
+    expect(swift).not.toContain('placeholderAudioMode');
+
+    // The happy path is RadioState.asDictionary verbatim -- audioRoute and
+    // audioMode travel with it, not reconstructed here.
+    expect(swift).toMatch(/var dictionary = state\.asDictionary/);
+
+    // setAudioMode optimistically projects the new setting immediately (spec
+    // section 8: onStateChanged must fire before the promise resolves), and
+    // the override is cleared once the engine's own snapshot agrees.
+    expect(swift).toContain('pendingAudioMode = setting');
+    expect(swift).toMatch(/dictionary\["audioMode"\] = pendingAudioMode\.rawValue/);
+    expect(swift).toMatch(/state\.audioMode == pendingAudioMode/);
+
+    // The off state (radio never started, or stopped) reports the real
+    // persisted setting and the real default route -- not a stub literal.
+    expect(swift).toMatch(/"audioRoute": AudioRoute\(\)\.asDictionary/);
+    expect(swift).toMatch(
+      /"audioMode": \(pendingAudioMode \?\? audioModeStore\.load\(\)\)\.rawValue/,
+    );
+
+    // The real classification is RadioKit's; the bridge carries no routing
+    // logic of its own.
     expect(swift).not.toMatch(/AVAudioSession/);
   });
 

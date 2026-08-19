@@ -237,12 +237,30 @@ public final class RadioBridge: NSObject {
         engine.forgetPtt()
     }
 
-    /// Spec section 8, stubbed. Accepts the call so the regenerated spec
-    /// compiles; it stores nothing and changes nothing. P3 replaces this with
-    /// the UserDefaults write, the profile apply, and the `onStateChanged`
-    /// emission `specs/NativeRadio.ts` requires of every mutating method.
+    /// §8. Stores the setting natively (through the engine, which owns the
+    /// UserDefaults write) and applies it. `specs/NativeRadio.ts` requires an
+    /// `onStateChanged` emission before the promise resolves, so the new value
+    /// is projected here and now — the same trick `start()` uses for `running`
+    /// — and the engine's own snapshot supersedes it when it arrives.
+    ///
+    /// An unparseable value changes nothing but is still answered with a state
+    /// emission, so a confused JavaScript mirror re-syncs to the truth.
     @objc public func setAudioMode(_ mode: String) {
+        let setting = AudioModeSetting(rawValue: mode)
+
+        lock.lock()
+        pendingAudioMode = setting
+        let projected = projectLocked()
+        lock.unlock()
+
+        emit(state: projected)
+        guard let setting else { return }
+        engine.setAudioMode(setting)
     }
+
+    /// Set the moment `setAudioMode` is called, cleared when the engine's own
+    /// snapshot agrees. Guarded by `lock` like every other mutable field here.
+    private var pendingAudioMode: AudioModeSetting?
 
     // MARK: - Engine events
 
@@ -256,6 +274,9 @@ public final class RadioBridge: NSObject {
     private func handle(state: RadioState) {
         lock.lock()
         lastState = state
+        if state.audioMode == pendingAudioMode {
+            pendingAudioMode = nil
+        }
         let projected = projectLocked()
         lock.unlock()
 
@@ -280,32 +301,9 @@ public final class RadioBridge: NSObject {
 
     // MARK: - Projection
 
-    /// Spec section 8, as a compile-keeping stub — the twin of Android's
-    /// `PLACEHOLDER_AUDIO_ROUTE`.
-    ///
-    /// The Codegen spec now publishes `audioRoute` and `audioMode`, and
-    /// JavaScript types both as required, so every projection must carry them.
-    /// P3 replaces this with the real route classification and the real
-    /// UserDefaults-backed setting; until then the bridge reports the honest
-    /// pre-routing truth — loudspeaker, voice profile, no pin — and stores
-    /// nothing.
-    ///
-    /// It lives here and not in `RadioKit`'s `RadioState.asDictionary` on
-    /// purpose: `ios/Radio` is P3's tree, and one place is one place to delete
-    /// when the real publication lands.
-    ///
-    /// `label` is deliberately absent rather than `NSNull`: section 8 makes it
-    /// optional and only a Bluetooth route has one — the same rule
-    /// `pttButton.name` follows.
-    private let placeholderAudioRoute: [String: Any] = [
-        "kind": "speaker",
-        "mode": "voice"
-    ]
-
-    /// Kept as its own constant rather than folded into `placeholderAudioRoute`:
-    /// P3 replaces the two independently — route classification and the
-    /// UserDefaults-backed mode setting are unrelated pieces of work.
-    private let placeholderAudioMode = "auto"
+    /// The same store the engine writes, read directly so the off state can
+    /// report the real setting without hopping the engine queue under `lock`.
+    private let audioModeStore = AudioModeStore()
 
     /// Caller holds `lock`.
     private func projectLocked() -> NSDictionary {
@@ -320,14 +318,21 @@ public final class RadioBridge: NSObject {
         }
 
         var dictionary = state.asDictionary
-        dictionary["audioRoute"] = placeholderAudioRoute
-        dictionary["audioMode"] = placeholderAudioMode
+        if let pendingAudioMode {
+            dictionary["audioMode"] = pendingAudioMode.rawValue
+        }
         return dictionary as NSDictionary
     }
 
     /// `radio.native.mock.ts`'s `toOffState()` + `preservedButton()`: the button
     /// survives a power cycle (section 9.2 stores it natively) but is never
     /// reported connected while nothing is running.
+    ///
+    /// The route reported with the radio off is the honest one: with no session
+    /// there is no route, and §9's first row is the loudspeaker in VOICE. The
+    /// setting, by contrast, is real — it is read from the same store the
+    /// engine writes, so the settings screen shows the truth before the radio
+    /// has ever started.
     private func offDictionary(status: String) -> NSDictionary {
         // `buttonState` does a `queue.sync` onto PttManager's own queue while we
         // hold `lock`. Analysed and safe: that queue is `com.oru.radio.ptt`,
@@ -343,8 +348,8 @@ public final class RadioBridge: NSObject {
             "transmitting": false,
             "receiving": false,
             "pttButton": button.asDictionary,
-            "audioRoute": placeholderAudioRoute,
-            "audioMode": placeholderAudioMode
+            "audioRoute": AudioRoute().asDictionary,
+            "audioMode": (pendingAudioMode ?? audioModeStore.load()).rawValue
         ] as NSDictionary
     }
 }

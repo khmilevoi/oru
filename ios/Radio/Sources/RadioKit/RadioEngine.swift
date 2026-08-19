@@ -50,6 +50,9 @@ public final class RadioEngine {
     private var isPttHeld = false
     /// A `raiseVoiceLink` is in flight and a route change must answer it.
     private var isAwaitingVoiceLink = false
+    /// §8's persisted setting. `RadioAssembly` supplies the production store;
+    /// tests inject one against a private `UserDefaults` suite.
+    private let audioModeStore: AudioModeStore
 
     public init(
         transport: RadioTransport,
@@ -57,7 +60,8 @@ public final class RadioEngine {
         ptt: PttSource,
         background: BackgroundSession,
         clock: RadioClock,
-        queue: DispatchQueue
+        queue: DispatchQueue,
+        audioModeStore: AudioModeStore = AudioModeStore()
     ) {
         self.transport = transport
         self.audio = audio
@@ -65,6 +69,7 @@ public final class RadioEngine {
         self.background = background
         self.clock = clock
         self.queue = queue
+        self.audioModeStore = audioModeStore
 
         transport.delegate = self
         audio.delegate = self
@@ -110,6 +115,8 @@ public final class RadioEngine {
         background.activate()
         // The route and the other-audio state arrive from the session's own
         // publication (they are delivered on this queue, after this returns).
+        state.audioMode = audioModeStore.load()
+        performLocked(policy.setAudioMode(state.audioMode.policyMode, nowMs: clock.nowMs))
         performLocked(policy.setRadioActive(false, nowMs: clock.nowMs))
 
         do {
@@ -147,7 +154,11 @@ public final class RadioEngine {
             kind: .speaker, label: nil, requiresVoiceLink: false, providesVoiceLink: false
         )
         isOtherAudioActive = false
-        state = RadioState(status: .starting, pttButton: ptt.buttonState)
+        state = RadioState(
+            status: .starting,
+            pttButton: ptt.buttonState,
+            audioMode: audioModeStore.load()
+        )
         emitStateLocked()
         log.info("radio stopped")
     }
@@ -293,6 +304,19 @@ public final class RadioEngine {
         }
     }
 
+    /// §8's setting. Stores it natively and applies it — `specs/NativeRadio.ts`
+    /// requires both, and requires the state emission the callers read.
+    public func setAudioMode(_ setting: AudioModeSetting) {
+        queue.async {
+            self.audioModeStore.save(setting)
+            self.state.audioMode = setting
+            self.emitStateLocked()
+            self.performLocked(
+                self.policy.setAudioMode(setting.policyMode, nowMs: self.clock.nowMs)
+            )
+        }
+    }
+
     // MARK: - Mode policy (§7)
 
     /// One decision, performed. `ModePolicy.swift` states the iOS rule this
@@ -303,6 +327,10 @@ public final class RadioEngine {
         if decision.profile != appliedProfile {
             appliedProfile = decision.profile
             background.applyProfile(decision.profile)
+            // §8's `mode` is the *effective* profile, so it moves with the
+            // apply and not with the user's pin.
+            state.audioRoute.mode = AudioRoute.Mode(decision.profile)
+            emitStateLocked()
         }
 
         for action in decision.actions {
@@ -544,6 +572,12 @@ extension RadioEngine: BackgroundSessionDelegate {
     ) {
         queue.async {
             self.routeSnapshot = snapshot
+            if self.state.audioRoute.kind != snapshot.kind
+                || self.state.audioRoute.label != snapshot.label {
+                self.state.audioRoute.kind = snapshot.kind
+                self.state.audioRoute.label = snapshot.label
+                self.emitStateLocked()
+            }
             self.performLocked(
                 self.policy.setRouteRequiresVoiceLink(
                     snapshot.requiresVoiceLink, nowMs: self.clock.nowMs

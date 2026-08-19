@@ -14,6 +14,8 @@ final class RadioEngineModeTests: XCTestCase {
     private var clock: ManualClock!
     private var queue: DispatchQueue!
     private var engine: RadioEngine!
+    private var defaults: UserDefaults!
+    private var suiteName: String!
 
     override func setUp() {
         super.setUp()
@@ -23,16 +25,25 @@ final class RadioEngineModeTests: XCTestCase {
         background = FakeBackground()
         clock = ManualClock()
         queue = DispatchQueue(label: "radio.engine.mode.tests")
+        suiteName = "radio.engine.mode.tests.\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: suiteName)!
         engine = RadioEngine(
             transport: transport,
             audio: audio,
             ptt: ptt,
             background: background,
             clock: clock,
-            queue: queue
+            queue: queue,
+            audioModeStore: AudioModeStore(defaults: defaults)
         )
         engine.startRadio()
         flush()
+    }
+
+    override func tearDown() {
+        defaults.removePersistentDomain(forName: suiteName)
+        defaults = nil
+        super.tearDown()
     }
 
     private func flush() {
@@ -313,5 +324,57 @@ final class RadioEngineModeTests: XCTestCase {
         )
         XCTAssertEqual(audio.grantTones, 1, "no further capture activity after stopping")
         XCTAssertEqual(background.transmitRequests, 1)
+    }
+
+    // MARK: - §8 publication
+
+    private func currentState() -> RadioState {
+        var captured = RadioState()
+        let done = expectation(description: "state")
+        engine.getState { state in
+            captured = state
+            done.fulfill()
+        }
+        wait(for: [done], timeout: 1)
+        return captured
+    }
+
+    func testTheRouteIsPublishedIntoState() {
+        background.publishRoute(hfp)
+        flush()
+
+        let route = currentState().audioRoute
+        XCTAssertEqual(route.kind, .bluetooth)
+        XCTAssertEqual(route.label, "AirPods Pro")
+        XCTAssertEqual(route.mode, .voice)
+    }
+
+    func testTheModeFollowsTheAppliedProfile() {
+        reachMedia()
+        XCTAssertEqual(currentState().audioRoute.mode, .media)
+    }
+
+    func testPinningTheModeAppliesTheProfileAndIsPublished() {
+        // §7: "`voice`/`media` pin the profile".
+        background.publishRoute(a2dp)
+        flush()
+
+        engine.setAudioMode(.media)
+        flush()
+
+        XCTAssertEqual(background.appliedProfiles, [.media])
+        XCTAssertEqual(currentState().audioMode, .media)
+        XCTAssertEqual(currentState().audioRoute.mode, .media)
+    }
+
+    func testAPinnedModeSurvivesAPowerCycle() {
+        engine.setAudioMode(.voice)
+        flush()
+        engine.stopRadio()
+        flush()
+        engine.startRadio()
+        flush()
+
+        XCTAssertEqual(currentState().audioMode, .voice)
     }
 }
