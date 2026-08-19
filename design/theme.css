@@ -238,6 +238,15 @@ a:hover { color: oklch(0.8 0.17 152); }
   border-radius: 18px;
   padding: 24px 22px;
 }
+/* The build nameplate. `position: absolute` here is a canvas device, not the layout:
+   a `.phone` is a fixed 390x844 box with `overflow: hidden` and can never scroll, so
+   pinning is the only way a still image can show this row resting at the foot of the
+   screen. In the app the nameplate is the LAST ITEM OF THE SETTINGS CONTENT, in flow --
+   it rests on the bottom edge while the content is short (which is every frame drawn
+   here, so canvas and app agree pixel for pixel) and scrolls away with the content once
+   it is not. It must never be built as an overlay floating above the list. Full rule in
+   the VERSION NAMEPLATE canvas note in `02 Settings.dc.html`. The 24px below it is real
+   and is kept; on a device the gesture-bar inset goes underneath that. */
 .vers {
   position: absolute;
   left: 0;

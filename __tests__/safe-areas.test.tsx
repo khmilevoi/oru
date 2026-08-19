@@ -1,5 +1,5 @@
 import React from 'react';
-import {StyleSheet} from 'react-native';
+import {ScrollView, StyleSheet} from 'react-native';
 import {context} from '@reatom/core';
 
 import {BackgroundStep, backgroundStepTestIds} from '../src/screens/BackgroundStep';
@@ -39,6 +39,7 @@ function flatStyle(screen: RenderedScreen, testID: string) {
   return StyleSheet.flatten(styled.props.style) as {
     paddingTop?: number;
     paddingBottom?: number;
+    marginBottom?: number;
     bottom?: number;
   };
 }
@@ -170,17 +171,30 @@ describe('the chassis clears the home indicator / gesture bar', () => {
     screen.unmount();
   });
 
-  it('the settings version footer anchors its own bottom inset', async () => {
+  it('the settings version nameplate clears the gesture bar', async () => {
     const screen = await renderScreen(
       <SettingsScreen onBack={jest.fn()} onConnectPress={jest.fn()} />,
       {insets: INSETS},
     );
 
-    // The `.vers` row is absolutely positioned against the frame, so the
-    // frame's own bottom padding never reaches it: it must state
-    // `24 + insets.bottom` itself (design review of 2026-08-19).
+    // The `.vers` row used to be absolutely positioned against the frame and
+    // state `24 + insets.bottom` as its own `bottom`. It is now the last
+    // element *inside* the scroll content, so the same clearance is spelled in
+    // two parts: its own bottom margin (the canvas's 24) plus the bottom inset
+    // the frame hands to the content container. The guarantee is unchanged --
+    // at least 24 + the gesture bar below the nameplate -- so this asserts the
+    // sum rather than one absolute offset.
+    const scroll = screen.root.findByType(ScrollView);
+    const contentPadding =
+      (
+        StyleSheet.flatten(scroll.props.contentContainerStyle) as {
+          paddingBottom?: number;
+        }
+      ).paddingBottom ?? 0;
+
     expect(
-      flatStyle(screen, testIds.settingsVersion).bottom ?? 0,
+      (flatStyle(screen, testIds.settingsVersion).marginBottom ?? 0) +
+        contentPadding,
     ).toBeGreaterThanOrEqual(spacing.lg + INSETS.bottom);
 
     screen.unmount();

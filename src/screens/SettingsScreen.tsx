@@ -3,7 +3,6 @@ import {StyleSheet, Text, View} from 'react-native';
 import {Trans, useLingui} from '@lingui/react/macro';
 import {reatomComponent} from '@reatom/react';
 import {wrap} from '@reatom/core';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import {ActionButton} from '../ui/ActionButton';
 import {ScreenFrame} from '../ui/ScreenFrame';
@@ -14,17 +13,6 @@ import {radio} from '../radio/radio.model';
 import {resolveLocale} from '../i18n';
 import type {AppLocale} from '../i18n';
 import type {AudioMode} from '../radio/radio.types';
-
-/**
- * How much clear space the scrolling list owes the pinned `.vers` row.
- *
- * The row's top edge sits `24 + lineHeight` off the frame's bottom (plus the
- * gesture bar inset, added at the call site), and being absolutely positioned
- * it contributes no flow height at all -- so without this the last card would
- * scroll to rest underneath it. `spacing.md` on top is the breathing room the
- * canvas leaves between the last card and the nameplate.
- */
-const versionClearance = spacing.lg + type.version.lineHeight + spacing.md;
 
 /**
  * Spec section 12: a single "PTT button" section, configured or not.
@@ -38,7 +26,6 @@ export const SettingsScreen = reatomComponent<{
 }>(({onBack, onConnectPress}) => {
   const {t, i18n} = useLingui();
   const button = radio().pttButton;
-  const insets = useSafeAreaInsets();
 
   const audioModes: ReadonlyArray<{value: AudioMode; label: string}> = [
     {value: 'auto', label: t`Auto`},
@@ -59,38 +46,18 @@ export const SettingsScreen = reatomComponent<{
       title={t`Settings`}
       backLabel={t`Back`}
       backTestID={testIds.settingsBack}
-      // Not `bottom`: the version footer below is absolutely positioned
-      // against the frame and adds `insets.bottom` to its own `bottom`
-      // itself. Padding the frame's bottom edge as well would apply the
-      // inset twice to that one row.
-      edges={['top', 'left', 'right']}
+      // All four edges, the frame's default. Nothing on this screen is pinned
+      // against the bottom any more, so the frame takes its scroll-content
+      // branch for the bottom inset: it spends the gesture-bar inset on the
+      // content container, where it lands under the version nameplate that
+      // closes the content rather than shortening the viewport above it.
+      //
       // Three stacked sections, two of them carrying multi-line notes, is
       // already more than a small device shows at the system font size, and
       // nothing in the app caps font scaling. The header bar stays pinned; the
       // sections scroll under it.
       scrollable
       scrollTestID={testIds.settingsScroll}
-      scrollContentStyle={{paddingBottom: versionClearance + insets.bottom}}
-      overlay={
-        <Text
-          testID={testIds.settingsVersion}
-          // `.vers` sits 24pt off the canvas frame's bottom; on a device the
-          // frame's bottom is the physical screen edge, so the home indicator
-          // / gesture bar inset is added ahead of the canvas measurement.
-          //
-          // Pinned rather than scrolled in as a trailing element: the canvas
-          // draws `.vers` absolutely against `.phone`, not at the end of the
-          // content, and it is a permanent nameplate for the build rather than
-          // a row of the settings list. `scrollContentStyle` above pays for
-          // that by keeping the list from ever sliding underneath it.
-          style={[
-            type.version,
-            styles.version,
-            {bottom: spacing.lg + insets.bottom},
-          ]}>
-          OFFLINE NEARBY PTT · V0.1
-        </Text>
-      }
       onBack={onBack}>
       <Text style={[type.label, styles.sectionLabel]}>
         <Trans>PTT button</Trans>
@@ -214,6 +181,9 @@ export const SettingsScreen = reatomComponent<{
         />
       </View>
 
+      <Text testID={testIds.settingsVersion} style={styles.version}>
+        OFFLINE NEARBY PTT · V0.1
+      </Text>
     </ScreenFrame>
   );
 }, 'SettingsScreen');
@@ -246,12 +216,31 @@ const styles = StyleSheet.create({
   actions: {flexDirection: 'row', gap: 12, marginTop: spacing.gutter},
   action: {flex: 1},
   connect: {marginTop: spacing.gutter},
+  /**
+   * The build nameplate, the last element of the scrolled content.
+   *
+   * The canvas draws `.vers` absolutely against `.phone` at `bottom: 24`, and
+   * the app copied that as a `ScreenFrame` overlay -- a row hovering above the
+   * list, which the product owner rejected on sight. In flow instead:
+   *
+   * - `marginTop: 'auto'` is the whole of "nailed to the bottom". The frame's
+   *   content container is `flexGrow: 1`, so it is at least a viewport tall;
+   *   the auto margin eats whatever of that the sections leave over and drops
+   *   the nameplate onto the bottom edge. Once the content does overflow there
+   *   is no free space, the auto margin resolves to 0, and the nameplate simply
+   *   trails the last card instead of floating over it.
+   * - `paddingTop` and not a second margin, because an auto margin cannot also
+   *   carry a number: this is the minimum breathing room below the last card,
+   *   for the overflowing case where the auto margin has collapsed away.
+   * - `marginBottom` is the canvas's own 24 under the nameplate. The gesture
+   *   bar inset goes *below* that, added by the frame to the content
+   *   container, which reproduces the old `bottom: 24 + insets.bottom` exactly.
+   */
   version: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    // `bottom` is supplied inline at the call site: it depends on the
-    // safe-area insets, which only exist inside the component.
+    ...type.version,
+    marginTop: 'auto',
+    paddingTop: spacing.md,
+    marginBottom: spacing.lg,
     textAlign: 'center',
     color: colors.textGhost,
   },
