@@ -20,6 +20,7 @@
           .btnrow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 22px; }
           .offname { font-size: 19px; font-weight: 400; color: var(--dim); }
           .connectbtn { margin-top: 22px; }
+          .devrow + .note { margin-top: 18px; }
 
           /* ---- audio mode segmented control ---- */
           .seg { display: flex; border: 1px solid var(--line2); border-radius: 14px; overflow: hidden; }
@@ -78,7 +79,14 @@
           <div class="shead"><span class="back">←</span><span class="stitle">{{ t.title }}</span></div>
           <div class="slabel">{{ t.section }}</div>
           <div class="card">
-            <div class="offname">{{ t.off }}</div>
+            <!-- The dot is STATE-COLOURED (`.pdot.off`, 2026-08-19). This frame used
+                 to have no dot at all while frame 01 had a green one, which let the
+                 app ship a green dot next to "Not connected". Same row, same dot,
+                 `--faint` and unlit. -->
+            <div class="devrow">
+              <span class="pdot off"></span>
+              <div><div class="offname">{{ t.off }}</div></div>
+            </div>
             <div class="note">{{ t.note }}</div>
             <div class="btn solid connectbtn">{{ t.connect }}</div>
           </div>
@@ -97,6 +105,8 @@
 
       <div class="canvasnote">
         <div>AUDIO · ONE SETTING — AUDIOMODE: AUTO | VOICE | MEDIA · DEFAULT AUTO (SELECTED IN BOTH FRAMES) · LABELS: AUTO = AUTO / АВТО, VOICE = RADIO / РАЦИЯ, MEDIA = MUSIC / МУЗЫКА · NO DEVICE PICKER — ROUTING IS AUTOMATIC, THIS PIN IS THE ESCAPE HATCH</div>
+        <div>CONNECTION DOT (FIXED 2026-08-19) · STATE-COLOURED, NEVER DECORATIVELY GREEN · CONNECTED = `--GREEN` + 14PT GLOW · NOT CONNECTED = `--FAINT`, NO GLOW · BOTH FRAMES CARRY THE SAME `.DEVROW` SO THE TWO STATES ARE ONE COMPONENT, NOT TWO LAYOUTS · THE WORD BESIDE IT ALWAYS SAYS WHICH, SO HUE IS NEVER LOAD-BEARING</div>
+        <div>AUTO / RADIO / MUSIC STAY WORDS · A SPEAKER-VS-NOTE GLYPH HERE WOULD READ AS “OUTPUT DEVICE”, THE EXACT WRONG MENTAL MODEL — ROUTING IS AUTOMATIC AND THIS PIN IS THE ESCAPE HATCH · AND “AUTO” HAS NO GLYPH · SEE THE ICON SYSTEM NOTE ON 01 RADIO</div>
         <div>LANGUAGE (ADDED 2026-08-19) · IN-APP PICKER — OVERRIDES THE SYSTEM LOCALE, STORED NATIVELY · OPTIONS ARE ENDONYMS “ENGLISH / РУССКИЙ”, NEVER TRANSLATED · SELECTION FOLLOWS THE LANG TWEAK · NATIVE NOTIFICATION / PERMISSION STRINGS STILL FOLLOW THE SYSTEM LOCALE</div>
       </div>
 

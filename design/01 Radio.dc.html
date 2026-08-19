@@ -25,22 +25,29 @@
              border: the same 3px of green, on the same box. */
           .ringrx { border-color: var(--green); box-shadow: inset 0 0 0 1px var(--green), 0 0 90px 0 oklch(0.72 0.17 152 / 0.28); color: var(--green); }
           .bigword { font-size: 34px; }
-          .holden { font-size: 40px; white-space: pre-line; }
+          /* `.holden` (the 40px "HOLD TO TALK" headline) was deleted 2026-08-19 — the ready
+             ring carries the microphone glyph now, not a word. `.holdword` stays: the ru
+             "RADIO OFF" copy and the power-off seal line still use it. */
           .holdword { font-size: 33px; line-height: 1.3; white-space: pre-line; }
           .scantext { font-size: 15px; letter-spacing: 0.16em; color: var(--dim); text-transform: uppercase; }
           .txhint { color: oklch(0.78 0.12 27); }
           /* The area under the ring, RESERVED IN EVERY RING STATE so the centred column --
              and with it the ring -- never re-flows between states. Two lines of `.subhint`
              (36px), not one: the reservation has to hold the longest translation, and the
-             Russian "ОТПУСТИТЕ ЧТОБЫ ЗАКОНЧИТЬ" wraps where the English does not. Only
-             frame 04 puts copy in it; every other ring frame reserves it empty. */
+             Russian "ОТПУСТИТЕ ЧТОБЫ ЗАКОНЧИТЬ" wraps where the English does not. Frames 03
+             (ready) and 04 (transmitting) put copy in it; every other ring frame reserves it
+             empty. Nothing here is ever a NEW sibling of the ring -- the slot is the one
+             place under the ring that may carry text, which is exactly why the ready state's
+             hold caption lives in it. */
           .hintslot { height: 36px; align-self: stretch; display: flex; align-items: center; justify-content: center; padding: 0 22px; text-align: center; }
           .canvasnote { position: absolute; left: 48px; top: 968px; font: 500 11px/1.8 var(--mono); letter-spacing: 0.14em; color: #5a636b; text-transform: uppercase; white-space: nowrap; }
           .canvasnote.hold { left: 3648px; width: 2140px; white-space: normal; }
           /* Stacked under the general note rather than beside it: the general note is
              `nowrap` and already runs out past frame 05. */
           .canvasnote.geometry { top: 1104px; width: 2140px; white-space: normal; }
-          .canvasnote.hold b, .canvasnote.geometry b { color: #7d868e; font-weight: 600; }
+          /* Stacked under the geometry note, which now runs to roughly 1400. */
+          .canvasnote.icons { top: 1440px; width: 2140px; white-space: normal; }
+          .canvasnote.hold b, .canvasnote.geometry b, .canvasnote.icons b { color: #7d868e; font-weight: 600; }
 
           /* ---- radio power control ---- */
           .phone.off { background: #070809; }
@@ -57,6 +64,11 @@
             color: var(--faint);
           }
           .pwr.dim { opacity: 0.34; }
+          /* CANVAS-ONLY CONSTRUCTION. A conic-gradient behind a radial mask is the one
+             glyph on this canvas that is NOT expressible in React Native -- neither
+             primitive exists there. The app draws its own power mark; any rebuild must
+             use the partial-border arc trick, never a gradient. Flagged in the ICON
+             SYSTEM note so nobody transcribes this literally. */
           .pwrmark { --s: 21px; --b: 2px; position: relative; width: var(--s); height: var(--s); }
           .pwrmark.big { --s: 112px; --b: 5px; color: var(--faint); }
           .pwrring {
@@ -113,19 +125,24 @@
           .ringhold { border-color: var(--line); }
           .sealcopy { color: var(--amber); }
           .holdword.sm { font-size: 27px; }
+          /* The mic recedes with the rest of the stage in frame 12's abort. */
+          .receded { opacity: 0.5; }
 
           /* ---- audio route readout (indicator only — never a picker) ---- */
           .routeline {
             display: flex;
             align-items: center;
-            gap: 9px;
+            gap: var(--icon-sm-gap);
             font-size: 11px;
             letter-spacing: 0.14em;
             text-transform: uppercase;
             color: var(--faint);
             white-space: nowrap;
           }
-          .routeline svg { flex: none; }
+          /* The inline idiom's box, enforced rather than merely stated. These SVGs are
+             a CANVAS convenience only — the app has no SVG renderer and builds these
+             four glyphs from Views like every other one. */
+          .routeline svg { flex: none; width: var(--icon-sm); height: var(--icon-sm); }
           .route {
             position: absolute;
             left: 90px;
@@ -134,7 +151,7 @@
             justify-content: center;
           }
 
-          /* ---- 08 · route readout states sheet ---- */
+          /* ---- 08 · route readout states sheet · 14 · glyph sheet ---- */
           .routesheet {
             width: 390px;
             background: var(--bg);
@@ -176,6 +193,21 @@
             color: #5a636b;
             text-transform: uppercase;
           }
+          /* frame 14 only — the spec captions are sentences, not one-liners */
+          .rsrow.glyph { gap: 16px; padding: 18px 0 20px; }
+          /* `.rsrow` centres on `flex-start`, which sizes children to max-content — fine
+             for frame 08's one-line readouts, useless for a spec sentence. */
+          .rsrow.glyph > * { align-self: stretch; }
+          .rsrow.glyph .rsstate { white-space: normal; line-height: 1.8; }
+          .gsart { display: flex; align-items: center; gap: 30px; min-height: 28px; }
+          /* A 24 gear and a 12 bar chart are unreadable printed at size, so the sheet
+             shows each once at size and once at 3x. `transform` does not reflow, so the
+             blow-up gets a box of its own to sit in. */
+          /* `transform` does not reflow, so a 3x copy would bleed out of a box sized to
+             the glyph. The blow-up takes the rest of the row and centres in it. */
+          .gsblow { flex: 1; min-width: 78px; height: 78px; display: flex; align-items: center; justify-content: center; }
+          .gsblow > * { transform: scale(3); }
+          .gsdots { display: flex; align-items: center; gap: 10px; }
         </style>
       </helmet>
 
@@ -191,7 +223,7 @@
               <div class="subhint">{{ t.offHint }}</div>
             </div>
           </div>
-          <div class="gear">⚙&#xFE0E;</div>
+          <div class="gear" role="button" aria-label="{{ t.settings }}"><i class="gearmark" aria-hidden="true"><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="ghub"></i></i></div>
         </div>
       </div>
 
@@ -209,7 +241,7 @@
             </div>
             <div class="scantext">{{ t.search }}</div>
           </div>
-          <div class="gear">⚙&#xFE0E;</div>
+          <div class="gear" role="button" aria-label="{{ t.settings }}"><i class="gearmark" aria-hidden="true"><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="ghub"></i></i></div>
           <div class="pwr"><div class="pwrmark"><i class="pwrring"></i><i class="pwrstem"></i></div></div>
           <div class="routeline route"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.2h2.6L8.4 2v10L4.6 8.8H2z" fill="currentColor" stroke="none"/><path d="M10.6 4.6a3.4 3.4 0 0 1 0 4.8"/></svg><span>{{ t.routeSpeaker }}</span></div>
         </div>
@@ -221,12 +253,18 @@
           <div class="sbar"><span>14:32</span><span class="batt"></span></div>
           <div class="peer"><span class="pdot"></span><span>{{ t.nearby }}</span></div>
           <div class="stage">
+            <!-- The ring's word block became the microphone on 2026-08-19. The ring is a
+                 fixed box, so its child may change freely; nothing was added or removed
+                 as a SIBLING of the ring. The pressable around it already carries the
+                 accessible name (`t.holdA11y`), so the glyph itself is decorative. -->
             <div class="ring">
-              <div class="{{ t.holdCls }}">{{ t.hold }}</div>
+              <i class="micmark" aria-hidden="true"><i class="miccap"></i><i class="miccradle"></i><i class="micstem"></i><i class="micbase"></i></i>
             </div>
-            <div class="hintslot"></div>
+            <!-- The one word a static glyph cannot say. In the slot that was already
+                 reserved and empty here, so it costs zero layout. -->
+            <div class="hintslot"><div class="subhint">{{ t.holdHint }}</div></div>
           </div>
-          <div class="gear">⚙&#xFE0E;</div>
+          <div class="gear" role="button" aria-label="{{ t.settings }}"><i class="gearmark" aria-hidden="true"><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="ghub"></i></i></div>
           <div class="pwr"><div class="pwrmark"><i class="pwrring"></i><i class="pwrstem"></i></div></div>
           <div class="routeline route"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ t.routeBtVoice }}</span></div>
         </div>
@@ -244,7 +282,7 @@
             </div>
             <div class="hintslot"><div class="subhint txhint">{{ t.txHint }}</div></div>
           </div>
-          <div class="gear">⚙&#xFE0E;</div>
+          <div class="gear" role="button" aria-label="{{ t.settings }}"><i class="gearmark" aria-hidden="true"><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="ghub"></i></i></div>
           <div class="pwr dim"><div class="pwrmark"><i class="pwrring"></i><i class="pwrstem"></i></div></div>
           <div class="routeline route"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 10.5V7a4.4 4.4 0 0 1 8.8 0v3.5"/><rect x="1.6" y="8.6" width="2.4" height="3.6" rx="1" fill="currentColor" stroke="none"/><rect x="10" y="8.6" width="2.4" height="3.6" rx="1" fill="currentColor" stroke="none"/></svg><span>{{ t.routeWired }}</span></div>
         </div>
@@ -262,7 +300,7 @@
             </div>
             <div class="hintslot"></div>
           </div>
-          <div class="gear">⚙&#xFE0E;</div>
+          <div class="gear" role="button" aria-label="{{ t.settings }}"><i class="gearmark" aria-hidden="true"><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="ghub"></i></i></div>
           <div class="pwr dim"><div class="pwrmark"><i class="pwrring"></i><i class="pwrstem"></i></div></div>
           <div class="routeline route"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ t.routeBtMedia }}</span></div>
         </div>
@@ -280,7 +318,7 @@
               <div class="subhint">{{ alt.offHint }}</div>
             </div>
           </div>
-          <div class="gear">⚙&#xFE0E;</div>
+          <div class="gear" role="button" aria-label="{{ alt.settings }}"><i class="gearmark" aria-hidden="true"><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="ghub"></i></i></div>
         </div>
       </div>
 
@@ -290,12 +328,16 @@
           <div class="sbar"><span>14:32</span><span class="batt"></span></div>
           <div class="peer"><span class="pdot"></span><span>{{ alt.nearby }}</span></div>
           <div class="stage">
+            <!-- THE WHOLE POINT OF THE CHANGE, IN ONE FRAME. This ring used to carry
+                 «УДЕРЖИВАЙТЕ ЧТОБЫ ГОВОРИТЬ» — so long that the design had to drop the
+                 type scale from 40 to 33 and pre-break it across two lines. The glyph is
+                 identical in both locales; only the one-word caption is translated. -->
             <div class="ring">
-              <div class="{{ alt.holdCls }}">{{ alt.hold }}</div>
+              <i class="micmark" aria-hidden="true"><i class="miccap"></i><i class="miccradle"></i><i class="micstem"></i><i class="micbase"></i></i>
             </div>
-            <div class="hintslot"></div>
+            <div class="hintslot"><div class="subhint">{{ alt.holdHint }}</div></div>
           </div>
-          <div class="gear">⚙&#xFE0E;</div>
+          <div class="gear" role="button" aria-label="{{ alt.settings }}"><i class="gearmark" aria-hidden="true"><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="ghub"></i></i></div>
           <div class="pwr"><div class="pwrmark"><i class="pwrring"></i><i class="pwrstem"></i></div></div>
           <div class="routeline route"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ alt.routeBtVoice }}</span></div>
         </div>
@@ -304,22 +346,26 @@
       <div class="frame" style="left:3198px;top:56px" data-screen-label="Radio — Audio route readout, all states">
         <div class="flabel" data-drags-parent="1">radio · 08 audio route readout · all states</div>
         <div class="routesheet">
-          <div class="rshead">AUDIO ROUTE READOUT · BOTTOM CENTRE, BETWEEN GEAR AND POWER · INDICATOR ONLY — NEVER A PICKER, NO TAP TARGET</div>
+          <div class="rshead">AUDIO ROUTE READOUT · BOTTOM CENTRE, BETWEEN GEAR AND POWER · INDICATOR ONLY — NEVER A PICKER, NO TAP TARGET · THE GENERIC DEVICE WORD WAS DROPPED 2026-08-19: THE GLYPH ALREADY SAYS IT</div>
           <div class="rsrow">
             <div class="routeline"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.2h2.6L8.4 2v10L4.6 8.8H2z" fill="currentColor" stroke="none"/><path d="M10.6 4.6a3.4 3.4 0 0 1 0 4.8"/></svg><span>{{ t.routeSpeaker }}</span></div>
             <div class="rsstate">speaker · voice</div>
           </div>
           <div class="rsrow">
             <div class="routeline"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 10.5V7a4.4 4.4 0 0 1 8.8 0v3.5"/><rect x="1.6" y="8.6" width="2.4" height="3.6" rx="1" fill="currentColor" stroke="none"/><rect x="10" y="8.6" width="2.4" height="3.6" rx="1" fill="currentColor" stroke="none"/></svg><span>{{ t.routeWired }}</span></div>
-            <div class="rsstate">wired · voice</div>
+            <div class="rsstate">wired · voice — same word, different glyph</div>
           </div>
           <div class="rsrow">
             <div class="routeline"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ t.routeBtVoice }}</span></div>
-            <div class="rsstate">bluetooth · voice</div>
+            <div class="rsstate">bluetooth · voice — only bt adds a name</div>
           </div>
           <div class="rsrow">
             <div class="routeline"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ t.routeBtMedia }}</span></div>
             <div class="rsstate">bluetooth · media</div>
+          </div>
+          <div class="rsrow">
+            <div class="routeline"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ t.routeBtAnon }}</span></div>
+            <div class="rsstate">bluetooth · voice · headset reports no name</div>
           </div>
           <div class="rsrow">
             <div class="routeline"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.2h2.6L8.4 2v10L4.6 8.8H2z" fill="currentColor" stroke="none"/><path d="M10.6 4.6a3.4 3.4 0 0 1 0 4.8"/></svg><span>{{ alt.routeSpeaker }}</span></div>
@@ -337,7 +383,7 @@
             <div class="routeline"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ alt.routeBtMedia }}</span></div>
             <div class="rsstate">bluetooth · media · {{ alt.name }}</div>
           </div>
-          <div class="rsnote">USB ROUTES RENDER LIKE WIRED · BLUETOOTH SHOWS THE HEADSET NAME AS REPORTED, OTHER KINDS A GENERIC LABEL · VOICE MODE READS “RADIO”, MEDIA READS “MUSIC, PHONE MIC”</div>
+          <div class="rsnote">THE DEVICE WORD IS GONE · THE GLYPH SAYS SPEAKER / WIRED / BLUETOOTH, AND SAYS IT IN EVERY LOCALE AT ONCE · USB ROUTES STILL RENDER LIKE WIRED · ONLY A BLUETOOTH ROUTE ADDS TEXT OF ITS OWN — THE HEADSET NAME EXACTLY AS THE OS REPORTS IT, NEVER TRANSLATED; A HEADSET THAT REPORTS NO NAME READS AS THE MODE ALONE · THE MODE STAYS A WORD: “RADIO” / “MUSIC, PHONE MIC” IS A POLICY STATEMENT ABOUT WHAT THE HEADSET IS BEING USED FOR, NOT A STATE, AND NO GLYPH SAYS IT · THE READOUT IS THE ONE PLACE THE SMALL 14 / 1.5 INLINE IDIOM IS USED</div>
         </div>
       </div>
 
@@ -357,7 +403,7 @@
             <i class="seal b" style="width:176px"></i>
             <i class="seal r" style="height:176px"></i>
           </div>
-          <div class="gear">⚙&#xFE0E;</div>
+          <div class="gear" role="button" aria-label="{{ t.settings }}"><i class="gearmark" aria-hidden="true"><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="ghub"></i></i></div>
           <div class="pwr arm"><div class="pwrmark"><i class="pwrring"></i><i class="pwrstem"></i></div></div>
           <div class="routeline route"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ t.routeBtVoice }}</span></div>
         </div>
@@ -380,7 +426,7 @@
             <i class="seal r" style="height:644px"></i>
             <i class="seal l" style="height:286px"></i>
           </div>
-          <div class="gear">⚙&#xFE0E;</div>
+          <div class="gear" role="button" aria-label="{{ t.settings }}"><i class="gearmark" aria-hidden="true"><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="ghub"></i></i></div>
           <div class="pwr arm"><div class="pwrmark"><i class="pwrring"></i><i class="pwrstem"></i></div></div>
           <div class="routeline route"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ t.routeBtVoice }}</span></div>
         </div>
@@ -404,7 +450,7 @@
             <i class="seal l" style="height:754px"></i>
             <i class="seal t" style="width:300px"></i>
           </div>
-          <div class="gear">⚙&#xFE0E;</div>
+          <div class="gear" role="button" aria-label="{{ t.settings }}"><i class="gearmark" aria-hidden="true"><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="ghub"></i></i></div>
           <div class="pwr arm"><div class="pwrmark"><i class="pwrring"></i><i class="pwrstem"></i></div></div>
           <div class="routeline route"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ t.routeBtVoice }}</span></div>
         </div>
@@ -417,9 +463,9 @@
           <div class="peer"><span class="pdot"></span><span>{{ t.nearby }}</span></div>
           <div class="stage">
             <div class="ring">
-              <div class="{{ t.holdCls }}" style="opacity:0.5">{{ t.hold }}</div>
+              <i class="micmark receded" aria-hidden="true"><i class="miccap"></i><i class="miccradle"></i><i class="micstem"></i><i class="micbase"></i></i>
             </div>
-            <div class="hintslot"></div>
+            <div class="hintslot"><div class="subhint receded">{{ t.holdHint }}</div></div>
           </div>
           <div class="sealing abort">
             <div class="sealwash" style="opacity:0.22"></div>
@@ -429,7 +475,7 @@
             <i class="seal b" style="width:257px"></i>
             <i class="seal r" style="height:257px"></i>
           </div>
-          <div class="gear">⚙&#xFE0E;</div>
+          <div class="gear" role="button" aria-label="{{ t.settings }}"><i class="gearmark" aria-hidden="true"><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="ghub"></i></i></div>
           <div class="pwr"><div class="pwrmark"><i class="pwrring"></i><i class="pwrstem"></i></div></div>
           <div class="routeline route"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ t.routeBtVoice }}</span></div>
         </div>
@@ -452,9 +498,58 @@
             <i class="seal r" style="height:644px"></i>
             <i class="seal l" style="height:286px"></i>
           </div>
-          <div class="gear">⚙&#xFE0E;</div>
+          <div class="gear" role="button" aria-label="{{ alt.settings }}"><i class="gearmark" aria-hidden="true"><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="ghub"></i></i></div>
           <div class="pwr arm"><div class="pwrmark"><i class="pwrring"></i><i class="pwrstem"></i></div></div>
           <div class="routeline route"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 4.4 10.4 9.8 7 12.5 7 1.5 10.4 4.2 3.6 9.6"/></svg><span>{{ alt.routeBtVoice }}</span></div>
+        </div>
+      </div>
+
+      <div class="frame" style="left:5898px;top:56px" data-screen-label="Radio — Icon system, glyph sheet">
+        <div class="flabel" data-drags-parent="1">radio · 14 icon system · glyph sheet</div>
+        <div class="routesheet">
+          <div class="rshead">ICON SYSTEM · EVERY GLYPH HERE IS VIEWS + BORDERS · NO SVG RENDERER, NO ICON FONT, NO ICON LIBRARY, NO EMOJI CODEPOINT — AND NONE MAY BE ADDED · RULES IN THE ICON SYSTEM NOTE UNDER THE FRAMES</div>
+
+          <div class="rsrow glyph">
+            <div class="gsart">
+              <i class="micmark"><i class="miccap"></i><i class="miccradle"></i><i class="micstem"></i><i class="micbase"></i></i>
+            </div>
+            <div class="rsstate">TALK MIC · CONTROL IDIOM · 160 BOX · 3.5 STROKE · <b>--INK</b> · BORDER-BOX, SO EVERY FIGURE IS AN OUTER DIMENSION · CAPSULE 60 × 92 AT (50, 13), RADIUS 30 · CRADLE 96 × 48 AT (32, 81) — NO TOP BORDER, BOTH BOTTOM RADII 48, WHICH IS THE PARTIAL-BORDER ARC TRICK · STEM 3.5 × 14 AT (78.25, 129) · BASE 50 × 3.5 AT (55, 143), RADIUS 1.75 · GLYPH BOX 96 × 133.5, CENTRED · THE SAME FRACTIONS AT 176 / 2.5 ARE THE ONBOARDING PAGE MARK — ONE GLYPH, TWO IDIOMS, ONLY THE BOX AND THE STROKE CHANGE</div>
+          </div>
+
+          <div class="rsrow glyph">
+            <div class="gsart">
+              <span style="color:var(--faint)"><i class="gearmark"><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="ghub"></i></i></span>
+              <span class="gsblow" style="color:var(--faint)"><i class="gearmark"><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="gt"></i><i class="ghub"></i></i></span>
+            </div>
+            <div class="rsstate">SETTINGS GEAR · CHROME IDIOM · 24 BOX · <b>--FAINT</b> · SHOWN AT SIZE, THEN AT 3× · EIGHT TEETH 3 × 6, RADIUS 1, EACH ANCHORED TOP-CENTRE OF A WRAPPER ROTATED K × 45° ABOUT THE BOX CENTRE — NO TRIGONOMETRY, NO PER-TOOTH COORDINATES · HUB RING INSET 5 AT 2 STROKE, WHICH THE TEETH OVERLAP BY 1 SO IT READS AS ONE PIECE · NO PUNCH-OUT: THREE OF THIS SCREEN'S FIVE STATES HAVE A GRADIENT CHASSIS AND A HOLE PAINTED IN THE CHASSIS COLOUR WOULD NOT SURVIVE THERE · REPLACES THE CODEPOINT U+2699, WHICH RENDERS AS A COLOUR EMOJI WITHOUT VS15 AND CANNOT BE RELIED ON ANDROID</div>
+          </div>
+
+          <div class="rsrow glyph">
+            <div class="gsart">
+              <span class="sig" style="color:var(--faint)"><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i></span>
+              <span class="sig" style="color:var(--faint)"><i class="f"></i><i class="f"></i><i></i><i></i></span>
+              <span class="gsblow" style="color:var(--faint)"><span class="sig"><i class="f"></i><i class="f"></i><i class="f"></i><i></i></span></span>
+            </div>
+            <div class="rsstate">SIGNAL · SMALL IDIOM BUT BARS, NOT STROKES — A 1.5 OUTLINE AT THIS SIZE GREYS INTO MUSH · 14.5 × 12 BOX · FOUR BARS 2.5 WIDE, 1.5 APART, 4 / 6.5 / 9 / 11.5 TALL ON ONE BASELINE, RADIUS 1.25 · FILLED <b>CURRENTCOLOR</b>, UNFILLED <b>--LINE2</b> · RSSI → BARS: ≥ −55 IS FOUR, −55 TO −67 THREE, −67 TO −80 TWO, BELOW −80 ONE · THE DBM FIGURE ALWAYS STAYS BESIDE IT</div>
+          </div>
+
+          <div class="rsrow glyph">
+            <div class="gsart">
+              <span class="gsdots"><span class="pdot"></span><span class="pdot off"></span></span>
+              <span class="gsblow"><span class="gsdots"><span class="pdot"></span><span class="pdot off"></span></span></span>
+            </div>
+            <div class="rsstate">CONNECTION DOT · 9 CIRCLE · LIVE IS <b>--GREEN</b> WITH A 14 GLOW, NOT LIVE IS <b>--FAINT</b> WITH NO GLOW · STATE-COLOURED ALWAYS: A GREEN DOT BESIDE “NOT CONNECTED” IS THE ONE THING ON A SCREEN THAT CAN CONTRADICT ITS OWN LABEL · THE WORD BESIDE IT ALWAYS SAYS WHICH, SO HUE IS NEVER LOAD-BEARING</div>
+          </div>
+
+          <div class="rsrow glyph">
+            <div class="gsart">
+              <span class="obdots" style="padding-top:0"><i class="done"></i><i class="on"></i><i></i></span>
+              <span class="gsblow"><span class="obdots" style="padding-top:0"><i class="done"></i><i class="on"></i><i></i></span></span>
+            </div>
+            <div class="rsstate">ONBOARDING STEPS · DONE IS A FILLED 6 <b>--GREEN</b> · CURRENT IS AN 18 × 6 PILL, RADIUS 3, <b>--INK</b> · PENDING IS A HOLLOW 6 AT 1PT <b>--LINE2</b> · THREE SHAPES, NOT THREE HUES — THESE DOTS ARE NOW THE ONLY STEP INDICATOR ON THE SCREEN, SO COLOUR ALONE MAY NOT CARRY THEM</div>
+          </div>
+
+          <div class="rsnote">EVERY GLYPH ON THIS SHEET IS DECORATIVE AND HIDDEN FROM THE ACCESSIBILITY TREE · THE WORD EACH ONE REPLACED MOVED TO THE ACCESSIBLE NAME OF THE CONTROL AROUND IT — IT WAS NEVER DELETED · THE SMALL 14 / 1.5 INLINE IDIOM IS NOT REPEATED HERE: FRAME 08 IS ITS REFERENCE · THE POWER MARK IS NOT HERE EITHER — THE CANVAS DRAWS IT WITH A CONIC GRADIENT AND A MASK, NEITHER OF WHICH EXISTS IN REACT NATIVE, AND IT MUST NOT BE TRANSCRIBED LITERALLY</div>
         </div>
       </div>
 
@@ -465,18 +560,19 @@
         <div>TIMING · ONE ANIMATED VALUE 0→1 OVER 1200MS (`--seal-ms`, THE EXISTING `motion.powerHoldMs`), LINEAR — A HOLD METER MUST NOT EASE OR IT LIES ABOUT HOW MUCH IS LEFT. BREAKPOINTS ARE DERIVED, NOT HARDCODED: KX = RAILW / (RAILW + RAILH) = 0.306, KY = RAILH / (RAILW + RAILH) = 0.694. BOTTOM WIDTH 0→RAILW OVER [0, KX]; LEFT HEIGHT 0→RAILH OVER [KX, 1]; RIGHT HEIGHT 0→RAILH OVER [0, KY]; TOP WIDTH 0→RAILW OVER [KY, 1]. ALL CLAMPED.</div>
         <div>ABORT · RELEASING BEFORE 1200MS CANCELS THE COMMIT TIMER AND ANIMATES THE SAME VALUE BACK TO 0 OVER 260MS (`--seal-abort-ms`), EASE-OUT CUBIC. THE RAILS RETRACT ALONG THE PATH THEY CAME, BACK INTO THE KEY. NEVER SNAP THE VALUE TO 0 AND NEVER FLASH A COLOUR ON ABORT — A RECEDE IS THE ONLY THING THAT READS AS “NOTHING HAPPENED”. FRAME 12 SHOWS THE MOMENT; ITS FAINT TRAILING RAILS ARE A CANVAS DEVICE FOR A STILL IMAGE, NOT A LAYER TO BUILD.</div>
         <div>ACCENT · AMBER, NEVER RED. RED IS TRANSMITTING AND OWNS A FULL-SCREEN WASH OF ITS OWN; A RED FULL-SCREEN EVENT HERE WOULD MAKE THE MOST DESTRUCTIVE ACTION LOOK LIKE THE MOST ROUTINE ONE. GREEN IS PEERS AND RECEIVING. AMBER IS THE ONLY UNSPENT ACCENT AND ALREADY MEANS “ARMED, FINISH THE ACTION” ON 03 PAIRING. THE FORMS ALSO DIFFER SO HUE IS NEVER LOAD-BEARING: TRANSMIT IS A CENTRE-WEIGHTED WASH PLUS A FILLED RING, THE SEAL IS A PERIMETER LINE.</div>
-        <div>LAYERS · (1) THE RAILS, WITH `--seal-glow` SO THEY BLOOM INTO PERIPHERAL VISION. (2) A WASH ANCHORED AT THE THUMB'S CORNER, `--seal-wash`, OPACITY TRACKING PROGRESS LINEARLY, PEAK ALPHA 0.20 — IT SITS UNDER THE GEAR, KEY AND ROUTE READOUT, WHICH ALL STAY LEGIBLE. (3) THE RING BORDER RECEDES TO `--line` AND ITS LABEL CROSS-FADES FROM “HOLD TO TALK” TO THE AMBER POWER-OFF LINE OVER THE FIRST 15%. (4) THE CORNER KEY GOES AMBER. THE OLD 3PT BAR INSIDE THE KEY (`power-key-progress`) IS DELETED — IT LIVED UNDER THE THUMB, WHICH IS THE WHOLE REASON FOR THIS REDESIGN.</div>
+        <div>LAYERS · (1) THE RAILS, WITH `--seal-glow` SO THEY BLOOM INTO PERIPHERAL VISION. (2) A WASH ANCHORED AT THE THUMB'S CORNER, `--seal-wash`, OPACITY TRACKING PROGRESS LINEARLY, PEAK ALPHA 0.20 — IT SITS UNDER THE GEAR, KEY AND ROUTE READOUT, WHICH ALL STAY LEGIBLE. (3) THE RING BORDER RECEDES TO `--line` AND ITS CONTENT CROSS-FADES FROM THE <b>MICROPHONE GLYPH</b> TO THE AMBER POWER-OFF LINE OVER THE FIRST 15% — SINCE 2026-08-19 THE READY RING CARRIES A GLYPH, NOT “HOLD TO TALK”, AND THE HOLD CAPTION IN THE HINTSLOT CROSS-FADES OUT WITH IT, LEAVING THE SLOT RESERVED AND EMPTY. (4) THE CORNER KEY GOES AMBER. THE OLD 3PT BAR INSIDE THE KEY (`power-key-progress`) IS DELETED — IT LIVED UNDER THE THUMB, WHICH IS THE WHOLE REASON FOR THIS REDESIGN.</div>
         <div>COMPLETION · AT 100% HOLD THE CLOSED LOOP 90MS, TAKE THE WASH TO FULL, THEN THE STANDARD 220MS FADE TO THE OFF SCREEN. THE CLOSE IS ANNOUNCED BY THAT FLASH AND A HAPTIC, NOT BY A VISIBLE CORNER JOIN.</div>
         <div>REDUCED MOTION · NO GROWTH. RENDER THE FULL PERIMETER AT 0.5 OPACITY WITH THE AMBER COPY FOR THE WHOLE HOLD, POWER OFF AT 1200MS, CLEAR INSTANTLY ON RELEASE — THE SAME BRANCH THE KEY ALREADY TAKES TODAY.</div>
         <div>PRIMITIVES · WIDTH / HEIGHT INTERPOLATION, OPACITY, BORDERS, BOXSHADOW AND A BACKGROUNDIMAGE GRADIENT — ALL ALREADY USED IN THIS APP, NO NEW DEPENDENCY. WIDTH AND HEIGHT FORCE `useNativeDriver: false`, SO EVERY LAYER MUST HANG OFF THE ONE NON-NATIVE VALUE; DO NOT SPLIT SOME LAYERS ONTO A NATIVE-DRIVEN VALUE. AN SVG STROKE-DASHOFFSET RING WOULD BE SMOOTHER BUT NEEDS A NEW LIBRARY AND IS RULED OUT BY THE DEPENDENCY FREEZE.</div>
-        <div>COPY · “HOLD TO TURN THE RADIO OFF” / “УДЕРЖИВАЙТЕ, ЧТОБЫ ВЫКЛЮЧИТЬ РАЦИЮ” — THE CATALOG MESSAGE THAT IS ALREADY THE KEY'S ACCESSIBILITY LABEL, UPPERCASED BY STYLE, NOT RE-TRANSLATED.</div>
+        <div>COPY · “HOLD TO TURN THE RADIO OFF” / “УДЕРЖИВАЙТЕ, ЧТОБЫ ВЫКЛЮЧИТЬ РАЦИЮ” — THE CATALOG MESSAGE THAT IS ALREADY THE KEY'S ACCESSIBILITY LABEL, UPPERCASED BY STYLE, NOT RE-TRANSLATED. THIS ONE STAYS A SENTENCE: IT IS THE CONFIRMATION OF A DESTRUCTIVE ACTION, AND NO GLYPH CONFIRMS.</div>
       </div>
 
       <div class="canvasnote">
         <div>ALL COPY LOCALIZED EN / RU · ENGLISH DEFAULT · LANGUAGE FOLLOWS SYSTEM LOCALE UNLESS OVERRIDDEN — SETTINGS CARRIES AN IN-APP PICKER SINCE 2026-08-19 (SEE 02 SETTINGS) · USE THE “LANG” TWEAK TO SWITCH LOCALE</div>
         <div>POWER KEY · FIRST-CLASS MAIN-SCREEN CONTROL, NEVER A SETTINGS ITEM · IN OFF THE WHOLE SCREEN IS THE ON-SWITCH, A PLAIN TAP — NO HOLD · WHEN ON IT MIRRORS THE SETTINGS GEAR IN THE OPPOSITE CORNER, PRESS AND HOLD TO TURN OFF · RECEDES WHILE TRANSMITTING / RECEIVING</div>
         <div>THE POWER-OFF HOLD RUNS ACROSS THE WHOLE SCREEN AS AN AMBER PERIMETER SEAL, NOT AS A FILL ON THE KEY UNDER THE THUMB · FRAMES 09–13 AND THEIR NOTE</div>
-        <div>AUDIO ROUTE READOUT · BOTTOM CENTRE BETWEEN GEAR AND POWER · ROUTE ICON + DEVICE + MODE · INDICATOR ONLY — NEVER A PICKER, NO TAP TARGET · HIDDEN WHILE OFF · STAYS PUT WHILE TRANSMITTING / RECEIVING — IT NAMES THE LIVE MIC · ALL STATES IN FRAME 08</div>
+        <div>AUDIO ROUTE READOUT · BOTTOM CENTRE BETWEEN GEAR AND POWER · ROUTE GLYPH + BLUETOOTH NAME + MODE · THE GENERIC DEVICE WORD IS GONE, THE GLYPH SAYS IT · INDICATOR ONLY — NEVER A PICKER, NO TAP TARGET · HIDDEN WHILE OFF · STAYS PUT WHILE TRANSMITTING / RECEIVING — IT NAMES THE LIVE MIC · ALL STATES IN FRAME 08</div>
+        <div>THE READY RING CARRIES A MICROPHONE GLYPH, NOT A HEADLINE (SINCE 2026-08-19) · ONE 13PT CAPTION IN THE ALREADY-RESERVED HINTSLOT SAYS THE ONE THING A STATIC GLYPH CANNOT — THAT THE GESTURE IS A HOLD · SEE THE ICON SYSTEM NOTE AND FRAME 14</div>
         <div>THE TALK RING NEVER MOVES OR RESIZES BETWEEN STATES — SEE THE GEOMETRY NOTE BELOW</div>
       </div>
 
@@ -484,9 +580,25 @@
         <div><b>TALK RING GEOMETRY · FRAMES 03–05 · THE RING IS GEOMETRICALLY INVARIANT</b></div>
         <div>THE RULE · THE BIG ROUND BUTTON IS THE SAME CIRCLE IN EVERY STATE. SAME DIAMETER (302), SAME BORDER BOX (2PT, ALL ROUND), SAME CENTRE POSITION ON THE SCREEN — READY, TRANSMITTING, RECEIVING, AND THE INSTANT OF THE PRESS BETWEEN THEM. ONLY COLOUR, FILL AND GLOW MAY CHANGE. NO SCALE, NO TRANSLATION, NO BORDER-WIDTH CHANGE ON PRESS, NO PADDING OR MARGIN CHANGE ON ANY ANCESTOR THAT HOLDS IT. IT IS A LIT PANEL, NOT A KEY THAT TRAVELS: THE THUMB IS ALREADY ON IT WHEN THE STATE CHANGES, AND ANYTHING THAT MOVES UNDER A THUMB READS AS A MISFIRE.</div>
         <div><b>BORDER WIDTH · 2PT IS CANONICAL.</b> THIS FILE USED TO STATE TWO: `.ring` AT 2PX AND `.ringrx` AT 3PX. 2 WINS, BECAUSE IT IS THE FIGURE FOUR OF THE FIVE STATES ALREADY SHARE AND THE ONLY ONE THAT CAN BE THE SAME EVERYWHERE — AND BECAUSE A BORDER IS PART OF THE BOX: AT 3PX THIS FRAME'S CIRCLE MEASURED 308 AGAINST EVERY OTHER FRAME'S 306, AND ITS LABEL AND BARS SAT 1PT IN ON EVERY EDGE. THE HEAVIER RECEIVING EDGE IS DESIGN INTENT AND IS KEPT, BUT AS PAINT: AN INSET 1PX RING INSIDE THE CANONICAL 2PX BORDER HERE, AND AN ABSOLUTELY POSITIONED OVERLAY RING IN THE APP (THE SAME DEVICE `.pulse` ALREADY USES ON 03 PAIRING). SAME 3PT OF GREEN, ZERO LAYOUT COST. CANVAS AND APP NOW AGREE.</div>
-        <div><b>THE COLUMN COUNTS, NOT JUST THE CIRCLE.</b> `.stage` CENTRES ITS COLUMN, SO THE RING'S POSITION IS DECIDED BY EVERYTHING STACKED WITH IT. FRAME 04 IS THE ONE THAT CARRIES A `.subhint` UNDER THE RING (“RELEASE TO FINISH”); RENDERING IT IN THAT STATE ALONE ADDED A 40 GAP PLUS A LINE TO THE COLUMN AND LIFTED THE RING 29PT AT THE EXACT MOMENT OF THE PRESS. THE AREA UNDER THE RING IS THEREFORE <b>RESERVED IN EVERY RING STATE</b> AND ONLY ITS COPY COMES AND GOES.</div>
-        <div>RESERVE THE WORST CASE, NOT THE CURRENT ONE · THE RESERVATION IS TWO LINES OF `.subhint` (36), NOT ONE. IT MUST HOLD THE LONGEST TRANSLATION: “ОТПУСТИТЕ ЧТОБЫ ЗАКОНЧИТЬ” IS HALF AGAIN AS LONG AS “RELEASE TO FINISH” AND WRAPS WHERE THE ENGLISH DOES NOT. SIZING TO THE ENGLISH WOULD PUT THE JUMP BACK FOR ONE LOCALE ONLY — THE HARDEST KIND TO SEE. THE SAME APPLIES TO THE HEADLINE INSIDE THE RING: `.holdword` DROPS TO 33PX FOR LONGER LOCALES SO THE COPY CHANGES SIZE AND THE CIRCLE DOES NOT.</div>
+        <div><b>THE COLUMN COUNTS, NOT JUST THE CIRCLE.</b> `.stage` CENTRES ITS COLUMN, SO THE RING'S POSITION IS DECIDED BY EVERYTHING STACKED WITH IT. FRAME 04 USED TO BE THE ONLY ONE CARRYING A `.subhint` UNDER THE RING (“RELEASE TO FINISH”); RENDERING IT IN THAT STATE ALONE ADDED A 40 GAP PLUS A LINE TO THE COLUMN AND LIFTED THE RING 29PT AT THE EXACT MOMENT OF THE PRESS. THE AREA UNDER THE RING IS THEREFORE <b>RESERVED IN EVERY RING STATE</b> AND ONLY ITS COPY COMES AND GOES.</div>
+        <div><b>THE 2026-08-19 ICON CHANGE DOES NOT TOUCH ANY OF THIS.</b> THE MICROPHONE IS A CHILD OF THE RING, AND THE RING IS A FIXED BOX — A GLYPH INSIDE IT IS FREE. THE READY STATE'S HOLD CAPTION GOES IN THE `.hintslot` THAT WAS ALREADY RESERVED AND EMPTY THERE, WHICH IS PRECISELY WHAT THE RESERVATION EXISTS FOR. <b>NO NEW SIBLING OF THE RING WAS ADDED TO `.stage`, AND NONE MAY BE.</b> THE COLUMN IS BYTE-FOR-BYTE THE SAME HEIGHT IN READY, TRANSMITTING AND RECEIVING AS IT WAS BEFORE THE CHANGE.</div>
+        <div>RESERVE THE WORST CASE, NOT THE CURRENT ONE · THE RESERVATION IS TWO LINES OF `.subhint` (36), NOT ONE. IT MUST HOLD THE LONGEST TRANSLATION: “ОТПУСТИТЕ ЧТОБЫ ЗАКОНЧИТЬ” IS HALF AGAIN AS LONG AS “RELEASE TO FINISH” AND WRAPS WHERE THE ENGLISH DOES NOT. SIZING TO THE ENGLISH WOULD PUT THE JUMP BACK FOR ONE LOCALE ONLY — THE HARDEST KIND TO SEE. THE HEADLINE THAT USED TO NEED THE SAME CARE INSIDE THE RING IS GONE: THE GLYPH IS THE SAME SIZE IN EVERY LOCALE, WHICH IS HALF THE REASON FOR THE CHANGE.</div>
         <div>HOW TO CHECK · MEASURE, DON'T EYEBALL. THE TEST IS THAT THE WHOLE CENTRED COLUMN — THE RING'S BOX PLUS EVERY SIBLING'S BOX PLUS THE COLUMN'S GAP AND PADDING — IS IDENTICAL IN READY, TRANSMITTING AND RECEIVING, IN EVERY LOCALE. IF ANY OF THOSE DIFFERS, THE RING HAS MOVED, WHETHER OR NOT ANYONE CAUGHT IT ON A SCREENSHOT.</div>
+      </div>
+
+      <div class="canvasnote icons">
+        <div><b>ICON SYSTEM · ADDED 2026-08-19 · RULES FOR THE IMPLEMENTER · GLYPH SHEET IN FRAME 14</b></div>
+        <div>WHY · “INSTEAD OF HOLD TO TALK I WANT AN ICON — IT IS MORE LACONIC AND SIMPLER.” THE RING IS THE CASE THAT PROVES IT: «УДЕРЖИВАЙТЕ ЧТОБЫ ГОВОРИТЬ» IS SO LONG THAT THE DESIGN ALREADY DROPPED THE TYPE SCALE FROM 40 TO 33 AND PRE-BROKE IT ACROSS TWO LINES FOR ONE LOCALE. A GLYPH IS THE SAME SIZE IN EVERY LANGUAGE. BUT AN ICON IS ONLY LACONIC WHEN IT IS UNAMBIGUOUS — MOST OF THIS NOTE IS ABOUT WHERE IT IS NOT.</div>
+        <div><b>THE FOUR IDIOMS · PICK BY ROLE, NEVER BY PIXEL COUNT.</b> (1) <b>INLINE</b> — 14 BOX, 1.5 STROKE, ROUND CAPS AND JOINS, `currentColor` AT `--faint`, 9 GAP, GLYPH ALWAYS LEFT OF THE TEXT: THE ROUTE READOUT, FRAME 08. (2) <b>CHROME</b> — 24 BOX, 2 STROKE, `--faint`: PERSISTENT CORNER CONTROLS THAT ARE NEVER LABELLED, THE GEAR. (3) <b>PAGE MARK</b> — 176 BOX (`.mk`), 2.5 STROKE, `--ink` OR `--green`: A DECORATIVE MARK ALONE ABOVE A TITLE, ONBOARDING AND THE 132 SUCCESS TICK. (4) <b>CONTROL</b> — 160 BOX, 3.5 STROKE, `--ink`: A HERO GLYPH INSIDE SOMETHING YOU PRESS. ONLY THE TALK RING IS IN THIS IDIOM, AND THE SAFE BOX INSIDE THE RING IS THE INSCRIBED SQUARE, ~210 × 210 — 160 LEAVES REAL AIR.</div>
+        <div><b>STROKE BELONGS TO THE IDIOM, NOT TO THE GLYPH.</b> IT GETS RELATIVELY THINNER AS THE BOX GETS BIGGER: 1.5 ON 14 IS 10.7%, 2.5 ON 176 IS 1.4%. <b>NEVER SCALE THE INLINE STROKE UP</b> — A 1.5 STROKE ENLARGED TO 160 IS A CARTOON. THE ONE PLACE THE RATIO RISES AGAIN IS THE CONTROL IDIOM, 3.5 ON 160 = 2.2% AGAINST THE PAGE MARK'S 1.4%: A CONTROL'S OWN AFFORDANCE HAS TO HOLD ITS WEIGHT AGAINST A 2PT RING WITH A THUMB LANDING ON IT, WHERE A PAGE MARK ONLY HAS TO SIT ON AN EMPTY FIELD. THE MICROPHONE IS THE SAME GLYPH IN BOTH — SAME FRACTIONS OF THE BOX, ONLY `--m` AND `--ms` CHANGE.</div>
+        <div><b>PRIMITIVES ONLY · THIS IS A HARD CONSTRAINT, NOT A PREFERENCE.</b> THERE IS NO SVG RENDERER, NO ICON FONT AND NO ICON LIBRARY IN THIS APP, AND THE DEPENDENCY FREEZE MEANS NONE MAY BE ADDED. EVERY GLYPH IS `View` + `StyleSheet`: BORDERED CIRCLES AND ROUNDED RECTS, PARTIAL BORDERS AS ARCS, THE CSS-TRIANGLE TRICK, `overflow:hidden` CLIPPING, ROTATED BARS AS ARBITRARY-ANGLE STROKES, `boxShadow` GLOWS, `backgroundImage` RADIAL GRADIENTS. AN ARC IS A PARTIAL BORDER: THE MIC CRADLE IS A BOX WITH NO TOP BORDER AND BOTH BOTTOM RADII SET TO ITS OWN HEIGHT; THE SUCCESS TICK IS A LEFT-PLUS-BOTTOM BORDER ROTATED −45°. A RADIAL FORM IS N ROTATED WRAPPERS, NOT TRIGONOMETRY — SEE THE GEAR'S EIGHT TEETH. <b>NO PUNCH-OUT ON THE RADIO SCREEN</b>: THREE OF ITS FIVE STATES HAVE A GRADIENT CHASSIS, AND A HOLE PAINTED IN THE CHASSIS COLOUR WOULD NOT SURVIVE THERE. THE ONE CANVAS-ONLY CONSTRUCTION LEFT IN THIS FILE IS THE POWER MARK'S CONIC GRADIENT AND MASK — NEITHER EXISTS IN REACT NATIVE; DO NOT TRANSCRIBE IT.</div>
+        <div><b>NEVER AN EMOJI-BLOCK CODEPOINT.</b> THE CANVAS USED TO DRAW THE GEAR AS THE TEXT GLYPH U+2699 WITH VS15, AND THE APP HAD TO REBUILD IT FROM VIEWS ANYWAY, BECAUSE U+2699 RENDERS AS A COLOUR EMOJI WITHOUT THE VARIATION SELECTOR AND VS15 IS NOT HONOURED RELIABLY ON ANDROID. THE CANVAS NOW DRAWS THE PRIMITIVE GEAR TOO, SO THE REFERENCE AND THE BUILD AGREE. A CODEPOINT ALSO CANNOT BE RESTYLED, CANNOT TAKE `currentColor` DEPENDABLY, AND CHANGES SHAPE PER PLATFORM FONT — THREE MORE REASONS THE RULE IS ABSOLUTE.</div>
+        <div><b>COLOUR · ONE TOKEN PER GLYPH, `currentColor` THROUGHOUT.</b> RED IS TRANSMITTING AND OWNS A FULL-SCREEN WASH. GREEN IS PEERS AND RECEIVING. AMBER IS “ARMED, FINISH THE ACTION” — PAIRING AND THE POWER-OFF SEAL. `--faint` IS PASSIVE CHROME. <b>A READY-STATE GLYPH INSIDE THE TALK RING IS `--ink`, NEVER AN ACCENT</b> — AN ACCENT THERE WOULD READ AS A LIVE STATE BEFORE ANYONE HAS PRESSED ANYTHING. AND WHEREVER A GLYPH BECOMES THE ONLY CARRIER OF A STATE, FORM MUST CARRY WHAT HUE CARRIES: THE ONBOARDING STEP DOTS NOW DIFFER BY SHAPE (HOLLOW / PILL / FILLED) BECAUSE THE STEP COUNTER THAT USED TO SPELL IT OUT IS GONE.</div>
+        <div><b>ACCESSIBILITY · THE WORD IS NOT DELETED, IT MOVES.</b> EVERY GLYPH THAT REPLACES A LABEL MOVES THAT LABEL ONTO THE ACCESSIBLE NAME OF THE CONTROL AROUND IT — THIS CODEBASE ALREADY REQUIRES A NON-OPTIONAL `accessibilityLabel` ON ICON-ONLY CONTROLS, SO THERE IS NOWHERE FOR THE WORD TO GO MISSING. AND EVERY DECORATIVE GLYPH IS HIDDEN FROM THE TREE (`accessibilityElementsHidden` ON IOS, `importantForAccessibility="no-hide-descendants"` ON ANDROID), AS EVERY HAND-BUILT GLYPH IN THIS APP ALREADY IS — OTHERWISE A SCREEN READER WALKS FOUR NAMELESS VIEWS FOR ONE MICROPHONE. THE CANVAS WRITES THIS AS `aria-label` AND `aria-hidden`, WHICH MAP ONE TO ONE. <b>ONE EXCEPTION TO “IT MOVES”:</b> A WORD DELETED BECAUSE IT IS CONSTANT ACROSS EVERY INSTANCE NEEDS NO NEW HOME — “BLE ·” ON EVERY SCAN ROW IS ALREADY SAID ONCE BY THE SCREEN. A WORD DELETED BECAUSE A GLYPH NOW CARRIES IT ALWAYS DOES.</div>
+        <div><b>THE TALK RING COSTS NOTHING IN ACCESSIBLE NAME.</b> THE READY RING ALREADY SITS INSIDE A PRESSABLE THAT DECLARES `accessibilityRole="button"` AND THE NAME “PUSH TO TALK” / «НАЖМИТЕ И ГОВОРИТЕ» (`holdA11y` IN THE STRING TABLE), SO NO SCREEN READER HAS EVER ANNOUNCED “HOLD TO TALK”. REPLACING THE HEADLINE WITH THE MICROPHONE CHANGES THE ACCESSIBLE TREE BY EXACTLY NOTHING. <b>DO NOT INVENT A REDUNDANT LABEL FOR THE GLYPH</b> — IT IS DECORATIVE AND HIDDEN, AND A SECOND NAME INSIDE THE BUTTON WOULD ONLY MAKE THE BUTTON ANNOUNCE ITSELF TWICE.</div>
+        <div><b>THE HOLD CAPTION STAYS · THIS IS THE ONE REAL RISK OF THE CHANGE AND IT IS PAID FOR.</b> A STATIC GLYPH CANNOT SAY “HOLD”. TAP-VERSUS-HOLD IS INVISIBLE AND UNRECOVERABLE BY INSPECTION: A TAP PRODUCES A SUB-100MS TRANSMISSION OR NOTHING AT ALL, WHICH IS INDISTINGUISHABLE FROM A BROKEN APP. SO THE READY STATE KEEPS ONE 13PT `.subhint` LINE IN THE `.hintslot` — “HOLD” / «УДЕРЖИВАЙТЕ», THE VERB ONLY, BECAUSE THE GLYPH ALREADY SUPPLIES “TALK”. IT COSTS ZERO LAYOUT (THE SLOT IS RESERVED IN EVERY RING STATE ANYWAY, SO LEAVING IT EMPTY SAVES NOTHING) AND ROUGHLY A QUARTER OF THE INK THE 40PT HEADLINE SPENT. THE INSTRUCTION IS NOT REMOVED, IT IS <b>DEMOTED</b> — FROM THE LOUDEST THING ON THE SCREEN TO PASSIVE CHROME — WHICH IS THE ACTUAL WIN. PERMITTED FOLLOW-UP, NOT REQUIRED: RETIRE THE CAPTION AFTER THE FIRST SUCCESSFUL TRANSMISSION, SINCE THE RED WASH TEACHES THE GESTURE BETTER THAN ANY WORD. IF THAT IS BUILT, <b>THE SLOT STAYS RESERVED</b> — SEE THE GEOMETRY NOTE.</div>
+        <div><b>THESE STAY WORDS. EACH ONE WAS CONSIDERED AND REJECTED FOR A NAMED REASON.</b> “PRESS THE PTT BUTTON” (03 PAIRING) — THE TARGET IS A PHYSICAL BUTTON IN THE USER'S OTHER HAND, AND NO GLYPH SEPARATES THAT FROM “PRESS THIS SCREEN”; THE SCREEN IS NOT THE TARGET. “TRANSMITTING…” / “RECEIVING…” — ICON-ONLY WOULD MAKE TX AND RX SEPARABLE BY HUE ALONE, WHICH THIS FILE'S OWN NOTES FORBID, AND WOULD DELETE THE ONLY SCREEN-READER ANNOUNCEMENT OF THE LIVE STATE. “AUTO / RADIO / MUSIC” (02 SETTINGS) — A SPEAKER-VERSUS-NOTE GLYPH WOULD READ AS “OUTPUT DEVICE”, THE EXACT WRONG MENTAL MODEL, AND “AUTO” HAS NO GLYPH AT ALL. THE ROUTE READOUT'S MODE — “RADIO” / “MUSIC, PHONE MIC” IS A POLICY STATEMENT, NOT A STATE. PERMISSION-CONSENT TITLES — CONSENT IS GIVEN TO WORDS. EVERY `.btn` LABEL — AN ACTION BUTTON NAMES ITS ACTION. “TAP TO TURN ON” AND “RADIO OFF” — THE OFF SCREEN IS ONE HERO MARK AND TWO LINES ALREADY, AND THE POWER MARK CANNOT ALSO EXPLAIN ITSELF. AND THE POWER-OFF CONFIRMATION SENTENCE — NO GLYPH CONFIRMS A DESTRUCTIVE ACTION.</div>
+        <div><b>WHAT CHANGED ON 2026-08-19</b> · THE RING'S HEADLINE BECAME THE MICROPHONE (FRAMES 03 / 07 / 12). “STEP n OF m” WAS DELETED — `.obdots` ALREADY RENDERED IT, AND THE WORDS MOVED TO THE DOT ROW'S ACCESSIBLE NAME. “BUTTON CONNECTED” WAS DELETED AND ITS 96 TICK GREW TO THE SHARED 132 `.okbig`, SO BOTH SUCCESS MOMENTS IN THE PRODUCT ARE NOW ONE MARK. THE ROUTE READOUT LOST THE GENERIC DEVICE WORD AND KEPT THE BLUETOOTH NAME AND THE MODE. “STILL SCANNING” BECAME THE PULSING AMBER DOT, MOVED ONTO THE “FOUND” LABEL SO IT HAS SOMETHING TO ANCHOR TO. “BLE ·” BECAME FOUR SIGNAL BARS AND THE DBM FIGURE STAYED. THE SETTINGS CONNECTION DOT BECAME STATE-COLOURED. THE GEAR STOPPED BEING A CODEPOINT.</div>
       </div>
     </x-dc>
     <script type="text/x-dc" data-dc-script data-props='{
@@ -502,17 +614,35 @@
               offHint: "TAP TO TURN ON",
               search: "SEARCHING FOR DEVICES...",
               nearby: "2 nearby",
-              hold: "HOLD TO TALK",
-              holdCls: "display holden",
+              // The ready ring's 40pt "HOLD TO TALK" headline was replaced by the
+              // microphone glyph on 2026-08-19. What is left of it:
+              //  · holdHint — the VISIBLE caption in the reserved `.hintslot`. The
+              //    verb only; the glyph already supplies "talk". A static glyph
+              //    cannot say that the gesture is a hold, and a tap that does
+              //    nothing is indistinguishable from a broken app.
+              //  · holdA11y — the accessible name the pressable ALREADY carried
+              //    before this change. Unchanged, and never rendered. Screen
+              //    readers never announced "HOLD TO TALK", so the glyph costs
+              //    nothing here; do not add a second label on the glyph itself.
+              holdHint: "HOLD",
+              holdA11y: "Push to talk",
+              // The gear is icon-only, so its name is not optional.
+              settings: "Settings",
               holdOff: "HOLD TO\nTURN THE\nRADIO OFF",
               holdOffCls: "display holdword sealcopy",
               tx: "TRANSMITTING...",
               txHint: "RELEASE TO FINISH",
               rx: "RECEIVING...",
-              routeSpeaker: "Speaker · radio",
-              routeWired: "Headphones · radio",
+              // The generic device word is gone — the glyph says speaker / wired /
+              // bluetooth, in every locale at once. Only a Bluetooth route adds
+              // text of its own: the headset name as the OS reports it, never
+              // translated. The MODE stays a word; it is a policy statement about
+              // what the headset is being used for, not a state.
+              routeSpeaker: "Radio",
+              routeWired: "Radio",
               routeBtVoice: "AirPods · radio",
-              routeBtMedia: "AirPods · music, phone mic"
+              routeBtMedia: "AirPods · music, phone mic",
+              routeBtAnon: "Radio"
             },
             ru: {
               name: "ru",
@@ -521,17 +651,22 @@
               offHint: "НАЖМИТЕ ЧТОБЫ ВКЛЮЧИТЬ",
               search: "ИЩЕМ УСТРОЙСТВА...",
               nearby: "2 рядом",
-              hold: "УДЕРЖИВАЙТЕ\nЧТОБЫ ГОВОРИТЬ",
-              holdCls: "display holdword",
+              // This is the locale that forced the change: «УДЕРЖИВАЙТЕ ЧТОБЫ
+              // ГОВОРИТЬ» needed its own type size and its own line break. One
+              // word fits on one line at 13pt in both locales.
+              holdHint: "УДЕРЖИВАЙТЕ",
+              holdA11y: "Нажмите и говорите",
+              settings: "Настройки",
               holdOff: "УДЕРЖИВАЙТЕ,\nЧТОБЫ ВЫКЛЮЧИТЬ\nРАЦИЮ",
               holdOffCls: "display holdword sm sealcopy",
               tx: "ПЕРЕДАЧА...",
               txHint: "ОТПУСТИТЕ ЧТОБЫ ЗАКОНЧИТЬ",
               rx: "ПРИЁМ...",
-              routeSpeaker: "Динамик · рация",
-              routeWired: "Наушники · рация",
+              routeSpeaker: "Рация",
+              routeWired: "Рация",
               routeBtVoice: "AirPods · рация",
-              routeBtMedia: "AirPods · музыка, микрофон телефона"
+              routeBtMedia: "AirPods · музыка, микрофон телефона",
+              routeBtAnon: "Рация"
             }
           };
         }

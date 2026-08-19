@@ -29,6 +29,22 @@
   --seal-ms: 1200ms;
   --seal-abort-ms: 260ms;
 
+  /* Icon system — four idioms, picked by the ROLE a glyph plays, not by how
+     big it happens to be. Stroke belongs to the idiom; the form scales with
+     the box. Strokes get relatively THINNER as glyphs get bigger (1.5 on 14
+     is 10.7%; 2.5 on 176 is 1.4%) — never scale the inline stroke up.
+     Full rules in the ICON SYSTEM canvas note on `01 Radio`. */
+  --icon-sm: 14px;              /* inline glyph beside text — `.routeline` */
+  --icon-sm-stroke: 1.5px;
+  --icon-sm-gap: 9px;           /* glyph → text, glyph always on the left */
+  --icon-chrome: 24px;          /* persistent screen chrome — the gear */
+  --icon-chrome-stroke: 2px;
+  --icon-hero: 176px;           /* page mark, alone above a title — `.mk` */
+  --icon-hero-stroke: 2.5px;
+  --icon-control: 160px;        /* hero glyph INSIDE a control — the talk ring */
+  --icon-control-stroke: 3.5px; /* a control's own affordance reads heavier
+                                   than a page mark at the same scale */
+
   --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
   --disp: "Oswald", "Arial Narrow", sans-serif;
 }
@@ -112,6 +128,11 @@ a:hover { color: oklch(0.8 0.17 152); }
   font-size: 15px;
   color: var(--dim);
 }
+/* Connection dot. STATE-COLOURED, never decoratively green — a green dot beside
+   "Not connected" is the one thing on the screen that can contradict its own
+   label. Green + glow when the peer/button is live, `--faint` and no glow when
+   it is not. It is never the only carrier of the state: the word beside it
+   always says which, so hue is not load-bearing. */
 .pdot {
   width: 9px;
   height: 9px;
@@ -119,6 +140,7 @@ a:hover { color: oklch(0.8 0.17 152); }
   background: var(--green);
   box-shadow: 0 0 14px var(--green);
 }
+.pdot.off { background: var(--faint); box-shadow: none; }
 .stage {
   flex: 1;
   display: flex;
@@ -162,8 +184,148 @@ a:hover { color: oklch(0.8 0.17 152); }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
   color: var(--faint);
+}
+
+/* ---- hand-built glyphs ----
+   Every icon in this product is Views + borders. There is no SVG renderer, no
+   icon font and no icon library, and none may be added; the forms below are
+   built only from primitives that already ship: bordered boxes and circles,
+   partial borders as arcs, rotated bars, and radii. NEVER an emoji-block
+   codepoint — U+2699 renders as a colour emoji without VS15, and VS15 is not
+   honoured reliably on Android. */
+
+/* Settings gear · chrome idiom · 24 box.
+   Eight teeth, 3 x 6 with a 1 radius, each anchored top-centre of a wrapper
+   that is rotated k * 45deg about the box centre — so no trigonometry and no
+   per-tooth coordinates. Over them a hub ring inset 5 at 2pt, which the teeth
+   overlap by 1 so the shape reads as one piece. No punch-out: the chassis
+   behind the gear is a gradient in three of the five radio states, so a
+   "hole" painted in the chassis colour would not survive there.
+   In React Native each tooth is a rotated wrapper View holding a tooth View;
+   the ::after below is a canvas convenience only. */
+/* `display: block` because these glyphs are written as `<i>` — inline elements
+   ignore width and height, and the glyph sheet nests them outside a flex row. */
+.gearmark { display: block; position: relative; width: var(--icon-chrome); height: var(--icon-chrome); }
+.gearmark i { position: absolute; box-sizing: border-box; }
+.gt { inset: 0; }
+.gt::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 3px;
+  height: 6px;
+  margin-left: -1.5px;
+  background: currentColor;
+  border-radius: 1px;
+}
+.gt:nth-child(2) { transform: rotate(45deg); }
+.gt:nth-child(3) { transform: rotate(90deg); }
+.gt:nth-child(4) { transform: rotate(135deg); }
+.gt:nth-child(5) { transform: rotate(180deg); }
+.gt:nth-child(6) { transform: rotate(225deg); }
+.gt:nth-child(7) { transform: rotate(270deg); }
+.gt:nth-child(8) { transform: rotate(315deg); }
+.ghub { inset: 5px; border: var(--icon-chrome-stroke) solid currentColor; border-radius: 50%; }
+
+/* Microphone · ONE glyph drawn at two idioms — 160 / 3.5 inside the talk ring
+   (control), 176 / 2.5 as the onboarding page mark. Every part is a fraction
+   of the box, so `--m` and `--ms` are the only things that ever change.
+   Capsule + cradle + stem + base; the cradle is the partial-border arc trick
+   (three borders, no top, both bottom radii = the cradle's own height), which
+   is how this codebase draws any arc. Border-box throughout, so every figure
+   below is an OUTER dimension and matches React Native's box model.
+   Monochrome — one colour token per glyph, `currentColor` everywhere. */
+.micmark {
+  --m: var(--icon-control);
+  --ms: var(--icon-control-stroke);
+  display: block;
+  position: relative;
+  box-sizing: border-box;
+  width: var(--m);
+  height: var(--m);
+  color: var(--ink);
+}
+.micmark.pagemark { --m: var(--icon-hero); --ms: var(--icon-hero-stroke); }
+.micmark i { position: absolute; box-sizing: border-box; }
+/* 60 x 92 at (50, 13) on a 160 box; radius 30 = half its width, a true capsule */
+.miccap {
+  left: 31.25%;
+  top: 8.125%;
+  width: 37.5%;
+  height: 57.5%;
+  border: var(--ms) solid currentColor;
+  border-radius: calc(var(--m) * 0.1875);
+}
+/* 96 x 48 at (32, 81); a half-capsule opening upward, flanking the cradle arms
+   past the capsule's sides with 14.5 clearance and wrapping 20.5 below it */
+.miccradle {
+  left: 20%;
+  top: 50.625%;
+  width: 60%;
+  height: 30%;
+  border: var(--ms) solid currentColor;
+  border-top: 0;
+  border-bottom-left-radius: calc(var(--m) * 0.3);
+  border-bottom-right-radius: calc(var(--m) * 0.3);
+}
+/* stroke-wide, 14 tall at (78.25, 129) — starts exactly at the cradle's foot */
+.micstem {
+  left: 50%;
+  top: 80.625%;
+  width: var(--ms);
+  height: 8.75%;
+  margin-left: calc(var(--ms) / -2);
+  background: currentColor;
+}
+/* 50 x stroke at (55, 143); glyph bounding box is 96 x 133.5, centred in 160 */
+.micbase {
+  left: 34.375%;
+  top: 89.375%;
+  width: 31.25%;
+  height: var(--ms);
+  background: currentColor;
+  border-radius: calc(var(--ms) / 2);
+}
+
+/* Signal strength · small idiom, but BARS not strokes — a 1.5pt outline at this
+   size would grey into mush. Four bars 2.5 wide, 1.5 apart, 4 / 6.5 / 9 / 11.5
+   tall on a shared baseline: a 14.5 x 12 box. Filled bars take currentColor,
+   unfilled ones `--line2`. The dBm figure always stays beside it — four bars
+   cannot separate two similarly named buttons on the same shelf. */
+.sig { display: flex; align-items: flex-end; gap: 1.5px; height: 12px; }
+.sig i { width: 2.5px; border-radius: 1.25px; background: var(--line2); }
+.sig i.f { background: currentColor; }
+.sig i:nth-child(1) { height: 4px; }
+.sig i:nth-child(2) { height: 6.5px; }
+.sig i:nth-child(3) { height: 9px; }
+.sig i:nth-child(4) { height: 11.5px; }
+
+/* Success mark · page-mark idiom · 132 box · THE one success glyph.
+   A 132 circle at 2.5, and inside it the tick: a 56 x 28 box at (34, 40) wearing
+   only a left and a bottom border at 3.5, rotated -45deg — the two-border-plus-
+   rotate trick, which is how this codebase draws a check without a path.
+   It is the whole statement wherever it appears; both screens that use it
+   deleted the headline underneath, so the words live in the announcement. */
+.okbig {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  border: var(--icon-hero-stroke) solid var(--green);
+  box-shadow: 0 0 70px oklch(0.72 0.17 152 / 0.25);
+}
+.okbig::after {
+  content: "";
+  position: absolute;
+  left: 34px;
+  top: 40px;
+  width: 56px;
+  height: 28px;
+  border-left: 3.5px solid var(--green);
+  border-bottom: 3.5px solid var(--green);
+  transform: rotate(-45deg);
 }
 
 /* level bars */
@@ -258,7 +420,14 @@ a:hover { color: oklch(0.8 0.17 152); }
   color: #3d454d;
 }
 .devname { font-size: 19px; font-weight: 500; }
-.devmeta { margin-top: 5px; font-size: 12px; color: var(--faint); }
+.devmeta {
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  gap: var(--icon-sm-gap);
+  font-size: 12px;
+  color: var(--faint);
+}
 .note { margin-top: 16px; font-size: 12px; line-height: 1.7; color: var(--faint); }
 
 /* device list rows */
@@ -274,14 +443,26 @@ a:hover { color: oklch(0.8 0.17 152); }
 }
 .chev { color: var(--faint); font-size: 20px; }
 
-/* onboarding */
-.obdots { display: flex; justify-content: center; gap: 8px; padding-top: 28px; }
-.obdots i { width: 6px; height: 6px; border-radius: 50%; background: var(--line2); }
-.obdots i.on { background: var(--ink); }
-.obdots i.done { background: var(--green); }
+/* onboarding
+   The dots are now the ONLY carrier of step position — the "STEP n OF m" line
+   that duplicated them is gone. So the three states differ by SHAPE, not only
+   by hue: pending is a hollow ring, current is a wide pill, done is filled.
+   The counter's words move to the row's accessibility label; they are not
+   deleted, only relocated. */
+.obdots { display: flex; align-items: center; justify-content: center; gap: 8px; padding-top: 28px; }
+.obdots i {
+  box-sizing: border-box;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid var(--line2);
+}
+.obdots i.on { width: 18px; border-radius: 3px; background: var(--ink); border-color: var(--ink); }
+.obdots i.done { background: var(--green); border-color: var(--green); }
 .obmark { flex: 1; display: flex; align-items: center; justify-content: center; }
 .obfoot { padding: 0 26px 30px; display: flex; flex-direction: column; gap: 18px; }
-.obstep { font-size: 11px; letter-spacing: 0.22em; color: var(--faint); }
+/* `.obstep` (the "STEP n OF m" line) was deleted 2026-08-19 — `.obdots` above
+   already renders exactly that, with done / current / pending states. */
 .obtitle {
   font-family: var(--disp);
   font-weight: 600;
