@@ -42,6 +42,16 @@ const androidApiLevel = (): number =>
  * forbids. On Android nothing is persisted: the permission grants *are* the
  * record, and reading them is both truthful and free (`check` never prompts).
  * Every access is guarded, because no native module answers under Jest.
+ *
+ * The snapshot `Settings.get` reads is not what `Settings.set` wrote: it comes
+ * back through `RCTJSONClean`, which funnels every `NSNumber` -- booleans
+ * included -- through `doubleValue`, so a stored `@YES` crosses the bridge as
+ * the JS number `1`. That snapshot is taken on every launch *and* re-pushed on
+ * every `NSUserDefaultsDidChangeNotification` -- and RadioKit writes to
+ * `UserDefaults.standard` too, so pairing a button or switching audio mode
+ * re-cleans the cache mid-session. Hence the write below stores a string,
+ * which JSON cleaning passes through unchanged, and the read accepts every
+ * shape a completed install may have persisted.
  */
 const readOnboardingFlag = (): boolean => {
   // Android keeps no flag, so there is nothing here to answer with: the grants
@@ -51,7 +61,11 @@ const readOnboardingFlag = (): boolean => {
   // re-run the whole sequence on every launch.
   if (Platform.OS !== 'ios') return true;
   try {
-    return Settings.get(ONBOARDING_COMPLETED_KEY) === true;
+    const value = Settings.get(ONBOARDING_COMPLETED_KEY);
+    // `'1'` is what this version writes; `1` is what an older install's `true`
+    // reads back as after the bridge's JSON cleaning; `true` is the same-session
+    // cache before any UserDefaults change notification re-cleans it.
+    return value === '1' || value === 1 || value === true;
   } catch {
     return false;
   }
@@ -84,7 +98,10 @@ export const realPlatformGateway: PlatformPermissionsGateway = {
   markOnboardingCompleted() {
     if (Platform.OS !== 'ios') return;
     try {
-      Settings.set({[ONBOARDING_COMPLETED_KEY]: true});
+      // A string, not a boolean: strings are the one shape that survives the
+      // bridge's JSON cleaning intact (see `readOnboardingFlag`), so what this
+      // writes is exactly what every later launch reads back.
+      Settings.set({[ONBOARDING_COMPLETED_KEY]: '1'});
     } catch {
       // A missing settings module costs the user one extra explanation
       // sequence, which is a better failure than a crash at first launch.
