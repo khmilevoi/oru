@@ -48,6 +48,14 @@ interface AudioIo {
      * status (spec section 13). May be called from an audio thread.
      */
     fun setFailureListener(listener: (code: String, message: String) -> Unit)
+
+    /**
+     * Section 6: the applied route or profile changed. Capture and playback rebuild their
+     * `AudioRecord`/`AudioTrack` at the next loop iteration with [profile]'s attributes and
+     * reset their consecutive-error counters. Called from the engine's scheduler thread; the
+     * audio threads observe it through volatile state, never by blocking.
+     */
+    fun onRouteChanged(profile: ModePolicy.Profile)
     fun startCapture(sink: TransmissionSink)
     fun stopCapture()
     fun openPlayback(peerId: String)

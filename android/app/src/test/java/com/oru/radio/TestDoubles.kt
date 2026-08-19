@@ -82,8 +82,14 @@ class FakeAudioIo : AudioIo {
     // erased JVM signature clashes with the explicit override below.
     var capturedFailureListener: ((String, String) -> Unit)? = null
 
+    val routeChanges = mutableListOf<ModePolicy.Profile>()
+
     override fun setFailureListener(listener: (code: String, message: String) -> Unit) {
         capturedFailureListener = listener
+    }
+
+    override fun onRouteChanged(profile: ModePolicy.Profile) {
+        routeChanges.add(profile)
     }
 
     override fun startCapture(sink: TransmissionSink) {

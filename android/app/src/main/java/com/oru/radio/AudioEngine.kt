@@ -69,8 +69,24 @@ class AudioEngine : AudioIo {
     private var captureThread: Thread? = null
     private var playbackThread: Thread? = null
 
+    /**
+     * Bumped by [onRouteChanged] on the engine's scheduler thread and read once per iteration
+     * by each audio thread. An `Int` write is atomic and `@Volatile` makes it visible; the two
+     * fields are written together and read independently, so a loop can briefly rebuild with
+     * the previous profile — the very next bump fixes it, and a route change is already a
+     * glitch boundary.
+     */
+    @Volatile private var routeGeneration = 0
+    @Volatile private var routeProfile: ModePolicy.Profile = ModePolicy.Profile.VOICE
+
     override fun setFailureListener(listener: (code: String, message: String) -> Unit) {
         onFailure = listener
+    }
+
+    override fun onRouteChanged(profile: ModePolicy.Profile) {
+        routeProfile = profile
+        routeGeneration++
+        Log.i(TAG, "audio: route changed, streams rebuild on the next frame (profile=$profile)")
     }
 
     // --- capture ---------------------------------------------------------------------------
@@ -104,6 +120,84 @@ class AudioEngine : AudioIo {
         // reference to a thread that did finish is harmless — startCapture replaces it.
     }
 
+    /** VOICE_COMMUNICATION in both profiles (§6 capture row): the route decides the mic. */
+    private fun openRecord(): AudioRecord? {
+        val minimum = AudioRecord.getMinBufferSize(
+            RadioConfig.SAMPLE_RATE_HZ,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT,
+        )
+        val bufferBytes = maxOf(
+            minimum,
+            RadioConfig.FRAME_SAMPLES * BYTES_PER_SAMPLE * RadioConfig.AUDIO_BUFFER_FRAMES,
+        )
+        val record = AudioRecord(
+            MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+            RadioConfig.SAMPLE_RATE_HZ,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT,
+            bufferBytes,
+        )
+        if (record.state != AudioRecord.STATE_INITIALIZED) {
+            record.release()
+            Log.e(TAG, "AudioRecord did not initialize")
+            onFailure?.invoke("microphone_unavailable", "AudioRecord did not initialize")
+            return null
+        }
+        return record
+    }
+
+    /**
+     * Section 6's playback row. VOICE plays on the voice-communication path, which follows the
+     * communication device; MEDIA plays as navigation guidance on the media path, which mixes
+     * into A2DP instead of dragging the headset onto SCO.
+     */
+    private fun openTrack(profile: ModePolicy.Profile): AudioTrack {
+        val usage = when (profile) {
+            ModePolicy.Profile.VOICE -> AudioAttributes.USAGE_VOICE_COMMUNICATION
+            ModePolicy.Profile.MEDIA -> AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE
+        }
+        val minimum = AudioTrack.getMinBufferSize(
+            RadioConfig.SAMPLE_RATE_HZ,
+            AudioFormat.CHANNEL_OUT_MONO,
+            AudioFormat.ENCODING_PCM_16BIT,
+        )
+        return AudioTrack.Builder()
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(usage)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build(),
+            )
+            .setAudioFormat(
+                AudioFormat.Builder()
+                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                    .setSampleRate(RadioConfig.SAMPLE_RATE_HZ)
+                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                    .build(),
+            )
+            .setBufferSizeInBytes(
+                maxOf(
+                    minimum,
+                    RadioConfig.FRAME_SAMPLES * BYTES_PER_SAMPLE * RadioConfig.AUDIO_BUFFER_FRAMES,
+                ),
+            )
+            .setTransferMode(AudioTrack.MODE_STREAM)
+            .build()
+    }
+
+    private fun releaseRecord(record: AudioRecord?) {
+        if (record == null) return
+        runCatching { record.stop() }
+        record.release()
+    }
+
+    private fun releaseTrack(track: AudioTrack?) {
+        if (track == null) return
+        runCatching { track.stop() }
+        track.release()
+    }
+
     /**
      * Owns its AudioRecord from open to release. The release lives in this thread's own
      * `finally` rather than in [stopCapture] on purpose: [stopCapture]'s join has a fixed
@@ -115,44 +209,25 @@ class AudioEngine : AudioIo {
         // actually puts the thread in the audio scheduling group, and it only works from
         // inside the thread it applies to.
         Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
+        val guard = AudioStreamGuard()
         var record: AudioRecord? = null
         var encoder: OpusEncoder? = null
         try {
-            val minimum = AudioRecord.getMinBufferSize(
-                RadioConfig.SAMPLE_RATE_HZ,
-                AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT,
-            )
-            val bufferBytes = maxOf(
-                minimum,
-                RadioConfig.FRAME_SAMPLES * BYTES_PER_SAMPLE * RadioConfig.AUDIO_BUFFER_FRAMES,
-            )
-            // VOICE_COMMUNICATION gives us the system's echo cancellation and noise
-            // suppression (spec section 8).
-            record = AudioRecord(
-                MediaRecorder.AudioSource.VOICE_COMMUNICATION,
-                RadioConfig.SAMPLE_RATE_HZ,
-                AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT,
-                bufferBytes,
-            )
-            if (record.state != AudioRecord.STATE_INITIALIZED) {
-                Log.e(TAG, "AudioRecord did not initialize")
-                onFailure?.invoke("microphone_unavailable", "AudioRecord did not initialize")
-                return
-            }
-
             encoder = OpusEncoder()
             val pcm = ShortArray(RadioConfig.FRAME_SAMPLES)
             val encoded = ByteArray(RadioConfig.MAX_ENCODED_FRAME_BYTES)
 
-            record.startRecording()
-            var consecutiveReadErrors = 0
             while (capturing) {
+                if (guard.needsRebuild(routeGeneration)) {
+                    releaseRecord(record)
+                    record = openRecord() ?: return
+                    record.startRecording()
+                }
+                val active = record ?: return
                 var offset = 0
                 var readFailed = false
                 while (offset < pcm.size && capturing) {
-                    val read = record.read(pcm, offset, pcm.size - offset)
+                    val read = active.read(pcm, offset, pcm.size - offset)
                     if (read < 0) {
                         readFailed = true
                         break
@@ -161,19 +236,18 @@ class AudioEngine : AudioIo {
                     offset += read
                 }
                 if (readFailed) {
-                    // A single bad read is tolerated (the hardware can hiccup); only a
-                    // persistent run of them means the device is dead, and looping on
-                    // that at Thread.MAX_PRIORITY with no backoff is exactly the spin
-                    // spec section 13 forbids.
-                    consecutiveReadErrors++
-                    if (consecutiveReadErrors >= RadioConfig.AUDIO_MAX_CONSECUTIVE_IO_ERRORS) {
+                    // A single bad read is tolerated (the hardware can hiccup, and a route
+                    // change is a hiccup); only a persistent run on a stable route means the
+                    // device is dead. Looping on that at MAX_PRIORITY with no backoff is the
+                    // spin spec section 13 forbids.
+                    if (guard.onError()) {
                         Log.e(TAG, "AudioRecord.read failed repeatedly")
                         onFailure?.invoke("microphone_read_failed", "AudioRecord.read failed repeatedly")
                         break
                     }
                     continue
                 }
-                consecutiveReadErrors = 0
+                guard.onSuccess()
                 if (offset < pcm.size) continue
 
                 val length = encoder.encode(pcm, RadioConfig.FRAME_SAMPLES, encoded)
@@ -183,8 +257,7 @@ class AudioEngine : AudioIo {
             Log.e(TAG, "capture stopped on an error", error)
             onFailure?.invoke("capture_failed", error.message ?: error.javaClass.simpleName)
         } finally {
-            runCatching { record?.stop() }
-            record?.release()
+            releaseRecord(record)
             encoder?.close()
         }
     }
@@ -242,42 +315,19 @@ class AudioEngine : AudioIo {
         // See captureLoop: Process.setThreadPriority, called from inside the thread, is the
         // priority Android's scheduler actually honours.
         Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
+        val guard = AudioStreamGuard()
         var track: AudioTrack? = null
         try {
-            val minimum = AudioTrack.getMinBufferSize(
-                RadioConfig.SAMPLE_RATE_HZ,
-                AudioFormat.CHANNEL_OUT_MONO,
-                AudioFormat.ENCODING_PCM_16BIT,
-            )
-            track = AudioTrack.Builder()
-                .setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .build(),
-                )
-                .setAudioFormat(
-                    AudioFormat.Builder()
-                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                        .setSampleRate(RadioConfig.SAMPLE_RATE_HZ)
-                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                        .build(),
-                )
-                .setBufferSizeInBytes(
-                    maxOf(
-                        minimum,
-                        RadioConfig.FRAME_SAMPLES * BYTES_PER_SAMPLE * RadioConfig.AUDIO_BUFFER_FRAMES,
-                    ),
-                )
-                .setTransferMode(AudioTrack.MODE_STREAM)
-                .build()
-
             val mixed = ShortArray(RadioConfig.FRAME_SAMPLES)
             val ready = ArrayList<ShortArray>(4)
-            track.play()
 
-            var consecutiveWriteErrors = 0
             while (playing) {
+                if (guard.needsRebuild(routeGeneration)) {
+                    releaseTrack(track)
+                    track = openTrack(routeProfile)
+                    track.play()
+                }
+                val active = track ?: return
                 ready.clear()
                 for (playback in playbacks.values) {
                     val frame = playback.jitter.pop() ?: continue
@@ -303,27 +353,22 @@ class AudioEngine : AudioIo {
                 AudioMixer.mix(ready, mixed)
                 // A silent frame when nothing is ready keeps AudioTrack's blocking write
                 // pacing this loop at real time instead of spinning.
-                val written = track.write(mixed, 0, mixed.size)
+                val written = active.write(mixed, 0, mixed.size)
                 if (written < 0) {
-                    // A dead AudioTrack returns an error immediately instead of blocking,
-                    // so without this check the loop would busy-spin at
-                    // Thread.MAX_PRIORITY exactly like an unchecked read failure would.
-                    consecutiveWriteErrors++
-                    if (consecutiveWriteErrors >= RadioConfig.AUDIO_MAX_CONSECUTIVE_IO_ERRORS) {
+                    if (guard.onError()) {
                         Log.e(TAG, "AudioTrack.write failed repeatedly")
                         onFailure?.invoke("speaker_write_failed", "AudioTrack.write failed repeatedly")
                         break
                     }
                 } else {
-                    consecutiveWriteErrors = 0
+                    guard.onSuccess()
                 }
             }
         } catch (error: Exception) {
             Log.e(TAG, "playback stopped on an error", error)
             onFailure?.invoke("playback_failed", error.message ?: error.javaClass.simpleName)
         } finally {
-            runCatching { track?.stop() }
-            track?.release()
+            releaseTrack(track)
         }
     }
 }
