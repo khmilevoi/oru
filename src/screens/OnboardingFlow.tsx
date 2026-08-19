@@ -41,7 +41,13 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
               </View>
             </View>
           }>
-          <StepDots total={APP_PERMISSIONS.length} current={APP_PERMISSIONS.length} />
+          {/* All three done and no step left to announce: the "All set" title
+              below says it, so the row leaves the accessibility tree rather
+              than naming a position the user has already passed. */}
+          <StepDots
+            total={APP_PERMISSIONS.length}
+            current={APP_PERMISSIONS.length}
+          />
           <View style={styles.mark}>
             <PermissionMark kind="done" />
           </View>
@@ -137,16 +143,24 @@ export const OnboardingFlow = reatomComponent<{onDone: () => void}>(
             </View>
           </View>
         }>
-        <StepDots total={APP_PERMISSIONS.length} current={step - 1} />
+        {/*
+          The visible "STEP n OF m" line is gone (2026-08-19): `StepDots` above
+          already rendered exactly that, with done / current / pending states,
+          and two indicators of one thing is one too many. The words were not
+          dropped -- they moved onto the dot row's accessible name, in sentence
+          case, because a `.po` msgid is source text and the uppercase the
+          deleted line carried was a rendering decision.
+        */}
+        <StepDots
+          total={APP_PERMISSIONS.length}
+          current={step - 1}
+          accessibilityLabel={t`Step ${step} of ${APP_PERMISSIONS.length}`}
+          testID={testIds.onboardingSteps}
+        />
         <View style={styles.mark}>
           <PermissionMark kind={permission ?? 'microphone'} />
         </View>
         <View testID="onboarding-copy" style={styles.copy}>
-          <Text style={[type.obStep, styles.step]}>
-            <Trans>
-              STEP {step} OF {APP_PERMISSIONS.length}
-            </Trans>
-          </Text>
           <Text style={[type.obTitle, styles.title]}>{copy.title}</Text>
           <Text style={[type.body, styles.body]}>{copy.body}</Text>
 
@@ -200,7 +214,6 @@ const styles = StyleSheet.create({
     paddingTop: chrome.footer.gap,
     paddingBottom: chrome.footer.paddingBottom,
   },
-  step: {color: colors.textFaint},
   title: {color: colors.text},
   body: {color: colors.textMuted, maxWidth: 320},
   warning: {color: colors.learning},

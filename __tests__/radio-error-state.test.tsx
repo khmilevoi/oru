@@ -49,7 +49,9 @@ describe('the error state — spec section 13', () => {
     expect(screen.hasText('SEARCHING FOR DEVICES...')).toBe(true);
 
     await screen.advance(1300);
-    expect(screen.hasText('HOLD TO TALK')).toBe(true);
+    // Ready is named by the microphone glyph now, not by the deleted
+    // "HOLD TO TALK" headline (2026-08-19 icon change).
+    expect(screen.findAll('mic-cradle')).toHaveLength(1);
 
     screen.unmount();
   });

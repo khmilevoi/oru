@@ -1,9 +1,11 @@
 import React from 'react';
+import {StyleSheet} from 'react-native';
 import {context} from '@reatom/core';
 
 import {RadioScreen} from '../src/screens/RadioScreen';
-import {motion, testIds, type, washes} from '../src/ui/theme';
+import {icon, motion, testIds, washes} from '../src/ui/theme';
 import {renderScreen} from '../jest/renderScreen';
+import type {RenderedScreen} from '../jest/renderScreen';
 import type {MockScenarioName} from '../src/mock/mock.scenario';
 
 jest.useFakeTimers({doNotFake: ['queueMicrotask']});
@@ -12,6 +14,22 @@ beforeEach(() => context.reset());
 
 const openRadio = async (scenario: MockScenarioName) =>
   renderScreen(<RadioScreen onSettingsPress={jest.fn()} />, {scenario});
+
+/**
+ * "Is the screen in READY?", asked of the glyph instead of the words.
+ *
+ * Every assertion below used to ask `hasText('HOLD TO TALK')`. That headline
+ * was replaced by the microphone on 2026-08-19 (`design/01 Radio.dc.html`
+ * frames 03 / 07 and the ICON SYSTEM note), so the state has no headline left
+ * to match on -- and that is the point of the change, since the glyph is the
+ * same in every locale while the string never was. The cradle arc belongs to
+ * no other glyph on this screen, so its presence IS the ready state.
+ *
+ * The demoted one-word caption is asserted separately, where the copy itself is
+ * the subject rather than a proxy for the state.
+ */
+const isReady = (screen: RenderedScreen) =>
+  screen.findAll('mic-cradle').length === 1;
 
 describe('RadioScreen — spec sections 12 and 12.1', () => {
   it('opens in off, with dead air and no scanning cue', async () => {
@@ -34,13 +52,13 @@ describe('RadioScreen — spec sections 12 and 12.1', () => {
 
     await screen.advance(2100);
     expect(screen.hasText('nearby')).toBe(true);
-    expect(screen.hasText('HOLD TO TALK')).toBe(true);
+    expect(isReady(screen)).toBe(true);
 
     await screen.advance(6000);
     expect(screen.hasText('RECEIVING...')).toBe(true);
 
     await screen.advance(3100);
-    expect(screen.hasText('HOLD TO TALK')).toBe(true);
+    expect(isReady(screen)).toBe(true);
 
     screen.unmount();
   });
@@ -55,7 +73,7 @@ describe('RadioScreen — spec sections 12 and 12.1', () => {
     expect(screen.hasText('RELEASE TO FINISH')).toBe(true);
 
     await screen.pressOut(testIds.pttArea);
-    expect(screen.hasText('HOLD TO TALK')).toBe(true);
+    expect(isReady(screen)).toBe(true);
 
     screen.unmount();
   });
@@ -117,7 +135,7 @@ describe('RadioScreen — spec sections 12 and 12.1', () => {
     expect(screen.hasText('SEARCHING FOR DEVICES...')).toBe(true);
 
     await screen.advance(2100);
-    expect(screen.hasText('HOLD TO TALK')).toBe(true);
+    expect(isReady(screen)).toBe(true);
 
     screen.unmount();
   });
@@ -188,7 +206,12 @@ describe('RadioScreen — spec sections 12 and 12.1', () => {
     expect(screen.hasText('ИЩЕМ УСТРОЙСТВА...')).toBe(true);
 
     await screen.advance(2100);
-    expect(screen.hasText('УДЕРЖИВАЙТЕ ЧТОБЫ ГОВОРИТЬ')).toBe(true);
+    // The locale that forced the change: «УДЕРЖИВАЙТЕ ЧТОБЫ ГОВОРИТЬ» needed
+    // its own type size and its own line break, and still wrapped to three
+    // lines on a real device. The glyph is identical in both locales; only the
+    // one-word caption is translated.
+    expect(isReady(screen)).toBe(true);
+    expect(screen.hasText('УДЕРЖИВАЙТЕ')).toBe(true);
 
     await screen.pressIn(testIds.pttArea);
     expect(screen.hasText('ПЕРЕДАЧА...')).toBe(true);
@@ -251,27 +274,38 @@ describe('RadioScreen — design/01 Radio.dc.html', () => {
     screen.unmount();
   });
 
-  it('sets the ready headline in the tighter face outside en', async () => {
-    const readyHeadline = async (locale: 'en' | 'ru') => {
+  /**
+   * This test used to assert the exact opposite: that the ready headline took
+   * `.holden` (40pt) in `en` and dropped to `.holdword` (33pt) everywhere else,
+   * because «УДЕРЖИВАЙТЕ ЧТОБЫ ГОВОРИТЬ» did not fit the 302 ring at 40.
+   *
+   * That per-locale type scale is exactly what the 2026-08-19 icon change
+   * deleted, and the reason it deleted it: "A GLYPH IS THE SAME SIZE IN EVERY
+   * LANGUAGE." So the assertion is inverted -- the ring's content must now be
+   * byte-for-byte identical across locales, which is a stronger guarantee than
+   * the one it replaces and the whole payoff of the change.
+   */
+  it('draws the same ready glyph at the same size in every locale', async () => {
+    const readyGlyph = async (locale: 'en' | 'ru') => {
       const screen = await renderScreen(
         <RadioScreen onSettingsPress={jest.fn()} />,
         {scenario: 'happy', locale},
       );
       await screen.press(testIds.powerOnArea);
       await screen.advance(2100);
-      const style = JSON.stringify(
-        screen.find(testIds.radioStateLabel).props.style,
+      const shape = JSON.stringify(
+        ['mic-capsule', 'mic-cradle', 'mic-stem', 'mic-base'].map(part =>
+          StyleSheet.flatten(screen.find(part).props.style),
+        ),
       );
       screen.unmount();
-      return style;
+      return shape;
     };
 
-    // `.holden` (40pt) for en, `.holdword` (33pt) for the longer locales --
-    // design/01 Radio.dc.html:195-224.
-    expect(await readyHeadline('en')).toContain(`"fontSize":${type.hero.fontSize}`);
-    expect(await readyHeadline('ru')).toContain(
-      `"fontSize":${type.heroTight.fontSize}`,
-    );
+    const en = await readyGlyph('en');
+    expect(await readyGlyph('ru')).toEqual(en);
+    // And it is drawn at the control idiom, not at some inherited type size.
+    expect(en).toContain(`"borderWidth":${icon.controlStroke}`);
   });
 
   it('moves the nearby count out of the headline and into the peer row', async () => {
@@ -287,7 +321,7 @@ describe('RadioScreen — design/01 Radio.dc.html', () => {
     expect(screen.find(testIds.radioStateLabel).props.testID).toBe(
       testIds.radioStateLabel,
     );
-    expect(screen.hasText('HOLD TO TALK')).toBe(true);
+    expect(isReady(screen)).toBe(true);
 
     screen.unmount();
   });
@@ -308,7 +342,11 @@ describe('the section 8 audio route readout', () => {
     await screen.advance(1000);
 
     expect(screen.findAll(testIds.audioRoute)).toHaveLength(1);
-    expect(screen.hasText('Speaker · radio')).toBe(true);
+    // The generic device word is gone -- the glyph says "speaker", in every
+    // locale at once. Only a Bluetooth route adds text of its own.
+    expect(screen.find(testIds.audioRoute).props.testID).toBe(testIds.audioRoute);
+    expect(screen.hasText('radio')).toBe(true);
+    expect(screen.hasText('Speaker')).toBe(false);
 
     screen.unmount();
   });
@@ -353,7 +391,8 @@ describe('the section 8 audio route readout', () => {
     await screen.press(testIds.powerOnArea);
     await screen.advance(1000);
 
-    expect(screen.hasText('Динамик · рация')).toBe(true);
+    expect(screen.hasText('рация')).toBe(true);
+    expect(screen.hasText('Динамик')).toBe(false);
 
     screen.unmount();
   });

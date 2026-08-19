@@ -67,7 +67,7 @@ export const SettingsScreen = reatomComponent<{
         {button.configured ? (
           <>
             <View style={styles.deviceRow}>
-              <View style={styles.dot} />
+              <ConnectionDot live={button.connected} />
               <View style={styles.deviceText}>
                 <Text style={[type.devName, styles.name]}>{button.name}</Text>
                 <Text
@@ -118,11 +118,18 @@ export const SettingsScreen = reatomComponent<{
           </>
         ) : (
           <>
-            <Text
-              testID={testIds.pttStatus}
-              style={[type.devNameOff, styles.disconnected]}>
-              <Trans>Not connected</Trans>
-            </Text>
+            {/* The same row and the same dot as the configured branch, unlit.
+                This branch used to have no dot at all while the other had a
+                permanently green one, which is exactly how a green dot came to
+                sit beside "Not connected". */}
+            <View style={styles.deviceRow}>
+              <ConnectionDot live={false} />
+              <Text
+                testID={testIds.pttStatus}
+                style={[type.devNameOff, styles.offName]}>
+                <Trans>Not connected</Trans>
+              </Text>
+            </View>
             <Text style={[type.caption, styles.note]}>
               <Trans>
                 An external button lets you talk without taking the phone out of
@@ -188,6 +195,31 @@ export const SettingsScreen = reatomComponent<{
   );
 }, 'SettingsScreen');
 
+/**
+ * `design/theme.css`'s `.pdot` / `.pdot.off` -- the connection dot, STATE-
+ * COLOURED and never decoratively green.
+ *
+ * A green dot beside "Not connected" is the one thing on a screen that can
+ * contradict its own label, and this screen used to ship exactly that: one
+ * always-green dot in the configured branch, sitting beside a status line free
+ * to read "Disconnected". Green with its glow when the button is live,
+ * `--faint` and unlit when it is not.
+ *
+ * Hue is never load-bearing here: the word beside it always says which, so the
+ * dot only ever agrees with a label that is already there. It is decorative for
+ * that reason.
+ */
+function ConnectionDot({live}: {live: boolean}) {
+  return (
+    <View
+      testID="settings-connection-dot"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={[styles.dot, live ? styles.dotLive : styles.dotOff]}
+    />
+  );
+}
+
 const styles = StyleSheet.create({
   sectionLabel: {...chrome.sectionLabel, color: colors.textFaint},
   card: {
@@ -200,18 +232,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.gutter,
   },
   deviceRow: {flexDirection: 'row', alignItems: 'flex-start', gap: 14},
-  dot: {
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
-    marginTop: spacing.sm,
-    backgroundColor: colors.rx,
-    boxShadow: glows.peer,
-  },
+  dot: {width: 9, height: 9, borderRadius: 4.5, marginTop: spacing.sm},
+  /** `.pdot` -- live: green, with its 14 glow. */
+  dotLive: {backgroundColor: colors.rx, boxShadow: glows.peer},
+  /** `.pdot.off` -- not live: faint, and NO glow. */
+  dotOff: {backgroundColor: colors.textFaint, boxShadow: 'none'},
   deviceText: {flex: 1},
   name: {color: colors.text},
   connected: {color: colors.rx, marginTop: 5},
   disconnected: {color: colors.textMuted, marginTop: 5},
+  /**
+   * `.offname` -- the "Not connected" line, which now sits in a `.devrow`
+   * beside the dot instead of alone in the card, so it does not carry
+   * `disconnected`'s 5pt top margin: the dot's own 8 already sets the row's
+   * optical baseline against this 19/24 face.
+   */
+  offName: {color: colors.textMuted},
   note: {marginTop: spacing.md, color: colors.textFaint},
   actions: {flexDirection: 'row', gap: 12, marginTop: spacing.gutter},
   action: {flex: 1},

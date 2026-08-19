@@ -41,8 +41,12 @@ describe('the pairing flow — spec sections 9.3 and 12.1', () => {
     expect(screen.hasText('Found')).toBe(true);
     expect(screen.hasText('ORU-PTT-01')).toBe(true);
     expect(screen.hasText('BT-REMOTE')).toBe(true);
-    // RSSI prints with a true minus, U+2212, not a hyphen (canvas: −52 dBm).
-    expect(screen.hasText('BLE · −52 dBm')).toBe(true);
+    // The `BLE ·` prefix became four signal bars on 2026-08-19; the reading it
+    // qualified stayed, because bars cannot separate two similarly named
+    // buttons on the same shelf. RSSI still prints with a true minus, U+2212,
+    // not a hyphen (canvas: −52 dBm).
+    expect(screen.hasText('−52 dBm')).toBe(true);
+    expect(screen.hasText('BLE ·')).toBe(false);
 
     await screen.press(`${testIds.pairingCandidate}-mock-ptt-01`);
     expect(screen.hasText('PRESS THE PTT BUTTON')).toBe(true);
@@ -51,7 +55,13 @@ describe('the pairing flow — spec sections 9.3 and 12.1', () => {
     expect(screen.hasText('”...')).toBe(true);
 
     await screen.advance(1300);
-    expect(screen.hasText('BUTTON CONNECTED')).toBe(true);
+    // The "BUTTON CONNECTED" headline is gone (2026-08-19): the 132 success
+    // mark is the whole statement, and the words moved onto its accessible
+    // name, which is where a screen reader now hears them.
+    expect(screen.find('pairing-tick').props.accessibilityLabel).toBe(
+      'Button connected',
+    );
+    expect(screen.hasText('BUTTON CONNECTED')).toBe(false);
     expect(radio().pttButton).toEqual({
       configured: true,
       connected: true,
@@ -139,7 +149,11 @@ describe('the pairing flow — spec sections 9.3 and 12.1', () => {
     expect(screen.hasText('Слушаем сигнал от «')).toBe(true);
 
     await screen.advance(1300);
-    expect(screen.hasText('КНОПКА ПОДКЛЮЧЕНА')).toBe(true);
+    // The headline is a glyph in every locale now; the announcement is what
+    // carries the words, so Russian is asserted where Russian now lives.
+    expect(screen.find('pairing-tick').props.accessibilityLabel).toBe(
+      'Кнопка подключена',
+    );
 
     screen.unmount();
   });

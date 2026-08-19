@@ -71,14 +71,17 @@ describe('RouteReadout', () => {
     return text;
   };
 
-  // Every string below is read off design/01 Radio.dc.html frame 08.
-  it('renders the speaker route the way the canvas states it', async () => {
-    expect(await read({kind: 'speaker', mode: 'voice'})).toBe('Speaker · radio');
+  // Every string below is read off design/01 Radio.dc.html frame 08, whose note
+  // now reads "THE DEVICE WORD IS GONE - THE GLYPH SAYS SPEAKER / WIRED /
+  // BLUETOOTH, AND SAYS IT IN EVERY LOCALE AT ONCE". What is left in text is
+  // what no glyph can say: the headset's own name, and the mode.
+  it('leaves the speaker route to its glyph and states only the mode', async () => {
+    expect(await read({kind: 'speaker', mode: 'voice'})).toBe('radio');
   });
 
   it('renders wired and usb identically -- "usb routes render like wired"', async () => {
-    expect(await read({kind: 'wired', mode: 'voice'})).toBe('Headphones · radio');
-    expect(await read({kind: 'usb', mode: 'voice'})).toBe('Headphones · radio');
+    expect(await read({kind: 'wired', mode: 'voice'})).toBe('radio');
+    expect(await read({kind: 'usb', mode: 'voice'})).toBe('radio');
   });
 
   it('shows the Bluetooth headset name as reported', async () => {
@@ -90,19 +93,17 @@ describe('RouteReadout', () => {
     );
   });
 
-  it('falls back to the generic accessory word for a nameless headset', async () => {
-    expect(await read({kind: 'bluetooth', mode: 'voice'})).toBe(
-      'Headphones · radio',
-    );
+  it('reads as the mode alone when a headset reports no name', async () => {
+    // Frame 08's own row: "bluetooth · voice · headset reports no name". The
+    // generic accessory word is gone with every other device word, so there is
+    // nothing to fall back to -- and nothing missing, since the glyph is still
+    // saying "bluetooth".
+    expect(await read({kind: 'bluetooth', mode: 'voice'})).toBe('radio');
   });
 
   it('renders in Russian', async () => {
-    expect(await read({kind: 'speaker', mode: 'voice'}, 'ru')).toBe(
-      'Динамик · рация',
-    );
-    expect(await read({kind: 'wired', mode: 'voice'}, 'ru')).toBe(
-      'Наушники · рация',
-    );
+    expect(await read({kind: 'speaker', mode: 'voice'}, 'ru')).toBe('рация');
+    expect(await read({kind: 'wired', mode: 'voice'}, 'ru')).toBe('рация');
     expect(
       await read({kind: 'bluetooth', label: 'AirPods', mode: 'media'}, 'ru'),
     ).toBe('AirPods · музыка, микрофон телефона');

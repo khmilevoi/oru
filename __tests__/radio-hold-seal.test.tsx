@@ -379,7 +379,14 @@ describe('the layers', () => {
       colors.hairline,
     ]);
 
-    const out = asInterpolation(styleOf(screen, testIds.radioStateLabel).opacity);
+    // Read off the PROP, not the style: since 2026-08-19 this state's label is
+    // the microphone glyph, so `testIds.radioStateLabel` names a component and
+    // the harness hands back the outermost match -- which carries `opacity` as
+    // a prop and no style of its own. That the glyph then puts it on its root
+    // node is `icon-system.test.tsx`'s job; this asserts what the screen wires.
+    const out = asInterpolation(
+      screen.find(testIds.radioStateLabel).props.opacity,
+    );
     expect(out._config.inputRange).toEqual([0, seal.copyFade]);
     expect(out._config.outputRange).toEqual([1, 0]);
 

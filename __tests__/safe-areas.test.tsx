@@ -71,7 +71,9 @@ describe('the chassis clears the status bar and the display cutout', () => {
 
     await screen.press(testIds.powerOnArea);
     await screen.advance(2100);
-    expect(screen.hasText('HOLD TO TALK')).toBe(true);
+    // Ready is named by the microphone glyph now, not by the deleted
+    // "HOLD TO TALK" headline (2026-08-19 icon change).
+    expect(screen.findAll('mic-cradle')).toHaveLength(1);
 
     expect(topOf(screen, testIds.radioScreen)).toBeGreaterThanOrEqual(
       INSETS.top,
