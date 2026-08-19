@@ -71,10 +71,15 @@ class AudioEngine : AudioIo {
 
     /**
      * Bumped by [onRouteChanged] on the engine's scheduler thread and read once per iteration
-     * by each audio thread. An `Int` write is atomic and `@Volatile` makes it visible; the two
-     * fields are written together and read independently, so a loop can briefly rebuild with
-     * the previous profile — the very next bump fixes it, and a route change is already a
-     * glitch boundary.
+     * by each audio thread. [routeProfile] is written before [routeGeneration] by the single
+     * writer and read after it by the single reader ([playbackLoop]; [captureLoop] never reads
+     * [routeProfile]), so a reader that observes generation G can only ever see a profile equal
+     * to or newer than the one [onRouteChanged] paired with G — never older. The only anomaly
+     * possible is the reverse: a rebuild can be stamped with a *newer* [routeProfile] than the
+     * [routeGeneration] it records, which just makes [AudioStreamGuard]'s `builtGeneration` lag
+     * behind. That self-corrects on the very next iteration, which re-reads the true
+     * [routeGeneration], still finds it changed, and rebuilds again — no further
+     * [onRouteChanged] call is needed.
      */
     @Volatile private var routeGeneration = 0
     @Volatile private var routeProfile: ModePolicy.Profile = ModePolicy.Profile.VOICE
@@ -120,7 +125,11 @@ class AudioEngine : AudioIo {
         // reference to a thread that did finish is harmless — startCapture replaces it.
     }
 
-    /** VOICE_COMMUNICATION in both profiles (§6 capture row): the route decides the mic. */
+    /**
+     * VOICE_COMMUNICATION in both profiles (§6 capture row): the route decides the mic.
+     * VOICE_COMMUNICATION also gives us the system's echo cancellation and noise suppression
+     * (spec section 8).
+     */
     private fun openRecord(): AudioRecord? {
         val minimum = AudioRecord.getMinBufferSize(
             RadioConfig.SAMPLE_RATE_HZ,
@@ -220,6 +229,9 @@ class AudioEngine : AudioIo {
             while (capturing) {
                 if (guard.needsRebuild(routeGeneration)) {
                     releaseRecord(record)
+                    // Null it immediately: if openRecord() fails and returns, the `finally`
+                    // below must not see a reference to the record we just released.
+                    record = null
                     record = openRecord() ?: return
                     record.startRecording()
                 }
@@ -324,6 +336,11 @@ class AudioEngine : AudioIo {
             while (playing) {
                 if (guard.needsRebuild(routeGeneration)) {
                     releaseTrack(track)
+                    // Null it immediately: openTrack() signals failure by throwing (its
+                    // Builder.build() can throw UnsupportedOperationException), and if it
+                    // does, the `finally` below must not see a reference to the track we
+                    // just released.
+                    track = null
                     track = openTrack(routeProfile)
                     track.play()
                 }
@@ -355,6 +372,9 @@ class AudioEngine : AudioIo {
                 // pacing this loop at real time instead of spinning.
                 val written = active.write(mixed, 0, mixed.size)
                 if (written < 0) {
+                    // A dead AudioTrack returns an error immediately instead of blocking, so
+                    // without this check the loop would busy-spin at Thread.MAX_PRIORITY
+                    // exactly like an unchecked read failure would.
                     if (guard.onError()) {
                         Log.e(TAG, "AudioTrack.write failed repeatedly")
                         onFailure?.invoke("speaker_write_failed", "AudioTrack.write failed repeatedly")
