@@ -321,9 +321,18 @@ public final class RadioEngine {
                 // applied configuration decides which mic the input node
                 // resolves to, and the policy restored the base configuration
                 // before emitting this. The source is recorded as evidence.
-                HeartbeatLogger.shared.record(
-                    "tx mic=\(source == .routeDefault ? "route" : "phone")"
-                )
+                // An exhaustive switch, not a `source == .routeDefault ? :`
+                // ternary: `MicSource` is merged, read-only P1 vocabulary, so
+                // a third case added there must fail this file to compile
+                // rather than silently fall into "phone".
+                let micLabel: String
+                switch source {
+                case .routeDefault:
+                    micLabel = "route"
+                case .phoneFallback:
+                    micLabel = "phone"
+                }
+                HeartbeatLogger.shared.record("tx mic=\(micLabel)")
                 isAwaitingAudioSession = true
                 background.requestBeginTransmitting()
             }

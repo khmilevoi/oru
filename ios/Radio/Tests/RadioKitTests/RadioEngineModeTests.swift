@@ -268,14 +268,50 @@ final class RadioEngineModeTests: XCTestCase {
     // MARK: - Lifetime
 
     func testStoppingTheRadioForgetsEveryPolicyDeadline() {
+        // Press, let the headset confirm the link, release — the raised link
+        // lingers for 15 s (`ModePolicy.release` → `.lingering`), a genuinely
+        // pending wakeup. Unlike a still-`awaitingLink` deadline (which
+        // `stopRadioLocked`'s own release-on-stop handling would resolve on
+        // its way through `stopTransmitLocked`, before ever reaching its
+        // explicit cancellation), the button is already up here: nothing
+        // *but* that explicit cancellation reaches this deadline.
         reachMedia()
-        engine.stopRadio()
+        ptt.delegate?.pttSourceDidPress(ptt)
         flush()
-        background.publishOtherAudio(false)
+        background.publishRoute(hfp)
+        flush()
+        background.grantAudioSession()
         flush()
 
-        let before = background.appliedProfiles
-        advance(to: 1_000_000)
-        XCTAssertEqual(background.appliedProfiles, before)
+        let releasedAt = ModePolicy.Constants.otherAudioToMediaMs
+        clock.nowMs = releasedAt
+        ptt.delegate?.pttSourceDidRelease(ptt)
+        flush()
+
+        XCTAssertEqual(
+            background.appliedProfiles, [.media, .voice],
+            "the link is held, not dropped, going into the linger"
+        )
+
+        // Confirm a wakeup really is pending before stopping — via the fake
+        // clock's own bookkeeping, not the engine's private `policyTimer`.
+        XCTAssertGreaterThan(clock.pendingCount, 0, "the linger deadline is armed")
+
+        engine.stopRadio()
+        flush()
+
+        XCTAssertEqual(
+            clock.pendingCount, 0,
+            "stopping must cancel the pending linger deadline, not merely skip re-arming it"
+        )
+
+        advance(to: releasedAt + ModePolicy.Constants.voiceLinkLingerMs + 1_000)
+
+        XCTAssertEqual(
+            background.appliedProfiles, [.media, .voice],
+            "no linger-expiry drop ran: the deadline that would have produced it was cancelled"
+        )
+        XCTAssertEqual(audio.grantTones, 1, "no further capture activity after stopping")
+        XCTAssertEqual(background.transmitRequests, 1)
     }
 }

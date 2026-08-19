@@ -213,6 +213,13 @@ final class ManualClock: RadioClock {
     /// The monotonic clock the engine reads. Tests set it, then fire.
     var nowMs: Int64 = 0
 
+    /// How many timers are currently armed and un-fired. A live gauge of the
+    /// fake's own bookkeeping, distinct from `scheduledDelays` (an append-only
+    /// history that does not shrink on cancellation) — this is what a test
+    /// reads to confirm a wakeup is genuinely pending, or genuinely gone,
+    /// without reaching for the engine's private `policyTimer`.
+    var pendingCount: Int { pending.count }
+
     func schedule(
         after seconds: TimeInterval,
         _ block: @escaping () -> Void
