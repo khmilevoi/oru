@@ -18,10 +18,13 @@ class FakeAudioManagerFacade : AudioManagerFacade {
 
     var hfpAddresses: List<String>? = emptyList()
 
-    // Named differently from the interface method it backs: a property named `mode`
-    // generates a synthetic `setMode(Int)` setter whose erased JVM signature clashes with
-    // the explicit override below (same pattern as `capturedFailureListener` in FakeAudioIo).
+    // The mutable backing field is named `currentMode`, not `mode`: a `var mode` would
+    // generate a synthetic `setMode(Int)` setter whose erased JVM signature clashes with the
+    // explicit override below (same pattern as `capturedFailureListener` in FakeAudioIo). `mode`
+    // is a read-only view over it — a `val` only generates `getMode()`, so it does not clash —
+    // kept so the plan's later tests can read `facade.mode` exactly as written.
     var currentMode: Int = AudioManager.MODE_NORMAL
+    val mode: Int get() = currentMode
     val modeSets = mutableListOf<Int>()
 
     /** False for the OEM stacks whose `setMode` silently does not take effect. */
