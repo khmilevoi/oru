@@ -3,6 +3,9 @@ node_modules/
 android/
 ios/
 vendor/
+# Verbatim export of the Claude Design canvas; support.js is a generated
+# browser bundle ("do not edit", rebuilt by dc-runtime), not app source.
+design/
 coverage/
 .metro-bundle-check/
 src/locales/
