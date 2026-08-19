@@ -19,6 +19,7 @@ import {
   motion,
   routeReadout,
   spacing,
+  stage,
   testIds,
   type,
   washes,
@@ -116,7 +117,7 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
             onPress={startRadio}
             style={styles.fill}>
             <PeerRow />
-            <View style={styles.stage}>
+            <View style={[styles.stage, styles.offStage]}>
               <PowerKey
                 variant="hero"
                 notchColor={colors.backgroundOff}
@@ -241,24 +242,29 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
           </View>
         </Pressable>
 
-        <View
-          testID="corner-controls"
-          pointerEvents={live ? 'none' : 'auto'}
-          style={[styles.corners, cornerStyle, live && styles.receded]}>
+        <View testID="corner-controls" style={[styles.corners, cornerStyle]}>
+          {/* The gear stays fully visible and tappable while live: the canvas
+              dims `.pwr` alone and `.gear` never carries `dim`
+              (design/01 Radio.dc.html frames 04 and 05). */}
           <GearButton
             onPress={onSettingsPress}
             accessibilityLabel={t`Settings`}
             testID={testIds.settingsGear}
           />
-          <PowerKey
-            variant="corner"
-            holdToConfirm
-            onActivate={wrap(() => {
-              void radio.stop();
-            })}
-            accessibilityLabel={t`Hold to turn the radio off`}
-            testID={testIds.powerKey}
-          />
+          <View
+            testID="power-corner"
+            pointerEvents={live ? 'none' : 'auto'}
+            style={live && styles.receded}>
+            <PowerKey
+              variant="corner"
+              holdToConfirm
+              onActivate={wrap(() => {
+                void radio.stop();
+              })}
+              accessibilityLabel={t`Hold to turn the radio off`}
+              testID={testIds.powerKey}
+            />
+          </View>
         </View>
 
         <View style={[styles.route, routeStyle]} pointerEvents="none">
@@ -277,9 +283,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xl,
-    paddingBottom: spacing.xl,
+    gap: stage.gap,
+    paddingBottom: stage.paddingBottom,
   },
+  /** `.offstage` -- the same column, opened up to the canvas's 46. */
+  offStage: {gap: stage.offGap},
   offCopy: {alignItems: 'center', gap: spacing.md},
   headline: {color: colors.text, textAlign: 'center'},
   hint: {color: colors.textFaint, textAlign: 'center'},

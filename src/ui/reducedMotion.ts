@@ -18,8 +18,14 @@ import {atom, bind, withConnectHook} from '@reatom/core';
  * even though nothing on the platform actually changed. So the one-shot
  * answer only ever fills in a value nothing has set yet; a genuine
  * `reduceMotionChanged` event -- which only fires on an actual change --
- * always wins, and also re-arms the guard for the connection's next initial
- * read.
+ * always wins, and re-arms the guard for the connection's next initial read.
+ *
+ * The guard is *not* consumed by a skipped one-shot. The atom reconnects
+ * every time its last subscriber swaps out mid-screen -- a pairing step
+ * unmounting its `PulseDot` as the next step mounts its `StateRing` -- and
+ * each reconnection fires a fresh one-shot. If the first skip disarmed the
+ * guard, the second one-shot would overwrite the explicit value with the
+ * platform's, exactly the race the guard exists to stop.
  *
  * `target.set` is wrapped once here, at module scope, rather than inside the
  * connect hook below: an explicit `.set()` made before the atom ever
@@ -56,7 +62,6 @@ export const reducedMotion = target.extend(
     void AccessibilityInfo.isReduceMotionEnabled().then(
       bind(enabled => {
         if (live && !hasExplicitValue) rawSet(enabled);
-        hasExplicitValue = false;
       }),
     );
 

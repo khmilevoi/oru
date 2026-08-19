@@ -56,5 +56,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: routeReadout.gap,
   },
-  label: {...type.routeLabel, color: colors.textFaint, textTransform: 'uppercase'},
+  label: {...type.routeLabel, color: colors.textFaint},
 });

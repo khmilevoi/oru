@@ -51,7 +51,7 @@ export const SettingsScreen = reatomComponent<{
                 <Text
                   testID={testIds.pttStatus}
                   style={[
-                    type.caption,
+                    type.devStatus,
                     button.connected ? styles.connected : styles.disconnected,
                   ]}>
                   {button.connected ? (
@@ -89,7 +89,7 @@ export const SettingsScreen = reatomComponent<{
           <>
             <Text
               testID={testIds.pttStatus}
-              style={[type.devName, styles.disconnected]}>
+              style={[type.devNameOff, styles.disconnected]}>
               <Trans>Not connected</Trans>
             </Text>
             <Text style={[type.caption, styles.note]}>

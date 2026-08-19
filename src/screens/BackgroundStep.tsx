@@ -42,7 +42,7 @@ export const BackgroundStep = reatomComponent(() => {
         <PermissionMark kind="nearbyDevices" />
       </View>
       <View style={styles.foot}>
-        <Text style={[type.hero, styles.title]}>
+        <Text style={[type.obTitle, styles.title]}>
           <Trans>Keep the radio working</Trans>
         </Text>
         <Text style={[type.body, styles.body]}>

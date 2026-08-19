@@ -14,8 +14,10 @@ import {
   colors,
   glows,
   radii,
+  scanHintInset,
   sizes,
   spacing,
+  stage,
   testIds,
   type,
 } from '../ui/theme';
@@ -66,24 +68,30 @@ export const PairingFlow = reatomComponent<{onClose: () => void}>(
         backTestID={testIds.pairingCancel}
         onBack={close}>
         {step === 'scanning' ? (
-          <View style={styles.stage}>
-            <PingRings size="small" testID="pairing-pings" />
-            <Text style={[type.scan, styles.scanText]}>
-              <Trans>SCANNING FOR BLE DEVICES...</Trans>
-            </Text>
-            <Text style={[type.caption, styles.scanHint]}>
+          <>
+            <View style={styles.stage}>
+              <PingRings size="small" testID="pairing-pings" />
+              <Text style={[type.scanPairing, styles.scanText]}>
+                <Trans>SCANNING FOR BLE DEVICES...</Trans>
+              </Text>
+            </View>
+            {/* `.scanhint` is pinned to the foot of the frame, not a third row
+                of the stage (design/03 Pairing.dc.html). */}
+            <Text
+              testID="pairing-scan-hint"
+              style={[type.caption, styles.scanHint]}>
               <Trans>
                 Make sure the button is turned on and close to the phone.
               </Trans>
             </Text>
-          </View>
+          </>
         ) : null}
 
         {step === 'picking' ? (
           <View>
             <View style={styles.scanRow}>
               <PulseDot active color={colors.learning} size={8} />
-              <Text style={[type.label, styles.scanRowLabel]}>
+              <Text style={[type.scanRow, styles.scanRowLabel]}>
                 <Trans>still scanning</Trans>
               </Text>
             </View>
@@ -115,41 +123,58 @@ export const PairingFlow = reatomComponent<{onClose: () => void}>(
         ) : null}
 
         {step === 'learning' ? (
-          <View style={styles.stage}>
-            <StateRing tone="learning" testID="pairing-ring">
-              <Text style={[type.state, styles.learning]}>
-                <Trans>PRESS THE PTT BUTTON</Trans>
+          <>
+            <View style={[styles.stage, styles.stagePair]}>
+              <StateRing tone="learning" testID="pairing-ring">
+                <Text style={[type.stateSmall, styles.learning]}>
+                  <Trans>PRESS THE PTT BUTTON</Trans>
+                </Text>
+              </StateRing>
+              <Text style={[type.learnSub, styles.learnSub]}>
+                <Trans>Listening for a signal from {buttonName}...</Trans>
               </Text>
-            </StateRing>
-            <Text style={[type.caption, styles.learnSub]}>
-              <Trans>Listening for a signal from {buttonName}...</Trans>
-            </Text>
-          </View>
+            </View>
+            {/* The `.pfoot` ghost Cancel of design/03 Pairing.dc.html frame 03,
+                over and above the header chevron -- both wire the same close. */}
+            <View testID="pairing-foot" style={styles.foot}>
+              <ActionButton
+                label={t`Cancel`}
+                onPress={close}
+                testID={testIds.pairingCancelFooter}
+              />
+            </View>
+          </>
         ) : null}
 
         {step === 'saved' ? (
-          <View style={styles.stage}>
-            <View testID="pairing-tick" style={styles.tick}>
-              <View style={styles.tickMark} />
-            </View>
-            <Text style={[type.state, styles.saved]}>
-              <Trans>BUTTON CONNECTED</Trans>
-            </Text>
-            <View style={styles.bindCard}>
-              <View style={styles.bindRow}>
-                <Text style={[type.caption, styles.bindKey]}>
-                  <Trans>device</Trans>
-                </Text>
-                <Text style={[type.caption, styles.bindValue]}>{buttonName}</Text>
+          <>
+            <View style={[styles.stage, styles.stagePair]}>
+              <View testID="pairing-tick" style={styles.tick}>
+                <View style={styles.tickMark} />
+              </View>
+              <Text style={[type.stateSmall, styles.saved]}>
+                <Trans>BUTTON CONNECTED</Trans>
+              </Text>
+              <View style={styles.bindCard}>
+                <View style={styles.bindRow}>
+                  <Text style={[type.caption, styles.bindKey]}>
+                    <Trans>device</Trans>
+                  </Text>
+                  <Text style={[type.caption, styles.bindValue]}>{buttonName}</Text>
+                </View>
               </View>
             </View>
-            <ActionButton
-              label={t`Done`}
-              tone="primary"
-              onPress={close}
-              testID={testIds.pairingDone}
-            />
-          </View>
+            {/* Done sits in the `.pfoot`, not the centred stage
+                (design/03 Pairing.dc.html frame 04). */}
+            <View testID="pairing-foot" style={styles.foot}>
+              <ActionButton
+                label={t`Done`}
+                tone="primary"
+                onPress={close}
+                testID={testIds.pairingDone}
+              />
+            </View>
+          </>
         ) : null}
 
         {step === 'failed' ? (
@@ -229,9 +254,27 @@ const styles = StyleSheet.create({
     borderColor: colors.rx,
     transform: [{rotate: '-45deg'}],
   },
-  stage: {flex: 1, alignItems: 'center', justifyContent: 'center', gap: 30},
+  stage: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: stage.gap,
+    paddingBottom: stage.paddingBottom,
+  },
+  /** `.stage.pair` -- the learn/saved steps close the column down to 30. */
+  stagePair: {gap: stage.pairGap},
+  /** `.pfoot`. */
+  foot: {...chrome.pairingFooter},
   scanText: {color: colors.textMuted, textAlign: 'center'},
-  scanHint: {color: colors.textFaint, textAlign: 'center', paddingHorizontal: 40},
+  /** `.scanhint`. */
+  scanHint: {
+    position: 'absolute',
+    left: scanHintInset.side,
+    right: scanHintInset.side,
+    bottom: scanHintInset.bottom,
+    color: colors.textFaint,
+    textAlign: 'center',
+  },
   scanRow: {
     flexDirection: 'row',
     alignItems: 'center',
