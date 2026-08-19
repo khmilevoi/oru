@@ -187,7 +187,7 @@ the merges; execution may not.
 
 ### P3 `ios-routing` — wave 2, track A
 - [x] planned   → docs/superpowers/plans/2026-08-18-p3-ios-routing.md
-- [ ] executed  → branch plan/p3-ios-routing · worktree .claude/worktrees/p3-ios-routing
+- [x] executed  → branch plan/p3-ios-routing · worktree .claude/worktrees/p3-ios-routing
 - [ ] merged    → sync 2
 
 **Owns:** everything §5, inside `ios/`: the two static session configurations (VOICE:
