@@ -77,6 +77,16 @@ public enum RadioConfig {
         public static let heartbeatSeconds: TimeInterval = 10
     }
 
+    /// The always-hot session's own knobs (spec section 5 of the 2026-08-18
+    /// seamless-headphone-audio design).
+    public enum Session {
+        /// Interruption and foreground recovery retry `setActive(true)` when
+        /// the system answers `.isBusy` — the interrupting app has not finished
+        /// letting go yet. Signal's pattern: 0.5 s apart, three times.
+        public static let activationRetryDelay: TimeInterval = 0.5
+        public static let activationRetryLimit = 3
+    }
+
     public enum Spike {
         /// Debug builds only: the UDP port `SpikeCommandServer` listens on for
         /// Phase 0 commands from a Mac on the same Wi-Fi (iOS has no adb).

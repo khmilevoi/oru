@@ -175,6 +175,30 @@ final class FakeBackground: BackgroundSession {
         receivingFlags.append(receiving)
     }
 
+    /// Every profile the engine asked for, in order. `applyProfile` is
+    /// deliberately not diff-filtered here: the fake records the request, the
+    /// real manager decides whether it changes anything.
+    private(set) var appliedProfiles: [ModePolicy.Profile] = []
+
+    func applyProfile(_ profile: ModePolicy.Profile) {
+        appliedProfiles.append(profile)
+    }
+
+    /// Stands in for a route change the session observed and classified.
+    func publishRoute(_ snapshot: AudioRouteSnapshot) {
+        delegate?.backgroundSession(self, routeDidChange: snapshot)
+    }
+
+    /// Stands in for `isOtherAudioPlaying` changing.
+    func publishOtherAudio(_ active: Bool) {
+        delegate?.backgroundSession(self, otherAudioActiveDidChange: active)
+    }
+
+    /// Stands in for AVAudioEngineConfigurationChange / mediaServicesWereReset.
+    func requestEngineRebuild(recreate: Bool) {
+        delegate?.backgroundSession(self, didRequestEngineRebuild: recreate)
+    }
+
     /// Stands in for the system handing us an active audio session.
     func grantAudioSession() {
         delegate?.backgroundSessionDidActivateAudio(self)

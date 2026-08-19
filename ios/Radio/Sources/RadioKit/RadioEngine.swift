@@ -30,6 +30,12 @@ public final class RadioEngine {
     /// sampled every 50 frames so no line is formatted per frame.
     private var rxFrameCounts: [String: Int] = [:]
     private var observers: [String: (RadioEvent) -> Void] = [:]
+    /// The current route as the session classified it (§8). Task 5 feeds it to
+    /// the §7 policy; Task 6 publishes it.
+    private var routeSnapshot = AudioRouteSnapshot(
+        kind: .speaker, label: nil, requiresVoiceLink: false, providesVoiceLink: false
+    )
+    private var isOtherAudioActive = false
 
     public init(
         transport: RadioTransport,
@@ -422,5 +428,31 @@ extension RadioEngine: BackgroundSessionDelegate {
         didFail error: RadioError
     ) {
         queue.async { self.failLocked(error, fatal: false) }
+    }
+
+    /// §8's route. Task 5 feeds it to the §7 policy and Task 6 publishes it into
+    /// `RadioState`; for now it is only recorded, so the port is complete and
+    /// the wiring is one reviewable change on its own.
+    public func backgroundSession(
+        _ session: BackgroundSession,
+        routeDidChange snapshot: AudioRouteSnapshot
+    ) {
+        queue.async { self.routeSnapshot = snapshot }
+    }
+
+    public func backgroundSession(
+        _ session: BackgroundSession,
+        otherAudioActiveDidChange active: Bool
+    ) {
+        queue.async { self.isOtherAudioActive = active }
+    }
+
+    /// §5's rebuild travels session → engine → audio: the session is what
+    /// observes the notification, `AudioIO` is what owns the graph.
+    public func backgroundSession(
+        _ session: BackgroundSession,
+        didRequestEngineRebuild recreate: Bool
+    ) {
+        queue.async { self.audio.rebuildEngine(recreate: recreate) }
     }
 }

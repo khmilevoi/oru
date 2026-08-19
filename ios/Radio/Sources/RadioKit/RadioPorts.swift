@@ -102,6 +102,15 @@ public protocol BackgroundSession: AnyObject {
     func requestBeginTransmitting()
     func stopTransmitting()
     func setReceiving(_ receiving: Bool)
+
+    /// §5/§7: apply one of the two static session configurations, whole and
+    /// diff-only. The merged §7 policy is the only thing that asks. On iOS a
+    /// voice-link raise and a mode switch are the same call, which is why there
+    /// is one method and not three.
+    ///
+    /// Called from the engine queue, like every other method here, and must
+    /// never dispatch synchronously back onto it.
+    func applyProfile(_ profile: ModePolicy.Profile)
 }
 
 public protocol BackgroundSessionDelegate: AnyObject {
@@ -114,6 +123,28 @@ public protocol BackgroundSessionDelegate: AnyObject {
     func backgroundSessionDidRequestTransmitStart(_ session: BackgroundSession)
     func backgroundSessionDidRequestTransmitStop(_ session: BackgroundSession)
     func backgroundSession(_ session: BackgroundSession, didFail error: RadioError)
+
+    /// §8's `audioRoute` and §7's two route predicates, in one value. Delivered
+    /// on the engine queue, diff-only: an unchanged route is not republished.
+    func backgroundSession(
+        _ session: BackgroundSession,
+        routeDidChange snapshot: AudioRouteSnapshot
+    )
+    /// §5's other-audio detection (`isOtherAudioPlaying` on the heartbeat tick
+    /// and on every route change, `silenceSecondaryAudioHint` as an edge).
+    /// Diff-only, raw and undebounced: the 2 s / 30 s dwell belongs to
+    /// `ModePolicy`, so both platforms debounce identically.
+    func backgroundSession(
+        _ session: BackgroundSession,
+        otherAudioActiveDidChange active: Bool
+    )
+    /// §5: the audio graph must be rebuilt. `recreate` means the
+    /// `AVAudioEngine` itself is dead (media services reset) and a new one is
+    /// needed. The session observes this; `AudioIO` owns the graph.
+    func backgroundSession(
+        _ session: BackgroundSession,
+        didRequestEngineRebuild recreate: Bool
+    )
 }
 
 // MARK: - Clock

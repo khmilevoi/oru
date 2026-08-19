@@ -24,6 +24,12 @@ public final class HeartbeatLogger {
     /// AVAudioEngine is actually running.
     public var isEngineRunning: (() -> Bool)?
 
+    /// §5: other audio is sampled "on the existing heartbeat tick". Installed
+    /// by `AlwaysHotBackgroundManager` while the session is active, cleared when
+    /// it is not. Called on the main queue, like every other timer callback
+    /// here; the manager hops onto its own queue.
+    public var onTick: (() -> Void)?
+
     private let log = Logger(
         subsystem: RadioConfig.Logging.subsystem,
         category: "heartbeat"
@@ -110,6 +116,7 @@ public final class HeartbeatLogger {
             """
         append(line)
         log.notice("[heartbeat] \(line, privacy: .public)")
+        onTick?()
     }
 
     private func append(_ line: String) {
