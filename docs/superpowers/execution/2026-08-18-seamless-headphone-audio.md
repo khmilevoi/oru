@@ -122,7 +122,7 @@ environment by default):
 ### P1 `mode-policy` — wave 1, track A
 - [x] planned   → docs/superpowers/plans/2026-08-18-p1-mode-policy.md
 - [x] executed  → branch plan/p1-mode-policy · worktree .claude/worktrees/p1-mode-policy
-- [ ] merged    → sync 1
+- [x] merged    → sync 1
 
 **Owns:** the §7 mode-policy state machine as pure, I/O-free logic implemented **twice with
 identical constants** — `ios/Radio/Sources/RadioKit/ModePolicy.swift` +
@@ -147,7 +147,7 @@ outputs (session config apply, SCO raise, tone playback) → P3 iOS / P4 Android
 ### P2 `js-contract-ui` — wave 1, track B
 - [x] planned   → docs/superpowers/plans/2026-08-18-p2-js-contract-ui.md
 - [x] executed  → branch plan/p2-js-contract-ui · worktree .claude/worktrees/p2-js-contract-ui
-- [ ] merged    → sync 1
+- [x] merged    → sync 1
 
 **Owns:** the whole §8 surface: `audioRoute` (`kind`/`label`/`mode`) added to `RadioState`
 in `src/radio/radio.types.ts` and mirrored in `specs/NativeRadio.ts`, published through the
