@@ -188,7 +188,7 @@ the merges; execution may not.
 ### P3 `ios-routing` — wave 2, track A
 - [x] planned   → docs/superpowers/plans/2026-08-18-p3-ios-routing.md
 - [x] executed  → branch plan/p3-ios-routing · worktree .claude/worktrees/p3-ios-routing
-- [ ] merged    → sync 2
+- [x] merged    → sync 2
 
 **Owns:** everything §5, inside `ios/`: the two static session configurations (VOICE:
 `.playAndRecord`/`.voiceChat`/`[.allowBluetooth, .mixWithOthers]`; MEDIA:
@@ -226,7 +226,7 @@ RadioKit leg does not compile the bridge glue this plan rewrites).
 ### P4 `android-routing` — wave 2, track B
 - [x] planned   → docs/superpowers/plans/2026-08-18-p4-android-routing.md
 - [x] executed  → branch plan/p4-android-routing · worktree .claude/worktrees/p4-android-routing
-- [ ] merged    → sync 2
+- [x] merged    → sync 2
 
 **Owns:** everything §6, inside `android/`: **`AudioRouteController.kt`**, extracted from
 `RadioForegroundService.kt` — dedicated `HandlerThread("audio-route")`, every callback
