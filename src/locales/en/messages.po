@@ -19,7 +19,7 @@ msgstr ""
 #~ msgstr "{0} dBm"
 
 #. placeholder {0}: radio().nearbyCount
-#: src/screens/RadioScreen.tsx:162
+#: src/screens/RadioScreen.tsx:178
 msgid "{0} nearby"
 msgstr "{0} nearby"
 
@@ -45,7 +45,7 @@ msgstr "All set"
 msgid "Allow"
 msgstr "Allow"
 
-#: src/screens/SettingsScreen.tsx:88
+#: src/screens/SettingsScreen.tsx:96
 msgid "An external button lets you talk without taking the phone out of your pocket."
 msgstr "An external button lets you talk without taking the phone out of your pocket."
 
@@ -53,7 +53,15 @@ msgstr "An external button lets you talk without taking the phone out of your po
 msgid "Android grants this only from the app settings. Open them, choose Permissions, then Location, then \"Allow all the time\"."
 msgstr "Android grants this only from the app settings. Open them, choose Permissions, then Location, then \"Allow all the time\"."
 
-#: src/screens/SettingsScreen.tsx:29
+#: src/screens/SettingsScreen.tsx:114
+msgid "Audio"
+msgstr "Audio"
+
+#: src/screens/SettingsScreen.tsx:28
+msgid "Auto"
+msgstr "Auto"
+
+#: src/screens/SettingsScreen.tsx:37
 msgid "Back"
 msgstr "Back"
 
@@ -78,7 +86,7 @@ msgstr "BUTTON CONNECTED"
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/screens/SettingsScreen.tsx:95
+#: src/screens/SettingsScreen.tsx:103
 msgid "Connect"
 msgstr "Connect"
 
@@ -86,7 +94,7 @@ msgstr "Connect"
 msgid "CONNECT A BUTTON"
 msgstr "CONNECT A BUTTON"
 
-#: src/screens/SettingsScreen.tsx:50
+#: src/screens/SettingsScreen.tsx:58
 msgid "Connected"
 msgstr "Connected"
 
@@ -98,7 +106,7 @@ msgstr "Connects nearby phones and pairs the external PTT button. No internet in
 msgid "device"
 msgstr "device"
 
-#: src/screens/SettingsScreen.tsx:52
+#: src/screens/SettingsScreen.tsx:60
 msgid "Disconnected"
 msgstr "Disconnected"
 
@@ -122,15 +130,15 @@ msgstr "Headphones"
 #~ msgid "Hold it down until it is recognised"
 #~ msgstr "Hold it down until it is recognised"
 
-#: src/screens/RadioScreen.tsx:194
+#: src/screens/RadioScreen.tsx:210
 msgid "HOLD TO TALK"
 msgstr "HOLD TO TALK"
 
-#: src/screens/SettingsScreen.tsx:61
+#: src/screens/SettingsScreen.tsx:69
 msgid "Hold to transmit"
 msgstr "Hold to transmit"
 
-#: src/screens/RadioScreen.tsx:243
+#: src/screens/RadioScreen.tsx:259
 msgid "Hold to turn the radio off"
 msgstr "Hold to turn the radio off"
 
@@ -154,6 +162,10 @@ msgstr "Make sure the button is turned on and close to the phone."
 msgid "Microphone"
 msgstr "Microphone"
 
+#: src/screens/SettingsScreen.tsx:30
+msgid "Music"
+msgstr "Music"
+
 #: src/ui/RouteReadout.tsx:40
 msgid "music, phone mic"
 msgstr "music, phone mic"
@@ -166,7 +178,7 @@ msgstr "Nearby devices"
 msgid "No buttons found"
 msgstr "No buttons found"
 
-#: src/screens/SettingsScreen.tsx:85
+#: src/screens/SettingsScreen.tsx:93
 msgid "Not connected"
 msgstr "Not connected"
 
@@ -219,7 +231,7 @@ msgstr "Phones find each other and connect directly — no servers, no accounts.
 msgid "PRESS THE PTT BUTTON"
 msgstr "PRESS THE PTT BUTTON"
 
-#: src/screens/SettingsScreen.tsx:33
+#: src/screens/SettingsScreen.tsx:41
 msgid "PTT button"
 msgstr "PTT button"
 
@@ -227,7 +239,7 @@ msgstr "PTT button"
 #~ msgid "PTT BUTTON"
 #~ msgstr "PTT BUTTON"
 
-#: src/screens/RadioScreen.tsx:150
+#: src/screens/RadioScreen.tsx:166
 msgid "Push to talk"
 msgstr "Push to talk"
 
@@ -235,11 +247,15 @@ msgstr "Push to talk"
 msgid "radio"
 msgstr "radio"
 
-#: src/screens/RadioScreen.tsx:32
+#: src/screens/SettingsScreen.tsx:29
+msgid "Radio"
+msgstr "Radio"
+
+#: src/screens/RadioScreen.tsx:42
 msgid "RADIO ERROR"
 msgstr "RADIO ERROR"
 
-#: src/screens/RadioScreen.tsx:115
+#: src/screens/RadioScreen.tsx:131
 msgid "RADIO OFF"
 msgstr "RADIO OFF"
 
@@ -247,19 +263,19 @@ msgstr "RADIO OFF"
 #~ msgid "Ready"
 #~ msgstr "Ready"
 
-#: src/screens/RadioScreen.tsx:220
+#: src/screens/RadioScreen.tsx:236
 msgid "RECEIVING..."
 msgstr "RECEIVING..."
 
-#: src/screens/RadioScreen.tsx:210
+#: src/screens/RadioScreen.tsx:226
 msgid "RELEASE TO FINISH"
 msgstr "RELEASE TO FINISH"
 
-#: src/screens/SettingsScreen.tsx:73
+#: src/screens/SettingsScreen.tsx:81
 msgid "Replace"
 msgstr "Replace"
 
-#: src/screens/RadioScreen.tsx:38
+#: src/screens/RadioScreen.tsx:48
 msgid "RESTART RADIO"
 msgstr "RESTART RADIO"
 
@@ -275,7 +291,7 @@ msgstr "SCANNING FOR BLE DEVICES..."
 #~ msgid "Searching for Bluetooth buttons..."
 #~ msgstr "Searching for Bluetooth buttons..."
 
-#: src/screens/RadioScreen.tsx:174
+#: src/screens/RadioScreen.tsx:190
 msgid "SEARCHING FOR DEVICES..."
 msgstr "SEARCHING FOR DEVICES..."
 
@@ -283,12 +299,12 @@ msgstr "SEARCHING FOR DEVICES..."
 #~ msgid "Select your button"
 #~ msgstr "Select your button"
 
-#: src/screens/RadioScreen.tsx:129
-#: src/screens/RadioScreen.tsx:234
+#: src/screens/RadioScreen.tsx:145
+#: src/screens/RadioScreen.tsx:250
 msgid "Settings"
 msgstr "Settings"
 
-#: src/screens/SettingsScreen.tsx:28
+#: src/screens/SettingsScreen.tsx:36
 msgid "SETTINGS"
 msgstr "SETTINGS"
 
@@ -318,15 +334,15 @@ msgstr "STEP {step} OF {0}"
 msgid "still scanning"
 msgstr "still scanning"
 
-#: src/screens/RadioScreen.tsx:118
+#: src/screens/RadioScreen.tsx:134
 msgid "TAP TO TURN ON"
 msgstr "TAP TO TURN ON"
 
-#: src/screens/SettingsScreen.tsx:60
+#: src/screens/SettingsScreen.tsx:68
 msgid "Test"
 msgstr "Test"
 
-#: src/screens/RadioScreen.tsx:205
+#: src/screens/RadioScreen.tsx:221
 msgid "TRANSMITTING..."
 msgstr "TRANSMITTING..."
 
@@ -334,18 +350,22 @@ msgstr "TRANSMITTING..."
 msgid "Try again"
 msgstr "Try again"
 
-#: src/screens/RadioScreen.tsx:46
+#: src/screens/RadioScreen.tsx:56
 msgid "TURN OFF"
 msgstr "TURN OFF"
 
-#: src/screens/RadioScreen.tsx:99
-#: src/screens/RadioScreen.tsx:108
+#: src/screens/RadioScreen.tsx:115
+#: src/screens/RadioScreen.tsx:124
 msgid "Turn the radio on"
 msgstr "Turn the radio on"
 
 #: src/screens/OnboardingFlow.tsx:39
 #~ msgid "Turn the radio on and hold anywhere to talk."
 #~ msgstr "Turn the radio on and hold anywhere to talk."
+
+#: src/screens/SettingsScreen.tsx:128
+msgid "What a Bluetooth headset is for. Auto decides by itself: instant push-to-talk while nothing else is playing, full music quality when something is. Radio and Music pin one behavior."
+msgstr "What a Bluetooth headset is for. Auto decides by itself: instant push-to-talk while nothing else is playing, full music quality when something is. Radio and Music pin one behavior."
 
 #: src/screens/OnboardingFlow.tsx:39
 msgid "Whoever is nearby is connected — and hears you. Lock the phone and put it in your pocket."
