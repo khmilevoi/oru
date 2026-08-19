@@ -46,6 +46,24 @@ export const colors = {
   /** Button learning — oklch(0.78 0.14 75). */
   learning: '#eba941',
   /**
+   * The power-off hold seal (`--seal`, which `design/theme.css` declares as
+   * `var(--amber)` — the same amber as `learning` above, written down again
+   * under its own name because the two are separate design decisions that
+   * happen to share a hue).
+   *
+   * Amber and never red: red is TRANSMITTING and already owns a full-screen
+   * wash, so a red full-screen event here would make the most destructive
+   * action look like the most routine one. Green is peers and receiving.
+   */
+  seal: '#eba941',
+  /**
+   * The seal wash's peak alpha, the canvas's 0.20 (`--seal-wash`). The
+   * gradient in `washes.seal` bakes it in at the thumb's corner; the close
+   * takes the same amber flat across the whole screen — "TAKE THE WASH TO
+   * FULL" (`design/01 Radio.dc.html`, the hold note).
+   */
+  sealWash: 'rgba(235, 169, 65, 0.2)',
+  /**
    * The learning ring's pulse halo — `@keyframes pulse` states rgb(255 190 90)
    * of its own, not `--amber`. Its 0.25 alpha is animated, not baked in here.
    */
@@ -57,6 +75,14 @@ export const colors = {
 export const washes = {
   tx: 'radial-gradient(circle at 50% 42%, #2a0e11 0%, #150608 78%)',
   rx: 'radial-gradient(circle at 50% 42%, #0f2318 0%, #060f09 78%)',
+  /**
+   * `--seal-wash` — anchored at the thumb's own corner (bottom right), not at
+   * the centre like the two above. Its form is half of what keeps the seal
+   * from being read as a transmission: transmit is a centre-weighted wash plus
+   * a filled ring, the seal is a perimeter line over a corner wash, so hue is
+   * never load-bearing.
+   */
+  seal: 'radial-gradient(circle at 100% 100%, rgba(235, 169, 65, 0.2) 0%, rgba(235, 169, 65, 0) 62%)',
 } as const;
 
 /**
@@ -69,6 +95,10 @@ export const glows = {
   rx: '0 0 90px 0 rgba(53, 194, 109, 0.28)',
   ok: '0 0 60px rgba(53, 194, 109, 0.22)',
   okLarge: '0 0 70px rgba(53, 194, 109, 0.25)',
+  /** `--seal-glow` — so a 3pt rail blooms into peripheral vision. */
+  seal: '0 0 18px rgba(235, 169, 65, 0.55)',
+  /** `.pwr.arm .pwrmark`'s `drop-shadow(0 0 7px var(--amber-glow))`. */
+  sealKey: '0 0 7px rgba(235, 169, 65, 0.55)',
 } as const;
 
 /**
@@ -116,6 +146,19 @@ export const type = {
     fontSize: 33,
     lineHeight: 43,
     letterSpacing: 1.65,
+    textTransform: 'uppercase',
+  },
+  /**
+   * `.holdword.sm` -- one size further down again, for the longest copy the
+   * ring ever holds: the power-off seal's line, which is three lines of
+   * `.holdword` in `en` and longer still in `ru`. Same 1.3 line and 0.05em as
+   * `.holdword`, resolved at 27px. The copy changes size; the circle does not.
+   */
+  heroSmall: {
+    fontFamily: fonts.display,
+    fontSize: 27,
+    lineHeight: 35,
+    letterSpacing: 1.35,
     textTransform: 'uppercase',
   },
   /** `.bigword` -- TRANSMITTING / RECEIVING / RADIO OFF. */
@@ -346,6 +389,38 @@ export const stage = {
  */
 export const scanHintInset = {side: 40, bottom: 40} as const;
 
+/**
+ * The power-off hold seal -- `design/theme.css`'s `--seal-*` tokens and the
+ * figures the `canvasnote hold` under `design/01 Radio.dc.html` frames 09-13
+ * states in prose. Its own group, like `stage` and `routeReadout`: the canvas
+ * states these together and none of them belongs on a shared scale.
+ */
+export const seal = {
+  /** `--seal-w`. */
+  railWidth: 3,
+  /**
+   * `--seal-inset`. Measured from the physical screen edge on three sides and
+   * from the safe area on the fourth -- see `src/ui/HoldSeal.tsx`, which owns
+   * that decision and its reasoning.
+   */
+  inset: 16,
+  /** `.seal`'s `border-radius` -- the rails' end caps. */
+  radius: 2,
+  /**
+   * How much of the hold the ring's recede and its label's cross-fade take:
+   * "OVER THE FIRST 15%". A fraction of the hold rather than a duration,
+   * because it rides the same value everything else does.
+   */
+  copyFade: 0.15,
+  /** `.sealing.abort .seal` -- the rails dim as they retract. */
+  abortOpacity: 0.5,
+  /**
+   * Reduced motion: the whole perimeter, rendered at once at half strength for
+   * the length of the hold. No growth to watch, so nothing to animate.
+   */
+  stillOpacity: 0.5,
+} as const;
+
 export const radii = {
   /** `.bars span`. */
   sm: 3,
@@ -424,10 +499,24 @@ export const segmented = {
 export const motion = {
   /**
    * Press-and-hold to power the radio off: a guard against an accidental
-   * shut-off on a screen that is one giant touch area. The canvas does not
-   * state a duration; this is the app's own and is unchanged.
+   * shut-off on a screen that is one giant touch area. Now also the canvas's
+   * `--seal-ms`, which was written down FROM this figure.
    */
   powerHoldMs: 1200,
+  /**
+   * `--seal-abort-ms` -- what an early release runs the same value back to 0
+   * over, ease-out cubic. Never a snap: a recede is the only thing that reads
+   * as "nothing happened".
+   */
+  sealAbortMs: 260,
+  /**
+   * How long the closed loop is held at 100% before the radio actually goes
+   * off. The canvas's completion clause: "AT 100% HOLD THE CLOSED LOOP 90MS,
+   * TAKE THE WASH TO FULL". Without it the seal closes and vanishes in the
+   * same frame and there is no close to see at all -- the flash IS the
+   * announcement, together with the haptic.
+   */
+  sealCloseMs: 90,
   /** One `.ping` cycle, and the 1s stagger between the three rings. */
   pingMs: 3000,
   pingStaggerMs: 1000,

@@ -1,5 +1,5 @@
-import React from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import React, {useEffect} from 'react';
+import {Animated, Pressable, StyleSheet, Text, View} from 'react-native';
 import {Trans, useLingui} from '@lingui/react/macro';
 import {reatomComponent} from '@reatom/react';
 import {wrap} from '@reatom/core';
@@ -7,17 +7,21 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import {ActionButton} from '../ui/ActionButton';
 import {GearButton} from '../ui/GearButton';
+import {HoldSeal} from '../ui/HoldSeal';
 import {LevelBars} from '../ui/LevelBars';
 import {PeerRow} from '../ui/PeerRow';
 import {PingRings} from '../ui/PingRings';
 import {PowerKey} from '../ui/PowerKey';
 import {RouteReadout} from '../ui/RouteReadout';
 import {StateRing} from '../ui/StateRing';
+import {useHoldToConfirm} from '../ui/useHoldToConfirm';
+import {reducedMotion} from '../ui/reducedMotion';
 import {
   chassis,
   colors,
   motion,
   routeReadout,
+  seal,
   spacing,
   stage,
   testIds,
@@ -112,9 +116,75 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
     // CENTRE BETWEEN GEAR AND POWER".
     const routeStyle = {bottom: insets.bottom + routeReadout.bottomInset};
 
-    if (radio().status === 'error') return <RadioErrorState />;
-
+    // Read before the two early returns below, for the same reason
+    // `useSafeAreaInsets` is: `useHoldToConfirm` and the effect under it are
+    // Hooks, and this component transitions in and out of `error` and `off`
+    // without unmounting.
+    const still = reducedMotion();
     const state = screenState();
+    /**
+     * The power-off hold, owned HERE and not by the key, because the canvas
+     * draws its progress across the whole screen -- see `src/ui/HoldSeal.tsx`.
+     * `onConfirm` is reached only by a hold that ran the full 1200ms and then
+     * held its closed loop, so an aborted shut-off neither stops the radio nor
+     * announces anything: the canvas asks for the close to be "ANNOUNCED BY
+     * THAT FLASH AND A HAPTIC", and announcing a shut-off that did not happen
+     * would undo the guard the hold exists to be.
+     */
+    const powerHold = useHoldToConfirm(
+      wrap(() => {
+        haptics.powerOff();
+        void radio.stop();
+      }),
+    );
+
+    /**
+     * Where a hold may run at all: the LIVE screen's corner key, in `searching`
+     * and `ready`. The key recedes and stops taking touches while transmitting
+     * or receiving, so a hold that was already running when a transmission
+     * arrives would never see its release -- its commit timer would run out
+     * and power the radio off mid-transmission, with the seal painted over the
+     * red or green wash on the way. It is dropped instead.
+     */
+    const holdable = state === 'searching' || state === 'ready';
+    const {cancel: cancelHold} = powerHold;
+    useEffect(() => {
+      if (!holdable) cancelHold();
+    }, [holdable, cancelHold]);
+
+    const sealing = holdable && powerHold.phase !== 'idle';
+    /**
+     * The ring's recede and its label's cross-fade, both over the first 15% of
+     * the hold and both on the seal's own value -- there is no second clock
+     * here. Under reduced motion the value never moves, so the same call gives
+     * the end state outright: the amber copy is simply there for the whole
+     * hold, which is what the canvas asks for.
+     */
+    const crossFade = (from: number, to: number) =>
+      still
+        ? to
+        : powerHold.progress.interpolate({
+            inputRange: [0, seal.copyFade],
+            outputRange: [from, to],
+            extrapolate: 'clamp',
+          });
+
+    /**
+     * `.ringhold` -- the stage recedes while the seal runs, because it is not
+     * the live control any more. A COLOUR change and nothing else: the ring is
+     * geometrically invariant and its border is part of its box.
+     */
+    const ringBorder = !sealing
+      ? undefined
+      : still
+        ? colors.hairline
+        : powerHold.progress.interpolate({
+            inputRange: [0, seal.copyFade],
+            outputRange: [colors.hairlineRaised, colors.hairline],
+            extrapolate: 'clamp',
+          });
+
+    if (radio().status === 'error') return <RadioErrorState />;
 
     if (state === 'off') {
       // Both the hero key and the whole-screen tap share this, so the buzz is
@@ -220,22 +290,47 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
             ) : null}
 
             {state === 'ready' ? (
-              <StateRing tone="idle" testID="radio-ring">
+              <StateRing tone="idle" borderColor={ringBorder} testID="radio-ring">
                 {/*
                   The canvas sets this headline in `.holden` (40pt) for `en` and
                   drops to `.holdword` (33pt) for `ru`, whose translation of
                   "HOLD TO TALK" is far longer than the 302pt ring it sits in
                   (`design/01 Radio.dc.html:195-224`). Every non-`en` locale
                   takes the tighter face for the same reason.
+
+                  `Animated.Text` in every state, not only while the seal runs:
+                  swapping the component type at the start of a hold would
+                  remount the headline and flash it.
                 */}
-                <Text
+                <Animated.Text
                   testID={testIds.radioStateLabel}
                   style={[
                     i18n.locale === 'en' ? type.hero : type.heroTight,
                     styles.headline,
+                    sealing && {opacity: crossFade(1, 0)},
                   ]}>
                   <Trans>HOLD TO TALK</Trans>
-                </Text>
+                </Animated.Text>
+                {/*
+                  What the hold will do, in the key's own words -- the same
+                  catalog message that is already its accessibility label,
+                  uppercased by `type` and never re-translated. Absolutely
+                  positioned so it overlays the headline instead of joining the
+                  ring's own column, and one size down again because it is the
+                  longest copy this circle ever holds (`.holdword` for `en`,
+                  `.holdword.sm` for the rest).
+                */}
+                {sealing ? (
+                  <Animated.Text
+                    testID="seal-copy"
+                    style={[
+                      i18n.locale === 'en' ? type.heroTight : type.heroSmall,
+                      styles.sealCopy,
+                      {opacity: crossFade(0, 1)},
+                    ]}>
+                    <Trans>Hold to turn the radio off</Trans>
+                  </Animated.Text>
+                ) : null}
               </StateRing>
             ) : null}
 
@@ -283,6 +378,19 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
           </View>
         </Pressable>
 
+        {/*
+          The power-off hold, painted across the whole screen. A sibling of the
+          push-to-talk area and of the centred stage column inside it -- never a
+          member of that column, which decides where the geometrically
+          invariant talk ring lands. It is placed BEFORE the corner controls and
+          the route readout so those paint on top of its wash and stay legible,
+          exactly as `.sealing` sits before `.gear`, `.pwr` and `.routeline` on
+          the canvas.
+        */}
+        {sealing ? (
+          <HoldSeal progress={powerHold.progress} phase={powerHold.phase} />
+        ) : null}
+
         <View testID="corner-controls" style={[styles.corners, cornerStyle]}>
           {/* The gear stays fully visible and tappable while live: the canvas
               dims `.pwr` alone and `.gear` never carries `dim`
@@ -298,16 +406,7 @@ export const RadioScreen = reatomComponent<{onSettingsPress: () => void}>(
             style={live && styles.receded}>
             <PowerKey
               variant="corner"
-              holdToConfirm
-              // On `onActivate`, which a hold only reaches once it completes,
-              // so an aborted shut-off stays silent -- the canvas asks for the
-              // close to be "ANNOUNCED BY THAT FLASH AND A HAPTIC"
-              // (design/01 Radio.dc.html:446), and announcing a shut-off that
-              // did not happen would undo the guard the hold exists to be.
-              onActivate={wrap(() => {
-                haptics.powerOff();
-                void radio.stop();
-              })}
+              hold={powerHold}
               accessibilityLabel={t`Hold to turn the radio off`}
               testID={testIds.powerKey}
             />
@@ -352,6 +451,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.gutter,
   },
   headline: {color: colors.text, textAlign: 'center'},
+  /**
+   * `.sealcopy` -- the amber power-off line, overlaid on the headline it
+   * replaces. Absolute so it costs the ring's own column nothing, and inset by
+   * the ring's `paddingHorizontal` so it wraps exactly where the headline
+   * does. With `top`/`bottom` left undefined it takes the ring's own
+   * `justifyContent`/`alignItems`, so it lands centred like the copy it fades
+   * in over.
+   */
+  sealCopy: {
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
+    color: colors.seal,
+    textAlign: 'center',
+  },
   hint: {color: colors.textFaint, textAlign: 'center'},
   deadAir: {color: colors.deadAir},
   txWash: {backgroundImage: washes.tx},

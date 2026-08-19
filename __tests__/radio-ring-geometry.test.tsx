@@ -7,7 +7,7 @@ import {RadioScreen} from '../src/screens/RadioScreen';
 import {StateRing} from '../src/ui/StateRing';
 import {renderScreen} from '../jest/renderScreen';
 import type {RenderedScreen} from '../jest/renderScreen';
-import {sizes, stage, testIds} from '../src/ui/theme';
+import {motion, sizes, stage, testIds} from '../src/ui/theme';
 
 jest.useFakeTimers({doNotFake: ['queueMicrotask']});
 
@@ -182,6 +182,35 @@ describe('the talk ring is geometrically invariant', () => {
       // height that holds the longest translation without reflowing.
       expect(rest).toHaveLength(1);
       expect(rest[0].height).toBe(stage.hintSlot);
+    },
+  );
+});
+
+describe('the power-off hold seal moves nothing', () => {
+  it.each(['en', 'ru'] as const)(
+    'adds no sibling to the centred column and changes no box (%s)',
+    async locale => {
+      // The seal is an absolutely positioned overlay on the chassis, and the
+      // ring's own recede is a colour change -- neither can move anything. But
+      // the seal is the newest thing on this screen and the ring is the oldest
+      // rule on it, so the two are pinned against each other here as well as
+      // in `__tests__/radio-hold-seal.test.tsx`.
+      const screen = await openReady(locale);
+      const atRest = ringColumn(screen);
+
+      await screen.pressIn(testIds.powerKey);
+      expect(ringColumn(screen)).toEqual(atRest);
+
+      // Mid-hold, with all four rails grown and the copy cross-faded.
+      await screen.advance(600);
+      expect(ringColumn(screen)).toEqual(atRest);
+
+      // And through the recede an early release runs.
+      await screen.pressOut(testIds.powerKey);
+      expect(ringColumn(screen)).toEqual(atRest);
+
+      await screen.advance(motion.sealAbortMs + 50);
+      expect(ringColumn(screen)).toEqual(atRest);
     },
   );
 });

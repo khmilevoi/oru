@@ -1,5 +1,6 @@
 import React, {useEffect, useRef} from 'react';
 import {Animated, StyleSheet, View} from 'react-native';
+import type {ViewStyle} from 'react-native';
 import {reatomComponent} from '@reatom/react';
 
 import {colors, glows, motion, sizes, spacing} from './theme';
@@ -46,7 +47,18 @@ export const StateRing = reatomComponent<{
    * problem the same way, with `testID="power-key-ring"`.
    */
   testID?: string;
-}>(({tone, children}) => {
+  /**
+   * Overrides the tone's own border colour, and NOTHING else. The power-off
+   * hold recedes this ring to `--line` while the seal runs (`.ringhold` in
+   * `design/01 Radio.dc.html`), cross-fading over the first 15% of the hold,
+   * so the value is usually an `Animated` interpolation rather than a string.
+   *
+   * A colour is the only thing a caller may change from outside, because the
+   * ring is geometrically invariant: same diameter, same border BOX, same
+   * centre in every state. `borderWidth` stays where it is, in `styles.ring`.
+   */
+  borderColor?: ViewStyle['borderColor'] | Animated.AnimatedInterpolation<string>;
+}>(({tone, children, borderColor}) => {
   const still = reducedMotion();
   const size = tone === 'learning' ? sizes.ringLearning : sizes.ring;
   const pulsing = tone === 'learning' && !still;
@@ -78,7 +90,10 @@ export const StateRing = reatomComponent<{
   }, [pulsing, phase]);
 
   return (
-    <View
+    // `Animated.View` unconditionally, not only when `borderColor` is an
+    // interpolation: swapping the component type mid-hold would remount the
+    // ring and everything in it.
+    <Animated.View
       testID="state-ring"
       style={[
         styles.ring,
@@ -87,6 +102,7 @@ export const StateRing = reatomComponent<{
         tone === 'tx' && styles.tx,
         tone === 'rx' && styles.rx,
         tone === 'learning' && styles.learning,
+        borderColor === undefined ? null : {borderColor},
       ]}>
       {tone === 'rx' ? (
         <View
@@ -124,7 +140,7 @@ export const StateRing = reatomComponent<{
         />
       ) : null}
       {children}
-    </View>
+    </Animated.View>
   );
 }, 'StateRing');
 
