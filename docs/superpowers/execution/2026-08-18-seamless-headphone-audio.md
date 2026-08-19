@@ -186,7 +186,7 @@ the merges; execution may not.
 **Model override:** —
 
 ### P3 `ios-routing` — wave 2, track A
-- [ ] planned   → docs/superpowers/plans/2026-08-18-p3-ios-routing.md
+- [x] planned   → docs/superpowers/plans/2026-08-18-p3-ios-routing.md
 - [ ] executed  → branch plan/p3-ios-routing · worktree .claude/worktrees/p3-ios-routing
 - [ ] merged    → sync 2
 
