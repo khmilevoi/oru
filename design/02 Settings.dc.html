@@ -61,6 +61,10 @@
             <div class="seg"><span class="on">{{ t.audioAuto }}</span><span>{{ t.audioVoice }}</span><span>{{ t.audioMedia }}</span></div>
             <div class="note">{{ t.audioNote }}</div>
           </div>
+          <div class="slabel">{{ t.langSection }}</div>
+          <div class="card">
+            <div class="seg"><span class="{{ langEnCls }}">English</span><span class="{{ langRuCls }}">Русский</span></div>
+          </div>
           <div class="vers">OFFLINE NEARBY PTT · V0.1</div>
         </div>
       </div>
@@ -81,12 +85,17 @@
             <div class="seg"><span class="on">{{ t.audioAuto }}</span><span>{{ t.audioVoice }}</span><span>{{ t.audioMedia }}</span></div>
             <div class="note">{{ t.audioNote }}</div>
           </div>
+          <div class="slabel">{{ t.langSection }}</div>
+          <div class="card">
+            <div class="seg"><span class="{{ langEnCls }}">English</span><span class="{{ langRuCls }}">Русский</span></div>
+          </div>
           <div class="vers">OFFLINE NEARBY PTT · V0.1</div>
         </div>
       </div>
 
       <div class="canvasnote">
         <div>AUDIO · ONE SETTING — AUDIOMODE: AUTO | VOICE | MEDIA · DEFAULT AUTO (SELECTED IN BOTH FRAMES) · LABELS: AUTO = AUTO / АВТО, VOICE = RADIO / РАЦИЯ, MEDIA = MUSIC / МУЗЫКА · NO DEVICE PICKER — ROUTING IS AUTOMATIC, THIS PIN IS THE ESCAPE HATCH</div>
+        <div>LANGUAGE (ADDED 2026-08-19) · IN-APP PICKER — OVERRIDES THE SYSTEM LOCALE, STORED NATIVELY · OPTIONS ARE ENDONYMS “ENGLISH / РУССКИЙ”, NEVER TRANSLATED · SELECTION FOLLOWS THE LANG TWEAK · NATIVE NOTIFICATION / PERMISSION STRINGS STILL FOLLOW THE SYSTEM LOCALE</div>
       </div>
     </x-dc>
     <script type="text/x-dc" data-dc-script data-props='{
@@ -109,7 +118,8 @@
               audioAuto: "Auto",
               audioVoice: "Radio",
               audioMedia: "Music",
-              audioNote: "What a Bluetooth headset is for. Auto decides by itself: instant push-to-talk while nothing else is playing, full music quality when something is. Radio and Music pin one behavior."
+              audioNote: "What a Bluetooth headset is for. Auto decides by itself: instant push-to-talk while nothing else is playing, full music quality when something is. Radio and Music pin one behavior.",
+              langSection: "Language"
             },
             ru: {
               title: "Настройки",
@@ -125,14 +135,21 @@
               audioAuto: "Авто",
               audioVoice: "Рация",
               audioMedia: "Музыка",
-              audioNote: "Для чего используется Bluetooth-гарнитура. «Авто» решает само: мгновенная рация, пока ничего не играет, и полное качество музыки, когда она включена. «Рация» и «Музыка» закрепляют один режим."
+              audioNote: "Для чего используется Bluetooth-гарнитура. «Авто» решает само: мгновенная рация, пока ничего не играет, и полное качество музыки, когда она включена. «Рация» и «Музыка» закрепляют один режим.",
+              langSection: "Язык"
             }
           };
         }
         renderVals() {
           const all = this.strings();
           const lang = this.props.lang === "ru" ? "ru" : "en";
-          return { t: all[lang] };
+          // The language picker's options are endonyms and live literally in the
+          // markup; only the selected side follows the frame's lang.
+          return {
+            t: all[lang],
+            langEnCls: lang === "en" ? "on" : "",
+            langRuCls: lang === "ru" ? "on" : ""
+          };
         }
       }
     </script>

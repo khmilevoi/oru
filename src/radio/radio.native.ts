@@ -62,6 +62,13 @@ export type RadioNativeApi = {
    * the state, so the caller never writes the mirror from this result.
    */
   setAudioMode(mode: AudioMode): Promise<NativeRadioError | null>;
+  /**
+   * Amended section 12.2's stored language override. A plain native store with
+   * no engine behind it and no `stateChanged` echo: `src/app/locale.model.ts`
+   * owns activating the catalog and narrowing the stored string.
+   */
+  getAppLocale(): Promise<NativeRadioError | string | null>;
+  setAppLocale(locale: string): Promise<NativeRadioError | null>;
   subscribe(
     listener: (event: RadioNativeEvent) => void,
   ): NativeRadioError | RadioNativeSubscription;
@@ -105,6 +112,11 @@ export function createRadioNative(resolve: ResolveNativeRadio): RadioNativeApi {
 
     setAudioMode: mode =>
       invokeVoid('setAudioMode', native => native.setAudioMode(mode)),
+
+    getAppLocale: () => invoke('getAppLocale', native => native.getAppLocale()),
+
+    setAppLocale: locale =>
+      invokeVoid('setAppLocale', native => native.setAppLocale(locale)),
 
     getState: () => invoke('getState', native => native.getState()),
 

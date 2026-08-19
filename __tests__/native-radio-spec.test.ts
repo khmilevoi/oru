@@ -68,7 +68,7 @@ describe('specs/NativeRadio.ts is a valid Turbo Module spec', () => {
     expect(radioModule.moduleName).toBe('NativeRadio');
   });
 
-  it('exposes exactly the amended section 6.1 methods', () => {
+  it('exposes exactly the amended section 6.1 and 12.2 methods', () => {
     expect(radioModule.spec.methods.map(method => method.name)).toEqual([
       'start',
       'stop',
@@ -79,6 +79,8 @@ describe('specs/NativeRadio.ts is a valid Turbo Module spec', () => {
       'selectPttCandidate',
       'forgetPtt',
       'setAudioMode',
+      'getAppLocale',
+      'setAppLocale',
     ]);
   });
 

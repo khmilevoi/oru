@@ -45,7 +45,7 @@ msgstr "All set"
 msgid "Allow"
 msgstr "Allow"
 
-#: src/screens/SettingsScreen.tsx:96
+#: src/screens/SettingsScreen.tsx:106
 msgid "An external button lets you talk without taking the phone out of your pocket."
 msgstr "An external button lets you talk without taking the phone out of your pocket."
 
@@ -53,15 +53,15 @@ msgstr "An external button lets you talk without taking the phone out of your po
 msgid "Android grants this only from the app settings. Open them, choose Permissions, then Location, then \"Allow all the time\"."
 msgstr "Android grants this only from the app settings. Open them, choose Permissions, then Location, then \"Allow all the time\"."
 
-#: src/screens/SettingsScreen.tsx:114
+#: src/screens/SettingsScreen.tsx:124
 msgid "Audio"
 msgstr "Audio"
 
-#: src/screens/SettingsScreen.tsx:28
+#: src/screens/SettingsScreen.tsx:31
 msgid "Auto"
 msgstr "Auto"
 
-#: src/screens/SettingsScreen.tsx:37
+#: src/screens/SettingsScreen.tsx:47
 msgid "Back"
 msgstr "Back"
 
@@ -86,7 +86,7 @@ msgstr "BUTTON CONNECTED"
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/screens/SettingsScreen.tsx:103
+#: src/screens/SettingsScreen.tsx:113
 msgid "Connect"
 msgstr "Connect"
 
@@ -94,7 +94,7 @@ msgstr "Connect"
 msgid "CONNECT A BUTTON"
 msgstr "CONNECT A BUTTON"
 
-#: src/screens/SettingsScreen.tsx:58
+#: src/screens/SettingsScreen.tsx:68
 msgid "Connected"
 msgstr "Connected"
 
@@ -106,7 +106,7 @@ msgstr "Connects nearby phones and pairs the external PTT button. No internet in
 msgid "device"
 msgstr "device"
 
-#: src/screens/SettingsScreen.tsx:60
+#: src/screens/SettingsScreen.tsx:70
 msgid "Disconnected"
 msgstr "Disconnected"
 
@@ -134,7 +134,7 @@ msgstr "Headphones"
 msgid "HOLD TO TALK"
 msgstr "HOLD TO TALK"
 
-#: src/screens/SettingsScreen.tsx:69
+#: src/screens/SettingsScreen.tsx:79
 msgid "Hold to transmit"
 msgstr "Hold to transmit"
 
@@ -145,6 +145,10 @@ msgstr "Hold to turn the radio off"
 #: src/screens/BackgroundStep.tsx:46
 msgid "Keep the radio working"
 msgstr "Keep the radio working"
+
+#: src/screens/SettingsScreen.tsx:147
+msgid "Language"
+msgstr "Language"
 
 #: src/screens/PairingFlow.tsx:125
 msgid "Listening for a signal from {buttonName}..."
@@ -162,7 +166,7 @@ msgstr "Make sure the button is turned on and close to the phone."
 msgid "Microphone"
 msgstr "Microphone"
 
-#: src/screens/SettingsScreen.tsx:30
+#: src/screens/SettingsScreen.tsx:33
 msgid "Music"
 msgstr "Music"
 
@@ -178,7 +182,7 @@ msgstr "Nearby devices"
 msgid "No buttons found"
 msgstr "No buttons found"
 
-#: src/screens/SettingsScreen.tsx:93
+#: src/screens/SettingsScreen.tsx:103
 msgid "Not connected"
 msgstr "Not connected"
 
@@ -231,7 +235,7 @@ msgstr "Phones find each other and connect directly — no servers, no accounts.
 msgid "PRESS THE PTT BUTTON"
 msgstr "PRESS THE PTT BUTTON"
 
-#: src/screens/SettingsScreen.tsx:41
+#: src/screens/SettingsScreen.tsx:51
 msgid "PTT button"
 msgstr "PTT button"
 
@@ -247,7 +251,7 @@ msgstr "Push to talk"
 msgid "radio"
 msgstr "radio"
 
-#: src/screens/SettingsScreen.tsx:29
+#: src/screens/SettingsScreen.tsx:32
 msgid "Radio"
 msgstr "Radio"
 
@@ -271,7 +275,7 @@ msgstr "RECEIVING..."
 msgid "RELEASE TO FINISH"
 msgstr "RELEASE TO FINISH"
 
-#: src/screens/SettingsScreen.tsx:81
+#: src/screens/SettingsScreen.tsx:91
 msgid "Replace"
 msgstr "Replace"
 
@@ -304,7 +308,7 @@ msgstr "SEARCHING FOR DEVICES..."
 msgid "Settings"
 msgstr "Settings"
 
-#: src/screens/SettingsScreen.tsx:36
+#: src/screens/SettingsScreen.tsx:46
 msgid "SETTINGS"
 msgstr "SETTINGS"
 
@@ -338,7 +342,7 @@ msgstr "still scanning"
 msgid "TAP TO TURN ON"
 msgstr "TAP TO TURN ON"
 
-#: src/screens/SettingsScreen.tsx:68
+#: src/screens/SettingsScreen.tsx:78
 msgid "Test"
 msgstr "Test"
 
@@ -363,7 +367,7 @@ msgstr "Turn the radio on"
 #~ msgid "Turn the radio on and hold anywhere to talk."
 #~ msgstr "Turn the radio on and hold anywhere to talk."
 
-#: src/screens/SettingsScreen.tsx:128
+#: src/screens/SettingsScreen.tsx:138
 msgid "What a Bluetooth headset is for. Auto decides by itself: instant push-to-talk while nothing else is playing, full music quality when something is. Radio and Music pin one behavior."
 msgstr "What a Bluetooth headset is for. Auto decides by itself: instant push-to-talk while nothing else is playing, full music quality when something is. Radio and Music pin one behavior."
 

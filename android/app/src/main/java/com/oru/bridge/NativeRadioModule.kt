@@ -29,6 +29,7 @@ class NativeRadioModule(private val reactContext: ReactApplicationContext) :
 
     private val store = SharedPreferencesPttBindingStore(reactContext)
     private val audioModeStore = SharedPreferencesAudioModeStore(reactContext)
+    private val appLocaleStore = SharedPreferencesAppLocaleStore(reactContext)
 
     private val core = RadioBridgeCore(
         output = object : RadioBridgeOutput {
@@ -182,6 +183,22 @@ class NativeRadioModule(private val reactContext: ReactApplicationContext) :
         audioModeStore.save(parsed)
         val engine = RadioController.engine()
         if (engine == null) core.refresh() else engine.setAudioMode(parsed)
+        promise.resolve(null)
+    }
+
+    /**
+     * Amended spec §12.2 (2026-08-19): the in-app language override. A plain store, unlike
+     * `setAudioMode` above — there is no engine to apply it to and no `onStateChanged` echo;
+     * JavaScript owns activating the catalog. Null means no override: follow the system locale.
+     */
+    override fun getAppLocale(promise: Promise) {
+        attach()
+        promise.resolve(appLocaleStore.load())
+    }
+
+    override fun setAppLocale(locale: String, promise: Promise) {
+        attach()
+        appLocaleStore.save(locale)
         promise.resolve(null)
     }
 }

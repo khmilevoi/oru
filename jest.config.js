@@ -26,7 +26,14 @@ module.exports = {
     // errore publishes an "exports" map with only an "import" condition, so a
     // CommonJS require() cannot resolve it. Point Jest at the file directly.
     '^errore$': '<rootDir>/node_modules/errore/dist/index.js',
-    // Jest never runs the Metro .po transformer; map catalogs to a stand-in.
+    // Jest never runs the Metro .po transformer; map catalogs to stand-ins.
+    // The two real locale catalogs come first (moduleNameMapper rules apply in
+    // order): src/i18n.ts imports them statically, and activateLocale() — the
+    // amended-12.2 in-app switch — activates exactly what these resolve to, so
+    // an empty stand-in there would hide a broken language switch from every
+    // test. Anything else importing a .po stays on the empty stand-in.
+    'locales/en/messages\\.po$': '<rootDir>/__mocks__/poCatalog.en.js',
+    'locales/ru/messages\\.po$': '<rootDir>/__mocks__/poCatalog.ru.js',
     '\\.po$': '<rootDir>/__mocks__/poCatalog.js',
     // `App.tsx` wraps the tree in `SafeAreaProvider`. The real component holds
     // `insets` at `null` until a native `onInsetsChange` event arrives -- an

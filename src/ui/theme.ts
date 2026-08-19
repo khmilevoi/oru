@@ -332,6 +332,7 @@ export const testIds = {
   settingsVersion: 'settings-version',
   audioRoute: 'audio-route',
   audioMode: 'audio-mode',
+  appLocale: 'app-locale',
 
   pairingScreen: 'pairing-screen',
   pairingCandidate: 'pairing-candidate',

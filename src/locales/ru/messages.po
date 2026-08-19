@@ -45,7 +45,7 @@ msgstr "Всё готово"
 msgid "Allow"
 msgstr "Разрешить"
 
-#: src/screens/SettingsScreen.tsx:96
+#: src/screens/SettingsScreen.tsx:106
 msgid "An external button lets you talk without taking the phone out of your pocket."
 msgstr "Внешняя кнопка позволяет говорить, не доставая телефон из кармана."
 
@@ -53,15 +53,15 @@ msgstr "Внешняя кнопка позволяет говорить, не д
 msgid "Android grants this only from the app settings. Open them, choose Permissions, then Location, then \"Allow all the time\"."
 msgstr "Android выдаёт это только в настройках приложения. Откройте их, выберите «Разрешения», затем «Геолокация», затем «Разрешить всегда»."
 
-#: src/screens/SettingsScreen.tsx:114
+#: src/screens/SettingsScreen.tsx:124
 msgid "Audio"
 msgstr "Звук"
 
-#: src/screens/SettingsScreen.tsx:28
+#: src/screens/SettingsScreen.tsx:31
 msgid "Auto"
 msgstr "Авто"
 
-#: src/screens/SettingsScreen.tsx:37
+#: src/screens/SettingsScreen.tsx:47
 msgid "Back"
 msgstr "Назад"
 
@@ -86,7 +86,7 @@ msgstr "КНОПКА ПОДКЛЮЧЕНА"
 msgid "Cancel"
 msgstr "Отмена"
 
-#: src/screens/SettingsScreen.tsx:103
+#: src/screens/SettingsScreen.tsx:113
 msgid "Connect"
 msgstr "Подключить"
 
@@ -94,7 +94,7 @@ msgstr "Подключить"
 msgid "CONNECT A BUTTON"
 msgstr "ПОДКЛЮЧЕНИЕ КНОПКИ"
 
-#: src/screens/SettingsScreen.tsx:58
+#: src/screens/SettingsScreen.tsx:68
 msgid "Connected"
 msgstr "Подключена"
 
@@ -106,7 +106,7 @@ msgstr "Соединяет телефоны рядом и подключает �
 msgid "device"
 msgstr "устройство"
 
-#: src/screens/SettingsScreen.tsx:60
+#: src/screens/SettingsScreen.tsx:70
 msgid "Disconnected"
 msgstr "Отключена"
 
@@ -134,7 +134,7 @@ msgstr "Наушники"
 msgid "HOLD TO TALK"
 msgstr "УДЕРЖИВАЙТЕ ЧТОБЫ ГОВОРИТЬ"
 
-#: src/screens/SettingsScreen.tsx:69
+#: src/screens/SettingsScreen.tsx:79
 msgid "Hold to transmit"
 msgstr "Удерживайте, чтобы передавать"
 
@@ -145,6 +145,10 @@ msgstr "Удерживайте, чтобы выключить рацию"
 #: src/screens/BackgroundStep.tsx:46
 msgid "Keep the radio working"
 msgstr "Чтобы рация работала"
+
+#: src/screens/SettingsScreen.tsx:147
+msgid "Language"
+msgstr "Язык"
 
 #: src/screens/PairingFlow.tsx:125
 msgid "Listening for a signal from {buttonName}..."
@@ -162,7 +166,7 @@ msgstr "Убедитесь, что кнопка включена и находи
 msgid "Microphone"
 msgstr "Микрофон"
 
-#: src/screens/SettingsScreen.tsx:30
+#: src/screens/SettingsScreen.tsx:33
 msgid "Music"
 msgstr "Музыка"
 
@@ -178,7 +182,7 @@ msgstr "Устройства рядом"
 msgid "No buttons found"
 msgstr "Кнопки не найдены"
 
-#: src/screens/SettingsScreen.tsx:93
+#: src/screens/SettingsScreen.tsx:103
 msgid "Not connected"
 msgstr "Не подключена"
 
@@ -231,7 +235,7 @@ msgstr "Телефоны находят друг друга и соединяю�
 msgid "PRESS THE PTT BUTTON"
 msgstr "НАЖМИТЕ КНОПКУ PTT"
 
-#: src/screens/SettingsScreen.tsx:41
+#: src/screens/SettingsScreen.tsx:51
 msgid "PTT button"
 msgstr "PTT-кнопка"
 
@@ -247,7 +251,7 @@ msgstr "Нажмите и говорите"
 msgid "radio"
 msgstr "рация"
 
-#: src/screens/SettingsScreen.tsx:29
+#: src/screens/SettingsScreen.tsx:32
 msgid "Radio"
 msgstr "Рация"
 
@@ -271,7 +275,7 @@ msgstr "ПРИЁМ..."
 msgid "RELEASE TO FINISH"
 msgstr "ОТПУСТИТЕ ЧТОБЫ ЗАКОНЧИТЬ"
 
-#: src/screens/SettingsScreen.tsx:81
+#: src/screens/SettingsScreen.tsx:91
 msgid "Replace"
 msgstr "Заменить"
 
@@ -304,7 +308,7 @@ msgstr "ИЩЕМ УСТРОЙСТВА..."
 msgid "Settings"
 msgstr "Настройки"
 
-#: src/screens/SettingsScreen.tsx:36
+#: src/screens/SettingsScreen.tsx:46
 msgid "SETTINGS"
 msgstr "НАСТРОЙКИ"
 
@@ -338,7 +342,7 @@ msgstr "поиск продолжается"
 msgid "TAP TO TURN ON"
 msgstr "НАЖМИТЕ ЧТОБЫ ВКЛЮЧИТЬ"
 
-#: src/screens/SettingsScreen.tsx:68
+#: src/screens/SettingsScreen.tsx:78
 msgid "Test"
 msgstr "Проверить"
 
@@ -363,7 +367,7 @@ msgstr "Включить рацию"
 #~ msgid "Turn the radio on and hold anywhere to talk."
 #~ msgstr "Включите рацию и удерживайте экран, чтобы говорить."
 
-#: src/screens/SettingsScreen.tsx:128
+#: src/screens/SettingsScreen.tsx:138
 msgid "What a Bluetooth headset is for. Auto decides by itself: instant push-to-talk while nothing else is playing, full music quality when something is. Radio and Music pin one behavior."
 msgstr "Для чего используется Bluetooth-гарнитура. «Авто» решает само: мгновенная рация, пока ничего не играет, и полное качество музыки, когда она включена. «Рация» и «Музыка» закрепляют один режим."
 
