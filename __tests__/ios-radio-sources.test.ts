@@ -426,15 +426,22 @@ describe('AlwaysHotBackgroundManager (spec section 10.2)', () => {
     // §5 (Task 1) moved the session-configuration table out of this file and
     // into AudioSessionConfiguration.swift's static `.voice` configuration;
     // this file only applies it, via `AudioSessionConfiguration.of(...)`.
-    // §5 (Task 4): the profile to apply now arrives as an
-    // `AudioSessionAction.applyConfiguration(profile)` from the reaction
-    // table, performed in `perform(_:)`, rather than read from a stored
-    // `appliedProfile` field.
+    // §5 (Task 4): the configuration to apply arrives as an
+    // `AudioSessionAction.applyConfiguration(...)` from the reaction table,
+    // performed in `perform(_:)`, rather than read from a stored
+    // `appliedProfile` field. The MEDIA duck (§9 row 5) then moved the
+    // `.of(...)` resolution into the reactor too — ducking makes the
+    // configuration a function of table state, not of the profile alone — so
+    // the action carries a finished configuration and this file applies it
+    // verbatim.
     const configuration = source('AudioSessionConfiguration.swift');
     expect(configuration).toContain('.playAndRecord');
     expect(configuration).toContain('.voiceChat');
+    expect(source('AudioSessionReactor.swift')).toContain(
+      'AudioSessionConfiguration.of(profile, ducking: isDucking)',
+    );
     expect(background).toContain(
-      'applyConfigurationLocked(AudioSessionConfiguration.of(profile), on: session)',
+      'applyConfigurationLocked(configuration, on: session)',
     );
   });
 
@@ -453,7 +460,11 @@ describe('AlwaysHotBackgroundManager (spec section 10.2)', () => {
   // is what actually calls `setActive(false, options: .notifyOthersOnDeactivation)`.
   // The invariant becomes: `deactivate()` is the only path that reaches
   // `.deactivationRequested`, and the release call site sits inside the
-  // `.deactivate` action case, appearing exactly once in the file.
+  // `.deactivate` action case. §9 row 5 added the one sanctioned exception:
+  // `nudgeOtherAudioResume()` bounces the session down and straight back up so
+  // other apps get the resume signal an always-hot session would otherwise
+  // never send — guarded on an active status, reported back to the table as
+  // `.resumeNudgeDeactivated`. Exactly these two release call sites, no more.
   it('releases the session only when the radio stops', () => {
     const deactivateMethod = background.indexOf('public func deactivate()');
     const requestBeginTransmitting = background.indexOf(
@@ -468,11 +479,16 @@ describe('AlwaysHotBackgroundManager (spec section 10.2)', () => {
     expect(deactivationRequested).toBeLessThan(requestBeginTransmitting);
     const deactivateCase = background.indexOf('case .deactivate:');
     const nextCase = background.indexOf('case .maximizeInputGain:');
-    const release = background.indexOf('.notifyOthersOnDeactivation');
+    const release = background.indexOf(
+      'session.setActive(false, options: .notifyOthersOnDeactivation)',
+    );
     expect(deactivateCase).toBeGreaterThan(-1);
     expect(release).toBeGreaterThan(deactivateCase);
     expect(release).toBeLessThan(nextCase);
-    expect(background.split('.notifyOthersOnDeactivation')).toHaveLength(2);
+    expect(
+      background.match(/setActive\(\s*false, options: \.notifyOthersOnDeactivation\s*\)/g),
+    ).toHaveLength(2);
+    expect(background).toContain('handleLocked(.resumeNudgeDeactivated)');
   });
 
   it('logs the session state a locked-screen run is judged by', () => {
